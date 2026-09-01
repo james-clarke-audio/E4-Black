@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Mouse — Maze Monitor</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a3340;
+    --ink:#e6edf3; --dim:#8b98a8; --faint:#4b5563;
+    --accent:#4aa3ff; --accent2:#7ee787; --warn:#f0a04b; --bad:#ff6b6b;
+    --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:13px;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+  header{display:flex;align-items:center;gap:14px;padding:8px 14px;
+    background:var(--panel);border-bottom:1px solid var(--line);flex:0 0 auto}
+  header h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.2px}
+  header h1 .mouse{color:var(--accent2)}
+  .status{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
+  .dot.on{background:var(--accent2);box-shadow:0 0 8px var(--accent2)}
+  .dot.err{background:var(--bad)}
+  .spacer{flex:1}
+  button{font-family:var(--sans);font-size:12px;color:var(--ink);background:var(--panel2);
+    border:1px solid var(--line);border-radius:6px;padding:6px 11px;cursor:pointer;transition:.12s}
+  button:hover{border-color:var(--accent);color:#fff}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#04121f;font-weight:600}
+  button.primary:hover{background:#63b1ff}
+  button.rec{border-color:var(--bad)} button.rec.active{background:var(--bad);color:#fff}
+  button.cmd{padding:6px 4px;font-size:11px}
+  .cmdgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  main{flex:1;display:flex;min-height:0}
+  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0;position:relative}
+  #maze{background:#0a0d11;border:1px solid var(--line);border-radius:8px;max-width:100%;max-height:100%;cursor:grab}
+  #maze:active{cursor:grabbing}
+  .legend{position:absolute;left:20px;bottom:18px;display:flex;gap:13px;font-size:11px;color:var(--dim);
+    background:rgba(10,13,17,.72);padding:6px 10px;border-radius:6px;font-family:var(--mono)}
+  .legend b{font-weight:600}
+  aside{width:320px;flex:0 0 320px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;overflow-y:auto}
+  .sec{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .sec h2{font-size:10px;text-transform:uppercase;letter-spacing:.9px;color:var(--dim);margin:0 0 10px;font-weight:600}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+  .stat{display:flex;flex-direction:column;gap:1px}
+  .stat .k{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .stat .v{font-family:var(--mono);font-size:15px}
+  .stat .v small{font-size:10px;color:var(--dim)}
+  .bar{margin:7px 0}
+  .bar .lab{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:3px}
+  .bar .lab b{color:var(--ink)}
+  .track{height:9px;background:var(--panel2);border-radius:5px;overflow:hidden;position:relative}
+  .fill{height:100%;width:0;background:var(--accent);border-radius:5px;transition:width .1s}
+  .thresh{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--warn)}
+  .row{display:flex;gap:8px;align-items:center}
+  .row + .row{margin-top:8px}
+  label.chk{display:flex;align-items:center;gap:6px;color:var(--dim);cursor:pointer;font-size:12px;user-select:none}
+  label.chk input{accent-color:var(--accent)}
+  input[type=range]{flex:1;accent-color:var(--accent)}
+  input.num{width:66px;background:var(--panel2);border:1px solid var(--line);color:var(--ink);
+    border-radius:5px;padding:4px 6px;font-family:var(--mono);font-size:12px}
+  .replay .time{font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;margin-top:4px}
+  footer{flex:0 0 auto;height:140px;display:flex;flex-direction:column;background:#0a0d11;border-top:1px solid var(--line)}
+  .logbar{display:flex;align-items:center;gap:10px;padding:5px 12px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px}
+  #log{flex:1;overflow-y:auto;padding:6px 12px;font-family:var(--mono);font-size:11px;line-height:1.45;color:#9db2c8}
+  #log .l{white-space:pre-wrap;word-break:break-all}
+  #log .l.unk{color:var(--faint)} #log .l.evt{color:var(--accent2)}
+  details summary{cursor:pointer;color:var(--dim);font-size:11px}
+  .proto{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.6;margin-top:8px;white-space:pre-wrap}
+  .proto b{color:var(--accent2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>E4 <span class="mouse">Mouse</span> · Maze Monitor</h1>
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Disconnected</span></div>
+  <div class="spacer"></div>
+  <button id="demoBtn">▶ Demo run</button>
+  <button id="connectBtn" class="primary">Connect Bluetooth</button>
+</header>
+
+<main>
+  <div class="stage">
+    <canvas id="maze" width="820" height="820"></canvas>
+    <div class="legend">
+      <span><b style="color:#e6b34a">▮</b> maze</span>
+      <span><b style="color:#e5484d">▮</b> known</span>
+      <span><b style="color:#e5484d">▪</b> post</span>
+      <span><b style="color:#7ee787">▲</b> mouse</span>
+      <span><b style="color:#4aa3ff">·</b> trail</span>
+      <span id="zinfo"></span>
+    </div>
+  </div>
+
+  <aside>
+    <div class="sec">
+      <h2>View</h2>
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="v_follow" checked> Follow mouse</label>
+        <button id="fitBtn" style="margin-left:auto;padding:4px 9px">Fit maze</button>
+      </div>
+      <div class="row"><span style="color:var(--dim);width:34px">Zoom</span>
+        <input type="range" id="v_zoom" min="1" max="9" step="0.1" value="3.2">
+      </div>
+      <div class="row" style="flex-wrap:wrap">
+        <label class="chk"><input type="checkbox" id="v_cost" checked> Costs</label>
+        <label class="chk"><input type="checkbox" id="v_trail" checked> Trail</label>
+        <label class="chk"><input type="checkbox" id="v_body" checked> Footprint</label>
+      </div>
+      <div class="row">
+        <span style="color:var(--dim)">Cell</span>
+        <input class="num" type="number" id="cellmm" value="180" min="1"><span style="color:var(--dim)">mm</span>
+        <button id="clearBtn" style="margin-left:auto">Clear</button>
+      </div>
+      <div style="color:var(--faint);font-size:11px;margin-top:8px">Scroll to zoom · drag to pan</div>
+    </div>
+
+    <div class="sec">
+      <h2>Pose &amp; Motion</h2>
+      <div class="grid2">
+        <div class="stat"><span class="k">Cell</span><span class="v" id="s_cell">—</span></div>
+        <div class="stat"><span class="k">Heading</span><span class="v" id="s_hdg">—</span></div>
+        <div class="stat"><span class="k">Dist</span><span class="v" id="s_dist">—<small> mm</small></span></div>
+        <div class="stat"><span class="k">Speed</span><span class="v" id="s_vel">—<small> mm/s</small></span></div>
+        <div class="stat"><span class="k">Gyro θ</span><span class="v" id="s_gyro">—<small>°</small></span></div>
+        <div class="stat"><span class="k">ω</span><span class="v" id="s_omega">—<small>°/s</small></span></div>
+        <div class="stat"><span class="k">Battery</span><span class="v" id="s_batt">—<small> V</small></span></div>
+        <div class="stat"><span class="k">State</span><span class="v" id="s_state" style="font-size:13px">—</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Launcher <span style="color:var(--faint);text-transform:none;letter-spacing:0">— remote</span></h2>
+      <div class="row" style="gap:6px">
+        <button class="cmd" data-cmd="p">◀ Prev</button>
+        <button class="cmd primary" data-cmd="r">Enter ▶</button>
+        <button class="cmd" data-cmd="n">Next ▶</button>
+        <button class="cmd" data-cmd="<">▲ Back</button>
+      </div>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Move</div>
+      <div class="cmdgrid">
+        <button class="cmd" data-cmd="f">Forward 180</button>
+        <button class="cmd" data-cmd="d">Right 90</button>
+        <button class="cmd" data-cmd="a">Left 90</button>
+        <button class="cmd" data-cmd="s">Spin 180</button>
+        <button class="cmd" data-cmd="o">Motion test</button>
+      </div>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Maze</div>
+      <div class="cmdgrid">
+        <button class="cmd" data-cmd="h">Search</button>
+        <button class="cmd" data-cmd="u">Simulate</button>
+        <button class="cmd" data-cmd="e">Explore</button>
+        <button class="cmd" data-cmd="x">Sim explore</button>
+        <button class="cmd" data-cmd="m">Recall maze</button>
+      </div>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Sensors</div>
+      <div class="cmdgrid">
+        <button class="cmd" data-cmd="i">IR monitor</button>
+        <button class="cmd" data-cmd="v">Sensor mode</button>
+      </div>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Setup</div>
+      <div class="cmdgrid">
+        <button class="cmd" data-cmd="g">Recal gyro</button>
+        <button class="cmd" data-cmd="z">Reset pose</button>
+        <button class="cmd" data-cmd="k">Test mode</button>
+        <button class="cmd" data-cmd="t">EEPROM test</button>
+        <button class="cmd" data-cmd="b">BT →57600</button>
+      </div>
+      <div style="color:var(--faint);font-size:11px;margin-top:8px">Sends over Bluetooth · only acts while she’s in the menu (not mid-move)</div>
+    </div>
+
+    <div class="sec">
+      <h2>Maze file <span style="color:var(--faint);text-transform:none;letter-spacing:0">— load &amp; send</span></h2>
+      <div class="row" style="gap:6px">
+        <button id="loadMazeBtn">⭱ Load file</button>
+        <button id="sendMazeBtn" class="primary" disabled>Send to mouse</button>
+        <input type="file" id="mazeFileIn" accept=".txt,.maz,.maze,.mz,text/plain" hidden>
+      </div>
+      <div class="row" style="margin-top:6px">
+        <label class="chk"><input type="checkbox" id="mazeFlip"> Flip vertically</label>
+      </div>
+      <div id="mazeInfo" style="color:var(--faint);font-size:11px;margin-top:8px">Load a .txt or .maz maze (or drop one on the grid), then send it into the mouse.</div>
+      <div id="solveInfo" style="color:#e6b34a;font-size:12px;font-family:var(--mono);margin-top:6px"></div>
+    </div>
+
+    <div class="sec">
+      <h2>Wall sensors <span style="color:var(--faint);text-transform:none;letter-spacing:0">— drag threshold</span></h2>
+      <div id="sensors"></div>
+    </div>
+
+    <div class="sec">
+      <h2>Record &amp; replay</h2>
+      <div class="row">
+        <button id="recBtn" class="rec">● Record</button>
+        <span id="recInfo" style="font-family:var(--mono);color:var(--dim)">0 events</span>
+      </div>
+      <div class="row">
+        <button id="exportBtn">⭳ Export</button>
+        <button id="importBtn">⭱ Import</button>
+        <input type="file" id="fileIn" accept="application/json" hidden>
+      </div>
+      <div class="replay" id="replayWrap" style="display:none;margin-top:10px">
+        <div class="row">
+          <button id="playBtn">▶</button>
+          <input type="range" id="scrub" min="0" max="1000" value="0">
+          <select id="speedSel" class="num" style="width:52px">
+            <option value="1">1×</option><option value="2">2×</option>
+            <option value="4">4×</option><option value="0.5">0.5×</option></select>
+        </div>
+        <div class="time"><span id="tNow">0.0s</span><span id="tEnd">0.0s</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <details><summary>Telemetry protocol</summary>
+        <div class="proto"><b>RST</b>                new run / clear
+<b>M</b>,x,y,h           cell x,y facing h (0N 1E 2S 3W)
+<b>POS</b>,xmm,ymm,deg   pose: mm from SW corner, 0°=N, CCW+
+<b>W</b>,x,y,mask        walls, bit 1N 2E 4S 8W
+<b>C</b>,x,y,cost        flood cost
+<b>GOAL</b>,x,y[,x,y...] goal cell(s)
+<b>STATE</b>,text       SEARCH/SOLVE/RETURN/IDLE
+<b>TEL</b>,t,v,ω,dist,ang,gyro,batt
+<b>IR</b>,sl,fl,fr,sr    wall-sensor raw
+unknown lines ignored (coexists w/ debug)</div>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <div class="logbar"><span>Raw link</span><div class="spacer"></div>
+    <label class="chk"><input type="checkbox" id="autoscroll" checked> autoscroll</label>
+    <button id="clearLogBtn" style="padding:3px 8px">clear</button></div>
+  <div id="log"></div>
+</footer>
+
+<script>
+"use strict";
+//====================================================================
+// E4 Mouse — Maze Monitor. Web Bluetooth companion: parses a tolerant
+// line protocol, renders the real maze (posts, walls) + the mouse as her
+// true footprint, with zoom/follow/pan, and records/replays runs.
+//====================================================================
+const BT_SERVICE=0xffe0, BT_CHAR=0xffe1;
+const N=16;                                   // 16x16 cells
+const WALL_T=12, POST=12;                     // mm (full-size maze)
+const MOUSE={hw:39, front:65, rear:35};       // footprint from axle (mm)
+
+const state={
+  cellmm:180,
+  walls:new Int8Array(N*N), known:new Uint8Array(N*N), ref:new Int8Array(N*N),
+  cost:new Int16Array(N*N).fill(-1),
+  goals:new Set(), mouse:{x:90,y:90,deg:0,has:false,hasPos:false,cell:null}, trail:[],
+  sensors:[0,0,0,0], tel:{}, stateLabel:'IDLE',
+  solution:[], solveMs:0, solveSteps:0,
+};
+const idx=(x,y)=>y*N+x;
+const inb=(x,y)=>x>=0&&x<N&&y>=0&&y<N;
+function resetMaze(){
+  state.walls.fill(0); state.known.fill(0); state.cost.fill(-1);
+  state.goals.clear(); state.trail.length=0; state.mouse.has=false; state.mouse.hasPos=false; state.mouse.cell=null;
+  state.solution.length=0; state.solveMs=0; state.solveSteps=0;
+  [[7,7],[8,7],[7,8],[8,8]].forEach(([x,y])=>state.goals.add(idx(x,y)));
+  needsDraw=true;
+}
+//---------------- protocol ----------------
+function parseLine(line){
+  const raw=line.trim(); if(!raw) return;
+  const p=raw.split(','), tag=p[0].toUpperCase(); let ok=true;
+  switch(tag){
+    case 'RST': resetMaze(); break;
+    case 'M':{ const c=state.cellmm;
+      state.mouse.cell=[+p[1],+p[2]];                 // logical cell (sense-ahead; for readout)
+      if(!state.mouse.hasPos){                          // only drive the marker if POS isn't
+        state.mouse.x=(+p[1]+0.5)*c; state.mouse.y=(+p[2]+0.5)*c;
+        state.mouse.deg=[0,-90,180,90][((+p[3]%4)+4)%4]; state.mouse.has=true;
+      } break; }
+    case 'POS': state.mouse.x=+p[1]; state.mouse.y=+p[2]; state.mouse.deg=+p[3];
+      state.mouse.has=true; state.mouse.hasPos=true; pushTrail(); break;
+    case 'W': setWalls(+p[1],+p[2],+p[3]); break;
+    case 'C': if(inb(+p[1],+p[2])) state.cost[idx(+p[1],+p[2])]=+p[3]; break;
+    case 'GOAL': state.goals.clear();
+      for(let i=1;i+1<p.length;i+=2) if(inb(+p[i],+p[i+1])) state.goals.add(idx(+p[i],+p[i+1])); break;
+    case 'STATE': state.stateLabel=p.slice(1).join(',')||'—'; break;
+    case 'TEL': state.tel={t:+p[1],v:+p[2],omega:+p[3],dist:+p[4],ang:+p[5],gyro:+p[6],batt:+p[7]}; break;
+    case 'IR': state.sensors=[+p[1]||0,+p[2]||0,+p[3]||0,+p[4]||0]; break;
+    case 'SOLVE': state.solution=[]; break;
+    case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
+    case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
+      { const el=document.getElementById('solveInfo');
+        if(el) el.textContent='Solved in '+(state.solveMs/1000).toFixed(1)+'s · '+state.solveSteps+' cells'; } break;
+    default: ok=false;
+  }
+  logLine(raw, ok?'evt':'unk'); needsDraw=true; updateReadouts();
+}
+function setWalls(x,y,mask){
+  if(!inb(x,y))return; state.walls[idx(x,y)]|=mask; state.known[idx(x,y)]=1;
+  if((mask&1)&&y+1<N){state.walls[idx(x,y+1)]|=4;state.known[idx(x,y+1)]=1;}
+  if((mask&4)&&y-1>=0){state.walls[idx(x,y-1)]|=1;state.known[idx(x,y-1)]=1;}
+  if((mask&2)&&x+1<N){state.walls[idx(x+1,y)]|=8;state.known[idx(x+1,y)]=1;}
+  if((mask&8)&&x-1>=0){state.walls[idx(x-1,y)]|=2;state.known[idx(x-1,y)]=1;}
+}
+function pushTrail(){const t=state.trail,m=state.mouse,l=t[t.length-1];
+  if(!l||Math.hypot(l[0]-m.x,l[1]-m.y)>2) t.push([m.x,m.y]); if(t.length>6000)t.shift();}
+
+//---------------- rendering (mm-space + view transform) ----------------
+const cv=document.getElementById('maze'), ctx=cv.getContext('2d');
+let needsDraw=true;
+const opts={cost:true, trail:true, body:true};
+const view={zoom:3.2, panx:null, pany:null, follow:true};
+let T=null;
+function transform(){
+  const W=cv.width,H=cv.height,pad=16, mazeMM=N*state.cellmm;
+  const base=(Math.min(W,H)-2*pad)/mazeMM, scale=base*view.zoom;
+  let cx,cy;
+  if(view.follow&&state.mouse.has){cx=state.mouse.x;cy=state.mouse.y;}
+  else if(view.panx!=null){cx=view.panx;cy=view.pany;}
+  else {cx=mazeMM/2;cy=mazeMM/2;}
+  return {scale,cx,cy,W,H};
+}
+const PX=mx=>T.W/2+(mx-T.cx)*T.scale;
+const PY=my=>T.H/2-(my-T.cy)*T.scale;
+function fillMM(x0,y0,x1,y1){ ctx.fillRect(PX(x0),PY(y1),(x1-x0)*T.scale,(y1-y0)*T.scale); }
+
+function draw(){
+  T=transform();
+  const c=state.cellmm, mm=N*c;
+  ctx.clearRect(0,0,cv.width,cv.height);
+
+  // start + goal cell fills
+  ctx.fillStyle='#15271b'; fillMM(0,0,c,c);
+  ctx.fillStyle='#1c3149';
+  state.goals.forEach(k=>{const x=k%N,y=(k/N|0); fillMM(x*c,y*c,(x+1)*c,(y+1)*c);});
+
+  // flood costs
+  if(opts.cost){
+    const fpx=0.2*c*T.scale;
+    if(fpx>=6){ ctx.font=`${fpx|0}px var(--mono)`; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle='#65788c';
+      for(let y=0;y<N;y++)for(let x=0;x<N;x++){const v=state.cost[idx(x,y)];
+        if(v>=0) ctx.fillText(v, PX((x+0.5)*c), PY((y+0.5)*c)); } }
+  }
+
+  // trail
+  if(opts.trail && state.trail.length>1){
+    ctx.strokeStyle='rgba(74,163,255,.65)'; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.beginPath();
+    state.trail.forEach(([mx,my],i)=>{const a=PX(mx),b=PY(my); i?ctx.lineTo(a,b):ctx.moveTo(a,b);});
+    ctx.stroke();
+  }
+  // solution route (from the mouse's solve)
+  if(state.solution.length>1){
+    const cc=state.cellmm;
+    ctx.strokeStyle='rgba(230,179,74,.95)'; ctx.lineWidth=3; ctx.lineJoin='round'; ctx.beginPath();
+    state.solution.forEach(([sx,sy],i)=>{const a=PX((sx+0.5)*cc),b=PY((sy+0.5)*cc); i?ctx.lineTo(a,b):ctx.moveTo(a,b);});
+    ctx.stroke();
+  }
+
+  // wall painter (mask bits: N=1 S=4 E=2 W=8)
+  const paintWalls=(arr)=>{ for(let y=0;y<N;y++)for(let x=0;x<N;x++){const w=arr[idx(x,y)]; if(!w)continue;
+    if(w&1) fillMM(x*c,(y+1)*c-WALL_T/2,(x+1)*c,(y+1)*c+WALL_T/2);
+    if(w&4) fillMM(x*c,y*c-WALL_T/2,(x+1)*c,y*c+WALL_T/2);
+    if(w&2) fillMM((x+1)*c-WALL_T/2,y*c,(x+1)*c+WALL_T/2,(y+1)*c);
+    if(w&8) fillMM(x*c-WALL_T/2,y*c,x*c+WALL_T/2,(y+1)*c); } };
+  // the loaded maze (what exists, not yet explored) -> amber
+  ctx.fillStyle='#e6b34a'; paintWalls(state.ref);
+  // KNOWN to the mouse -> red
+  ctx.fillStyle='#e5484d';
+  paintWalls(state.walls);                                   // discovered as she explores
+  fillMM(c-WALL_T/2, 0, c+WALL_T/2, c);                       // start cell east wall (known from start)
+  fillMM(-WALL_T/2,-WALL_T/2, mm+WALL_T/2, WALL_T/2);         // outer boundary S
+  fillMM(-WALL_T/2, mm-WALL_T/2, mm+WALL_T/2, mm+WALL_T/2);   // N
+  fillMM(-WALL_T/2,-WALL_T/2, WALL_T/2, mm+WALL_T/2);         // W
+  fillMM(mm-WALL_T/2,-WALL_T/2, mm+WALL_T/2, mm+WALL_T/2);    // E
+  // posts always exist and are known -> red (on top of walls)
+  for(let i=0;i<=N;i++)for(let j=0;j<=N;j++) fillMM(i*c-POST/2,j*c-POST/2,i*c+POST/2,j*c+POST/2);
+
+  // mouse — real footprint, rotating about the axle (COR = pose point)
+  if(state.mouse.has){
+    const s=T.scale, mx=PX(state.mouse.x), my=PY(state.mouse.y);
+    ctx.save(); ctx.translate(mx,my); ctx.rotate(-state.mouse.deg*Math.PI/180);
+    if(opts.body){
+      const hw=MOUSE.hw*s, fr=MOUSE.front*s, rr=MOUSE.rear*s;
+      ctx.fillStyle='rgba(126,231,135,.16)'; ctx.strokeStyle='#7ee787'; ctx.lineWidth=1.4;
+      ctx.beginPath(); ctx.rect(-hw,-fr,2*hw,fr+rr); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#7ee787'; ctx.beginPath();      // nose
+      ctx.moveTo(0,-fr); ctx.lineTo(hw*0.55,-fr+hw*0.7); ctx.lineTo(-hw*0.55,-fr+hw*0.7); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='#0a0d11'; ctx.beginPath(); ctx.arc(0,0,2.4,0,7); ctx.fill();  // axle dot
+    } else {
+      const r=14; ctx.fillStyle='#7ee787';
+      ctx.beginPath(); ctx.moveTo(0,-r); ctx.lineTo(r*0.7,r*0.7); ctx.lineTo(0,r*0.35); ctx.lineTo(-r*0.7,r*0.7);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  const zi=document.getElementById('zinfo'); if(zi) zi.textContent=`${view.zoom.toFixed(1)}× ${view.follow?'· follow':''}`;
+}
+function loop(){ if(needsDraw){needsDraw=false; draw();} requestAnimationFrame(loop);} requestAnimationFrame(loop);
+
+//---------------- readouts ----------------
+function updateReadouts(){
+  const m=state.mouse,t=state.tel,c=state.cellmm;
+  set('s_cell', m.has?`${Math.floor(m.x/c)},${Math.floor(m.y/c)}`:'—');
+  const hd=((Math.round(m.deg/90)%4)+4)%4;
+  set('s_hdg', m.has?['N','W','S','E'][hd]+` ${Math.round(m.deg)}°`:'—');
+  set('s_dist',fmt(t.dist),' mm'); set('s_vel',fmt(t.v),' mm/s');
+  set('s_gyro',fmt(t.gyro),'°'); set('s_omega',fmt(t.omega),'°/s');
+  set('s_batt',t.batt!=null?(+t.batt).toFixed(2):'—',' V'); set('s_state',state.stateLabel);
+  state.sensors.forEach((val,i)=>{const f=document.getElementById('sfill'+i); if(!f)return;
+    f.style.width=Math.max(0,Math.min(100,val/4095*100))+'%';
+    f.style.background=val>=thresholds[i]?'var(--warn)':'var(--accent)';
+    document.getElementById('sval'+i).textContent=val|0;});
+}
+function set(id,v,suf){const el=document.getElementById(id); if(!el)return;
+  el.innerHTML=(v==null||v===''?'—':v)+(suf?`<small>${suf}</small>`:'');}
+function fmt(x){return (x==null||isNaN(x))?null:Math.round(x);}
+
+const SENSOR_LABELS=['SL','FL','FR','SR'], thresholds=[1200,1200,1200,1200];
+(function(){const wrap=document.getElementById('sensors');
+  SENSOR_LABELS.forEach((lab,i)=>{const d=document.createElement('div');d.className='bar';
+    d.innerHTML=`<div class="lab"><b>${lab}</b><span id="sval${i}">0</span></div>
+      <div class="track"><div class="fill" id="sfill${i}"></div><div class="thresh" id="sth${i}"></div></div>`;
+    wrap.appendChild(d);
+    const th=d.querySelector('.thresh'), track=d.querySelector('.track');
+    const place=()=>th.style.left=(thresholds[i]/4095*100)+'%'; place();
+    let drag=false;
+    const move=e=>{if(!drag)return;const r=track.getBoundingClientRect();
+      const x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;
+      thresholds[i]=Math.max(0,Math.min(4095,x/r.width*4095))|0; place(); updateReadouts();};
+    track.addEventListener('mousedown',e=>{drag=true;move(e);});
+    window.addEventListener('mousemove',move); window.addEventListener('mouseup',()=>drag=false);
+  });})();
+
+//---------------- raw log ----------------
+const logEl=document.getElementById('log'); let logCount=0, _quiet=false;
+function logLine(text,cls){ if(_quiet)return;
+  const d=document.createElement('div'); d.className='l '+(cls||''); d.textContent=text; logEl.appendChild(d);
+  if(++logCount>1500) logEl.removeChild(logEl.firstChild);
+  if(document.getElementById('autoscroll').checked) logEl.scrollTop=logEl.scrollHeight;}
+document.getElementById('clearLogBtn').onclick=()=>{logEl.innerHTML='';logCount=0;};
+
+//---------------- record & replay ----------------
+let recording=null, capture=null;
+const recBtn=document.getElementById('recBtn'), recInfo=document.getElementById('recInfo');
+function onIncoming(line){ if(recording){recording.events.push({dt:performance.now()-recording.t0,line});
+  recInfo.textContent=recording.events.length+' events';} }
+recBtn.onclick=()=>{ if(recording){
+    capture={events:recording.events.slice(),dur:recording.events.length?recording.events.at(-1).dt:0};
+    recording=null; recBtn.classList.remove('active'); recBtn.textContent='● Record';
+    if(capture.events.length) setupReplay();
+  } else { recording={t0:performance.now(),events:[]}; recBtn.classList.add('active');
+    recBtn.textContent='■ Stop'; recInfo.textContent='0 events'; } };
+document.getElementById('exportBtn').onclick=()=>{const data=capture||(recording&&{events:recording.events});
+  if(!data||!data.events.length){alert('Nothing recorded yet.');return;}
+  const blob=new Blob([JSON.stringify({v:1,cellmm:state.cellmm,events:data.events})],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='e4-run-'+new Date().toISOString().replace(/[:.]/g,'-').slice(0,19)+'.json'; a.click();};
+document.getElementById('importBtn').onclick=()=>document.getElementById('fileIn').click();
+document.getElementById('fileIn').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const j=JSON.parse(r.result); capture={events:j.events,dur:j.events.at(-1).dt};
+    if(j.cellmm){state.cellmm=j.cellmm; document.getElementById('cellmm').value=j.cellmm;}
+    setupReplay(); logLine('Imported '+j.events.length+' events','evt');
+  }catch(err){alert('Bad file: '+err.message);}}; r.readAsText(f);};
+
+const replayWrap=document.getElementById('replayWrap'), scrub=document.getElementById('scrub');
+const playBtn=document.getElementById('playBtn'), tNow=document.getElementById('tNow'), tEnd=document.getElementById('tEnd');
+let rp={playing:false,t:0,raf:0,last:0};
+function setupReplay(){replayWrap.style.display='block'; tEnd.textContent=(capture.dur/1000).toFixed(1)+'s'; seekReplay(0);}
+function rebuildTo(t){ _quiet=true; resetMaze();
+  for(const e of capture.events){ if(e.dt>t) break; parseLine(e.line);} _quiet=false; needsDraw=true; updateReadouts();}
+function seekReplay(t){ rp.t=t; scrub.value=capture.dur?t/capture.dur*1000:0; tNow.textContent=(t/1000).toFixed(1)+'s'; rebuildTo(t);}
+playBtn.onclick=()=>{ if(!capture)return; rp.playing=!rp.playing; playBtn.textContent=rp.playing?'❚❚':'▶';
+  if(rp.playing){rp.last=performance.now(); if(rp.t>=capture.dur) seekReplay(0); rpTick();} else cancelAnimationFrame(rp.raf);};
+function rpTick(){ const now=performance.now(), spd=+document.getElementById('speedSel').value, prev=rp.t;
+  rp.t+=(now-rp.last)*spd; rp.last=now; _quiet=true;
+  for(const e of capture.events) if(e.dt>prev&&e.dt<=rp.t) parseLine(e.line);
+  _quiet=false;
+  scrub.value=capture.dur?rp.t/capture.dur*1000:0; tNow.textContent=(Math.min(rp.t,capture.dur)/1000).toFixed(1)+'s';
+  needsDraw=true; updateReadouts();
+  if(rp.t<capture.dur&&rp.playing) rp.raf=requestAnimationFrame(rpTick);
+  else{rp.playing=false; playBtn.textContent='▶';}}
+scrub.oninput=()=>{if(!capture)return; rp.playing=false; playBtn.textContent='▶'; seekReplay(scrub.value/1000*capture.dur);};
+
+//---------------- web bluetooth ----------------
+let btChar=null, btDevice=null, rxBuf='';
+const dot=document.getElementById('dot'), statusText=document.getElementById('statusText');
+function setStatus(t,cls){statusText.textContent=t; dot.className='dot '+(cls||'');}
+document.getElementById('connectBtn').onclick=async()=>{
+  if(btDevice){try{await btDevice.gatt.disconnect();}catch(e){} return;}
+  if(!navigator.bluetooth){setStatus('Web Bluetooth unavailable','err');
+    logLine('No Web Bluetooth here. Use Chrome; if file:// is blocked, serve via localhost.','unk'); return;}
+  try{ setStatus('Requesting device…');
+    btDevice=await navigator.bluetooth.requestDevice({filters:[{services:[BT_SERVICE]}],optionalServices:[BT_SERVICE]});
+    btDevice.addEventListener('gattserverdisconnected',onDisconnect);
+    setStatus('Connecting…'); const srv=await btDevice.gatt.connect();
+    btChar=await (await srv.getPrimaryService(BT_SERVICE)).getCharacteristic(BT_CHAR);
+    await btChar.startNotifications(); btChar.addEventListener('characteristicvaluechanged',onNotify);
+    setStatus('Connected · '+(btDevice.name||'mouse'),'on');
+    document.getElementById('connectBtn').textContent='Disconnect'; logLine('Connected','evt');
+  }catch(err){setStatus('Connect failed','err'); logLine('BT error: '+err.message,'unk'); btDevice=null;}
+};
+function onDisconnect(){setStatus('Disconnected'); btChar=null; btDevice=null;
+  document.getElementById('connectBtn').textContent='Connect Bluetooth'; logLine('Disconnected','unk');}
+const dec=new TextDecoder();
+function onNotify(e){ rxBuf+=dec.decode(e.target.value); let nl;
+  while((nl=rxBuf.indexOf('\n'))>=0){ const clean=rxBuf.slice(0,nl).replace(/\r$/,''); rxBuf=rxBuf.slice(nl+1);
+    if(clean){ onIncoming(clean); parseLine(clean); if(clean.slice(0,2)==='GT'){ if(window.__gtCollect) window.__gtCollect(clean); else if(window.__gtAck) window.__gtAck(clean); } } } }
+const enc=new TextEncoder();
+async function sendCmd(s){
+  if(!btChar){ logLine('Not connected — can\'t send "'+s+'"','unk'); return; }
+  try{
+    const data=enc.encode(s.endsWith('\n')?s:s+'\n');   // firmware reads whole lines
+    if(btChar.properties && btChar.properties.writeWithoutResponse && btChar.writeValueWithoutResponse)
+      await btChar.writeValueWithoutResponse(data);
+    else
+      await btChar.writeValue(data);
+    logLine('» sent '+JSON.stringify(s),'evt');
+  }catch(err){ logLine('send failed: '+err.message,'unk'); }
+}
+document.querySelectorAll('.cmd').forEach(b=>{ b.onclick=()=>sendCmd(b.dataset.cmd); });
+
+// ---------------- maze file load + inject ----------------
+// Normalise any source into a 256-cell wall grid, mask bits N=1 E=2 S=4 W=8,
+// index = y*16 + x (matches the mouse's WallInfo / truth_set_cell).
+let loadedMaze=null, mazeBaseWalls=null;
+
+function normFromGrid(getWall){
+  const w=new Uint8Array(256);
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+    let m=0;
+    if(getWall(x,y,'N'))m|=1; if(getWall(x,y,'E'))m|=2;
+    if(getWall(x,y,'S'))m|=4; if(getWall(x,y,'W'))m|=8;
+    w[y*16+x]=m;
+  }
+  return w;
+}
+// Classic ASCII maze: posts on a 4-col / 2-row lattice, top of file = north (high y).
+function parseAsciiMaze(text){
+  const g=text.replace(/\r/g,'').split('\n').filter(l=>/[o+*\-|]/.test(l));
+  if(g.length<33) return null;
+  const ch=(r,c)=> (g[r]&&g[r][c])||' ';
+  const getWall=(x,y,dir)=>{
+    const br=2*(15-y)+1, cc=4*x+2;
+    if(dir==='N') return ch(br-1,cc)==='-';
+    if(dir==='S') return ch(br+1,cc)==='-';
+    if(dir==='W') return ch(br,4*x)==='|';
+    if(dir==='E') return ch(br,4*x+4)==='|';
+    return false;
+  };
+  const walls=normFromGrid(getWall);
+  const goals=[];
+  for(let y=0;y<16;y++){ const br=2*(15-y)+1; for(let x=0;x<16;x++){ if(ch(br,4*x+2)==='G') goals.push([x,y]); } }
+  return {walls, goals};
+}
+// .maz byte-per-cell (best-guess: 256 bytes, bits N1 E2 S4 W8, index x*16+y).
+function parseMazeBytes(buf){
+  const b=new Uint8Array(buf);
+  if(b.length<256) return null;
+  const w=new Uint8Array(256);
+  for(let x=0;x<16;x++)for(let y=0;y<16;y++){
+    const v=b[x*16+y];
+    w[y*16+x]=(v&1?1:0)|(v&2?2:0)|(v&4?4:0)|(v&8?8:0);
+  }
+  return {walls:w, goals:[]};
+}
+function flipMazeV(w){
+  const o=new Uint8Array(256);
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){
+    const m=w[y*16+x];
+    o[(15-y)*16+x]=(m&2)|(m&8)|((m&1)?4:0)|((m&4)?1:0);  // swap N<->S, row y<->15-y
+  }
+  return o;
+}
+let mazeBaseGoals=[];
+function loadMazeFromWalls(w, goals){
+  // display goals (fallback to classic 2x2 centre); the mouse gets a single cell
+  const gcells = (goals&&goals.length) ? goals : [[7,7],[8,7],[7,8],[8,8]];
+  const chosen = gcells.slice().sort((a,b)=>(a[0]+a[1])-(b[0]+b[1]))[0];  // corner nearest start
+  loadedMaze={walls:w, goal:chosen};
+  resetMaze();
+  state.ref.set(w);                                 // reference maze (amber); RST keeps it
+  state.goals.clear(); gcells.forEach(([x,y])=>{ if(inb(x,y)) state.goals.add(idx(x,y)); });
+  needsDraw=true;
+  document.getElementById('sendMazeBtn').disabled=false;
+}
+function applyFlipAndLoad(){ if(!mazeBaseWalls)return;
+  const flip=document.getElementById('mazeFlip').checked;
+  const w=flip?flipMazeV(mazeBaseWalls):mazeBaseWalls;
+  const goals=flip?mazeBaseGoals.map(([x,y])=>[x,15-y]):mazeBaseGoals;
+  loadMazeFromWalls(w,goals); }
+function readMazeFile(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    const buf=r.result, bytes=new Uint8Array(buf);
+    let printable=0; for(let i=0;i<bytes.length;i++){const b=bytes[i]; if(b===9||b===10||b===13||(b>=32&&b<127))printable++;}
+    const isText=bytes.length>0 && printable/bytes.length>0.85;
+    let res = isText ? parseAsciiMaze(new TextDecoder().decode(bytes)) : null;
+    if(!res) res=parseMazeBytes(buf);
+    if(!res){ logLine('Could not parse maze: '+file.name,'unk'); document.getElementById('mazeInfo').textContent='Could not parse '+file.name+' — share the file and I’ll match it.'; return; }
+    mazeBaseWalls=res.walls; mazeBaseGoals=res.goals||[]; applyFlipAndLoad();
+    document.getElementById('mazeInfo').innerHTML=file.name+' loaded '+(isText?'(ascii)':'(bytes)')+' \u2014 <b style="color:#e5484d">press Send to mouse</b> before running';
+    logLine('Maze loaded: '+file.name+' (Send to mouse to sync)','evt');
+  };
+  r.readAsArrayBuffer(file);
+}
+function sendLineAck(line,timeout){
+  return new Promise((resolve,reject)=>{
+    const to=setTimeout(()=>{ window.__gtAck=null; reject(new Error('timeout: '+line)); }, timeout||2500);
+    window.__gtAck=(ack)=>{ clearTimeout(to); window.__gtAck=null; resolve(ack); };
+    sendCmd(line);
+  });
+}
+function gtRowSum(y,cells){ let c=y&0xFF; for(let x=0;x<16;x++) c=(c+(x+1)*cells[x])&0xFF; return c; }
+const GT_TRIES=10;
+function gtDelay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+async function sendRow(y,cells,hex){
+  const chk=gtRowSum(y,cells).toString(16).padStart(2,'0');
+  const line='GTR,'+y+','+hex+','+chk;
+  for(let attempt=1;attempt<=GT_TRIES;attempt++){
+    let ack; try{ ack=await sendLineAck(line); }catch(e){ ack='timeout'; }
+    if(ack==='GTOK') return attempt;
+    logLine('row '+y+' '+(ack==='GTERR'?'checksum fail':ack)+' \u2014 resend '+attempt+'/'+GT_TRIES,'unk');
+    await gtDelay(30);   // let the link settle before re-sending
+  }
+  throw new Error('row '+y+' failed after '+GT_TRIES+' tries');
+}
+async function sendGoal(gx,gy){
+  const want='GTGOK,'+gx+','+gy;
+  for(let attempt=1;attempt<=GT_TRIES;attempt++){
+    let ack; try{ ack=await sendLineAck('GTG,'+gx+','+gy); }catch(e){ ack='timeout'; }
+    if(ack===want) return attempt;
+    logLine('goal '+(ack&&ack.slice(0,5)==='GTGOK'?'echo mismatch ('+ack+')':ack)+' \u2014 resend '+attempt+'/'+GT_TRIES,'unk');
+    await gtDelay(30);
+  }
+  throw new Error('goal failed after '+GT_TRIES+' tries');
+}
+function sendVerify(sent,goal){
+  // send GTE, collect the mouse's GTV,y,<hex> rows + GTQ goal until GTDONE, diff vs sent
+  return new Promise((resolve,reject)=>{
+    const got={}; let goalRB=null;
+    const to=setTimeout(()=>{ window.__gtCollect=null; reject(new Error('verify timeout')); },5000);
+    window.__gtCollect=(ln)=>{
+      if(ln.slice(0,4)==='GTV,'){ const p=ln.split(','); got[+p[1]]=p[2]; return; }
+      if(ln.slice(0,4)==='GTQ,'){ const p=ln.split(','); goalRB=[+p[1],+p[2]]; return; }
+      if(ln==='GTDONE'||ln.slice(0,6)==='GTDONE'){ clearTimeout(to); window.__gtCollect=null;
+        const bad=[]; for(let y=0;y<16;y++){ if(got[y]!==sent[y]) bad.push(y); }
+        const goalOk = !goal || (goalRB && goalRB[0]===goal[0] && goalRB[1]===goal[1]);
+        resolve({bad, goalOk, goalRB}); }
+    };
+    sendCmd('GTE');
+  });
+}
+async function sendMaze(){
+  if(!loadedMaze){ logLine('No maze loaded','unk'); return; }
+  if(!btChar){ logLine('Connect Bluetooth first','unk'); return; }
+  const w=loadedMaze.walls, btn=document.getElementById('sendMazeBtn'), info=document.getElementById('mazeInfo');
+  btn.disabled=true;
+  try{
+    await sendLineAck('GTC');
+    const sent={};
+    for(let y=0;y<16;y++){
+      const cells=[]; let hex='';
+      for(let x=0;x<16;x++){ const m=w[y*16+x]&0xF; cells.push(m); hex+=m.toString(16); }
+      sent[y]=hex;
+      await sendRow(y,cells,hex);
+      info.textContent='Sending… '+Math.round((y+1)/16*100)+'%';
+    }
+    const goal = loadedMaze.goal || [7,7];
+    await sendGoal(goal[0],goal[1]);
+    const {bad,goalOk,goalRB}=await sendVerify(sent,goal);
+    if(bad.length===0 && goalOk){ info.innerHTML='Maze sent \u2014 <b style="color:#3fb950">verified \u2713</b> (goal '+goal[0]+','+goal[1]+') \u2014 run Search on the mouse'; logLine('Maze sent + verified (walls + goal match)','evt'); }
+    else { let msg=[]; if(bad.length) msg.push(bad.length+' row(s): '+bad.join(',')); if(!goalOk) msg.push('goal '+(goalRB?goalRB.join(','):'?')+' != '+goal.join(',')); info.innerHTML='Sent, but <b style="color:#e5484d">mismatch</b> ('+msg.join('; ')+') \u2014 press Send again'; logLine('Verify FAILED: '+msg.join('; '),'unk'); }
+  }catch(e){ info.textContent='Send failed: '+e.message; logLine('Send failed: '+e.message,'unk'); }
+  btn.disabled=false;
+}
+document.getElementById('loadMazeBtn').onclick=()=>document.getElementById('mazeFileIn').click();
+document.getElementById('mazeFileIn').onchange=e=>{ const f=e.target.files[0]; if(f) readMazeFile(f); e.target.value=''; };
+document.getElementById('mazeFlip').onchange=applyFlipAndLoad;
+document.getElementById('sendMazeBtn').onclick=sendMaze;
+cv.addEventListener('dragover',e=>e.preventDefault());
+cv.addEventListener('drop',e=>{ e.preventDefault(); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) readMazeFile(f); });
+
+//---------------- view controls ----------------
+const zoomEl=document.getElementById('v_zoom'), followEl=document.getElementById('v_follow');
+followEl.onchange=e=>{view.follow=e.target.checked; needsDraw=true;};
+zoomEl.oninput=e=>{view.zoom=+e.target.value; needsDraw=true;};
+document.getElementById('fitBtn').onclick=()=>{view.follow=false; followEl.checked=false;
+  view.panx=null; view.pany=null; view.zoom=1; zoomEl.value=1; needsDraw=true;};
+document.getElementById('v_cost').onchange=e=>{opts.cost=e.target.checked;needsDraw=true;};
+document.getElementById('v_trail').onchange=e=>{opts.trail=e.target.checked;needsDraw=true;};
+document.getElementById('v_body').onchange=e=>{opts.body=e.target.checked;needsDraw=true;};
+document.getElementById('cellmm').onchange=e=>{state.cellmm=Math.max(1,+e.target.value||180);needsDraw=true;updateReadouts();};
+document.getElementById('clearBtn').onclick=()=>{ state.ref.fill(0); parseLine('RST'); };
+cv.addEventListener('wheel',e=>{e.preventDefault(); view.zoom=Math.max(1,Math.min(10,view.zoom*(e.deltaY<0?1.12:0.89)));
+  zoomEl.value=view.zoom; needsDraw=true;},{passive:false});
+let pan=null;
+cv.addEventListener('mousedown',e=>{const t=transform();
+  pan={x:e.clientX,y:e.clientY,cx:t.cx,cy:t.cy}; view.follow=false; followEl.checked=false;});
+window.addEventListener('mousemove',e=>{ if(!pan)return; const t=transform();
+  view.panx=pan.cx-(e.clientX-pan.x)/t.scale; view.pany=pan.cy+(e.clientY-pan.y)/t.scale; needsDraw=true;});
+window.addEventListener('mouseup',()=>pan=null);
+
+//---------------- demo ----------------
+document.getElementById('demoBtn').onclick=()=>runDemo();
+function runDemo(){
+  parseLine('RST'); parseLine('STATE,SEARCH'); parseLine('GOAL,7,7,8,7,7,8,8,8');
+  const script=[]; let t=0; const push=(l,g=120)=>{t+=g; script.push([t,l]);};
+  const path=[[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3],[3,4],[3,5],[4,5],[5,5],[6,5],[7,5],[7,6],[7,7]];
+  const wallsAt={'0,0':13,'0,1':9,'0,2':9,'0,3':9,'1,3':1,'2,3':1,'3,3':2,'3,4':10,'3,5':4,
+    '4,5':5,'5,5':5,'6,5':5,'7,5':6,'7,6':10,'7,7':2};
+  let cost=14;
+  for(let k=0;k<path.length;k++){ const [cx,cy]=path[k]; const w=wallsAt[cx+','+cy];
+    if(w!=null) push(`W,${cx},${cy},${w}`,20); push(`C,${cx},${cy},${cost--}`,10);
+    const c=180, tx=(cx+0.5)*c, ty=(cy+0.5)*c;
+    if(k>0){const [px,py]=path[k-1], fx=(px+0.5)*c, fy=(py+0.5)*c;
+      for(let s=1;s<=6;s++){const a=s/6,x=fx+(tx-fx)*a,y=fy+(ty-fy)*a,deg=Math.atan2(-(tx-fx),(ty-fy))*180/Math.PI;
+        push(`POS,${x.toFixed(0)},${y.toFixed(0)},${(deg||0).toFixed(0)}`,45);} }
+    else push(`POS,${tx},${ty},0`,45);
+    push(`TEL,${t},${300+((k*37)%120)},0,${k*180},0,0,4.05`,5);
+  }
+  push('STATE,SOLVE',200);
+  let i=0; const t0=performance.now();
+  (function step(){const now=performance.now()-t0;
+    while(i<script.length&&script[i][0]<=now){parseLine(script[i][1]);i++;}
+    if(i<script.length) requestAnimationFrame(step);})();
+}
+
+resetMaze(); updateReadouts(); needsDraw=true;
+logLine('E4 Maze Monitor ready. Click Demo run, or Connect to your mouse. Scroll to zoom, drag to pan.','evt');
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# CubeIDE build output (regenerated on build)
+/Source/Debug/
+*.o
+*.d
+*.su
+*.cyclo
+*.list
+*.map
+*.elf
+*.bin
+*.hex
+
+# OS / editor cruft
+.DS_Store
+*~
