@@ -1,0 +1,21 @@
+Qty,Designator,Footprint,Comment,LCSC Part # (optional),Description (optional)
+1,U$7,BLACK_PILL,do not populate,,stm32 board
+2,"LED-LEFT, LED-RIGHT",SML0603,,C125098,green SMD leds
+1,BLUETOOTH,MA06-1,do not populate,,HC05 board
+2,"M-LEFT, M-RIGHT",2X03,do not populate,,headers
+2,"UB1,UB2",TACTILE-PTH,do not populate,,push button switch
+4,"R14, R15, R16,R21",0603-RES,,C269701,SMD resistor 0603 package 10k
+4,"R9, R10, R11,R12",0603-RES,,C269444,SMD resistor 0603 package 1k8
+4,"R17, R18, R19,R20",0603-RES,,C269704,SMD resistor 0603 package 1k
+4,"R1, R3, R5, R7",1206,,C325941,SMD resistor 0603 package 33 ohm
+5,"R2, R4, R6, R8, R13",0603-RES,,C269715,SMD resistor 0603 package 47k
+1,U$3,DRV8833,do not populate,,motor driver board
+1,U$1,E4_SPI-IIC,do not populate,,display board
+4,"IR-FRONTLEFT, IR-FRONTRIGHT, IR-SIDELEFT, IR-SIDERIGHT",EMITTER,do not populate,,IR emitters
+4,"Q1, Q2, Q3, Q4",SOT96P237X111-3N,,C15310,SMD sot23 package FDV301N
+4,"DET-FRONTLEFT, DET-FRONTRIGHT, DET-SIDELEFT, DET-SIDERIGHT",RECEIVER,do not populate,,IR detectors
+1,S1,TL3XPO,do not populate,,Tiny Switch
+1,U$4,BUCK3TO9-HORIZONTAL,do not populate,,BUCK3TO9BUCK3TO9-HORIZONTAL
+1,U$5,BUCK3TO5-H,do not populate,,BUCK3TO5
+1,U$8,6410-03,do not populate,,3V3-CONV3V3CONV
+1,X1,53047-02,do not populate,,53047-02

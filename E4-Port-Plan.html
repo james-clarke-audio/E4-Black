@@ -1,0 +1,760 @@
+<title>E4 Micromouse Port</title>
+<meta name="description" content="Porting plan: mazerunner-core from Arduino Nano to the STM32F411 Blackpill, in C++.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    /* light palette — cool slate neutrals with a copper "trace" accent */
+    --ground: #f3f4f2;
+    --surface: #ffffff;
+    --surface-2: #eceee9;
+    --ink: #1a1f26;
+    --ink-2: #3a424c;
+    --muted: #5f6a75;
+    --faint: #99a2ab;
+    --line: #d9ddd6;
+    --line-strong: #c2c8bf;
+    --accent: #b0652f;      /* copper */
+    --accent-soft: #f0e2d5;
+    --accent-ink: #8a4d21;
+    --ok: #3c7a56;          /* working / done */
+    --ok-soft: #dcebe0;
+    --wip: #b07d1f;         /* in progress / to build */
+    --wip-soft: #f2e7c9;
+    --new: #4a6b85;         /* new subsystem */
+    --new-soft: #dde7ee;
+    --risk: #b0472f;        /* risk / gotcha */
+    --risk-soft: #f3ddd6;
+    --shadow: 0 1px 2px rgba(26,31,38,.05), 0 4px 16px rgba(26,31,38,.06);
+    --shadow-lift: 0 2px 6px rgba(26,31,38,.08), 0 12px 32px rgba(26,31,38,.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0f1216;
+      --surface: #171c22;
+      --surface-2: #1e242b;
+      --ink: #e8eae6;
+      --ink-2: #c3cabf;
+      --muted: #9aa4ab;
+      --faint: #6b757d;
+      --line: #2a313a;
+      --line-strong: #39424c;
+      --accent: #d08a53;
+      --accent-soft: #33251a;
+      --accent-ink: #e2a578;
+      --ok: #6bbd8e;
+      --ok-soft: #1b2c22;
+      --wip: #d3a84a;
+      --wip-soft: #2e2716;
+      --new: #7ba6c4;
+      --new-soft: #182530;
+      --risk: #e07a5f;
+      --risk-soft: #301912;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+      --shadow-lift: 0 2px 6px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0f1216;
+    --surface: #171c22;
+    --surface-2: #1e242b;
+    --ink: #e8eae6;
+    --ink-2: #c3cabf;
+    --muted: #9aa4ab;
+    --faint: #6b757d;
+    --line: #2a313a;
+    --line-strong: #39424c;
+    --accent: #d08a53;
+    --accent-soft: #33251a;
+    --accent-ink: #e2a578;
+    --ok: #6bbd8e;
+    --ok-soft: #1b2c22;
+    --wip: #d3a84a;
+    --wip-soft: #2e2716;
+    --new: #7ba6c4;
+    --new-soft: #182530;
+    --risk: #e07a5f;
+    --risk-soft: #301912;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 4px 16px rgba(0,0,0,.35);
+    --shadow-lift: 0 2px 6px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+  .measure { max-width: 68ch; }
+
+  code, .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  code {
+    font-size: .86em;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: .08em .38em;
+    color: var(--accent-ink);
+    white-space: nowrap;
+  }
+
+  a { color: var(--accent-ink); }
+
+  /* ---- header ---- */
+  header.masthead {
+    border-bottom: 1px solid var(--line);
+    background:
+      linear-gradient(var(--ground), var(--ground)) padding-box,
+      var(--ground);
+    position: relative;
+    overflow: hidden;
+  }
+  header.masthead::before {
+    /* faint PCB-trace grid */
+    content: "";
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 26px 26px;
+    opacity: .35;
+    -webkit-mask-image: radial-gradient(120% 120% at 85% 0%, #000 0%, transparent 60%);
+            mask-image: radial-gradient(120% 120% at 85% 0%, #000 0%, transparent 60%);
+    pointer-events: none;
+  }
+  .masthead .wrap { position: relative; padding-top: 46px; padding-bottom: 40px; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent-ink);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px;
+  }
+  .eyebrow::before {
+    content: ""; width: 26px; height: 2px; background: var(--accent); display: inline-block;
+  }
+  h1 {
+    font-size: clamp(30px, 5.2vw, 46px);
+    line-height: 1.04;
+    letter-spacing: -.02em;
+    font-weight: 700;
+    margin: 0 0 16px;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+  h1 .arw { color: var(--accent); font-weight: 500; }
+  .standfirst { font-size: 18px; color: var(--ink-2); max-width: 60ch; margin: 0; }
+
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 10px 22px;
+    margin-top: 26px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px; color: var(--muted);
+  }
+  .meta-row b { color: var(--ink-2); font-weight: 600; }
+
+  /* ---- status banner ---- */
+  .callout {
+    display: flex; gap: 13px; align-items: flex-start;
+    margin: 26px 0 4px;
+    padding: 14px 16px;
+    background: var(--new-soft);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--new);
+    border-radius: 8px;
+    font-size: 14.5px; color: var(--ink-2);
+  }
+  .callout svg { flex: none; margin-top: 2px; color: var(--new); }
+  .callout b { color: var(--ink); }
+  .callout.ok { background: var(--ok-soft); border-left-color: var(--ok); }
+  .callout.ok svg { color: var(--ok); }
+
+  /* ---- section ---- */
+  section { padding: 46px 0; border-top: 1px solid var(--line); }
+  section:first-of-type { border-top: none; }
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; letter-spacing: .15em; text-transform: uppercase;
+    color: var(--faint); font-weight: 500;
+    display: flex; align-items: baseline; gap: 10px;
+    margin: 0 0 6px;
+  }
+  .kicker .n { color: var(--accent); }
+  h2 {
+    font-size: clamp(22px, 3.4vw, 29px);
+    letter-spacing: -.015em; font-weight: 600;
+    margin: 0 0 18px; text-wrap: balance;
+  }
+  h3 { font-size: 17px; font-weight: 600; margin: 26px 0 8px; letter-spacing: -.01em; }
+  p { margin: 0 0 15px; }
+  section p { max-width: 68ch; }
+
+  /* ---- two-halves current state ---- */
+  .halves { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px; }
+  .half {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow);
+  }
+  .half h3 { margin-top: 0; display: flex; align-items: center; gap: 9px; }
+  .half .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 600;
+    letter-spacing: .06em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 20px;
+  }
+  .tag.brain { background: var(--accent-soft); color: var(--accent-ink); }
+  .tag.body  { background: var(--ok-soft); color: var(--ok); }
+  .half ul { margin: 12px 0 0; padding: 0; list-style: none; font-size: 14.5px; }
+  .half li { position: relative; padding: 5px 0 5px 20px; color: var(--ink-2); }
+  .half li::before {
+    content: ""; position: absolute; left: 2px; top: 13px;
+    width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .half.body-card li::before { background: var(--ok); }
+
+  /* ---- figure ---- */
+  figure { margin: 26px 0 8px; }
+  figure svg { display: block; width: 100%; height: auto; }
+  .figframe {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 26px 26px 8px; box-shadow: var(--shadow);
+  }
+  figcaption {
+    font-size: 13px; color: var(--muted); margin-top: 14px;
+    padding-top: 12px; border-top: 1px solid var(--line);
+    max-width: none;
+  }
+  figcaption b { color: var(--ink-2); font-weight: 600; }
+
+  /* ---- table ---- */
+  .tablescroll { overflow-x: auto; margin: 20px -4px 8px; padding: 0 4px; }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+  thead th {
+    text-align: left; font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    padding: 0 14px 10px; border-bottom: 1px solid var(--line-strong);
+    vertical-align: bottom;
+  }
+  tbody td { padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td:first-child { font-weight: 600; color: var(--ink); width: 20%; }
+  td .sub { color: var(--muted); font-size: 12.5px; display: block; margin-top: 2px; }
+  td.mono, .pin { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; }
+  .pin { color: var(--accent-ink); white-space: nowrap; }
+
+  /* grouped pin-map table */
+  table.pinmap td:first-child { width: auto; font-weight: 400; color: var(--ink-2); }
+  table.pinmap td.sig { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink); font-weight: 500; }
+  table.pinmap td.mcu { font-family: "IBM Plex Mono", monospace; font-size: 13px; color: var(--accent-ink); font-weight: 600; font-variant-numeric: tabular-nums; width: 14%; }
+  table.pinmap td.per { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); width: 22%; }
+  tr.grp td {
+    background: var(--surface-2); border-bottom: 1px solid var(--line-strong);
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+    padding: 9px 14px;
+  }
+  tr.grp td .cnt { color: var(--faint); font-weight: 400; letter-spacing: 0; text-transform: none; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: .03em; padding: 3px 9px 3px 7px; border-radius: 20px;
+    white-space: nowrap;
+  }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+  .pill.ok  { background: var(--ok-soft);  color: var(--ok); }
+  .pill.ok::before { background: var(--ok); }
+  .pill.wip { background: var(--wip-soft); color: var(--wip); }
+  .pill.wip::before { background: var(--wip); }
+  .pill.new { background: var(--new-soft); color: var(--new); }
+  .pill.new::before { background: var(--new); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 0 0 6px; }
+  .legend .pill { cursor: default; }
+
+  /* ---- phases ---- */
+  .phases { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; counter-reset: ph; }
+  .phase {
+    display: grid; grid-template-columns: auto 1fr; gap: 20px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 20px 22px; box-shadow: var(--shadow);
+    position: relative;
+  }
+  .phase .idx {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600;
+    font-size: 13px; color: var(--accent-ink);
+    background: var(--accent-soft); border-radius: 8px;
+    width: 46px; height: 46px; display: flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .phase h3 { margin: 2px 0 6px; font-size: 16.5px; }
+  .phase.complete .idx { background: var(--ok-soft); color: var(--ok); }
+  .cbadge { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; color: var(--ok); background: var(--ok-soft); padding: 2px 8px; border-radius: 20px; margin-left: 9px; white-space: nowrap; }
+  .phase p { margin: 0 0 10px; font-size: 14.5px; color: var(--ink-2); max-width: none; }
+  .done {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    color: var(--ok); display: flex; align-items: flex-start; gap: 7px;
+    background: var(--ok-soft); border-radius: 7px; padding: 8px 11px;
+  }
+  .done svg { flex: none; margin-top: 1px; }
+  .done span b { color: var(--ink-2); font-weight: 600; font-family: "IBM Plex Sans", sans-serif; }
+
+  /* ---- risks ---- */
+  .risks { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+  .risk-item {
+    display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start;
+    background: var(--surface); border: 1px solid var(--line);
+    border-left: 3px solid var(--sev, var(--line-strong));
+    border-radius: 10px; padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .risk-item.high { --sev: var(--risk); }
+  .risk-item.med  { --sev: var(--wip); }
+  .risk-item.dec  { --sev: var(--new); }
+  .risk-item.ok-item { --sev: var(--ok); }
+  .ok-item .sev-badge { background: var(--ok-soft); color: var(--ok); }
+  .sev-badge {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    padding: 4px 8px; border-radius: 6px; white-space: nowrap; margin-top: 1px;
+  }
+  .high .sev-badge { background: var(--risk-soft); color: var(--risk); }
+  .med  .sev-badge { background: var(--wip-soft); color: var(--wip); }
+  .dec  .sev-badge { background: var(--new-soft); color: var(--new); }
+  .risk-item h3 { margin: 0 0 4px; font-size: 15px; }
+  .risk-item p { margin: 0; font-size: 14px; color: var(--ink-2); max-width: none; }
+
+  /* ---- footer ---- */
+  footer {
+    border-top: 1px solid var(--line); padding: 30px 0 60px;
+    font-size: 13px; color: var(--muted);
+  }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+  footer .mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+  @media (max-width: 680px) {
+    .halves { grid-template-columns: 1fr; }
+    .phase { grid-template-columns: 1fr; gap: 12px; }
+    .phase .idx { width: 40px; height: 34px; }
+    .risk-item { grid-template-columns: 1fr; gap: 9px; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .phase, .half, .risk-item { transition: box-shadow .2s ease, transform .2s ease; }
+    .phase:hover, .risk-item:hover { box-shadow: var(--shadow-lift); }
+  }
+</style>
+
+<header class="masthead">
+  <div class="wrap">
+    <div class="eyebrow">Firmware port &middot; planning brief</div>
+    <h1>Mazerunner&nbsp;<span class="arw">&rarr;</span>&nbsp;Blackpill</h1>
+    <p class="standfirst">Moving the E4 micromouse from an Arduino Nano (ATmega328P) to an STM32F411 Blackpill — marrying mature C++ maze-solving logic to a working HAL driver layer.</p>
+    <div class="meta-row">
+      <span><b>Target</b> STM32F411CEU6 &middot; Cortex-M4F</span>
+      <span><b>Language</b> C++ throughout</span>
+      <span><b>Toolchain</b> STM32CubeIDE / HAL</span>
+      <span><b>Source</b> ukmars mazerunner-core</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="callout ok">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <div><b>Pin map confirmed against the manufactured board</b> — read straight from the v2 EAGLE netlist, which matches an unpopulated board visually. The full map is in the appendix below; it belongs in one config header as the single source of truth every driver reads from.</div>
+  </div>
+</div>
+
+<main class="wrap">
+
+  <!-- WHERE THINGS STAND -->
+  <section>
+    <p class="kicker"><span class="n">01</span> Where things stand</p>
+    <h2>Two solid halves that need marrying</h2>
+    <p class="measure">This isn't a blank-page rewrite. You already have both of the hard pieces — they just haven't been introduced to each other yet. One half does the <em>thinking</em>; the other drives the <em>hardware</em>. The whole project is the bridge between them.</p>
+    <div class="halves">
+      <div class="half">
+        <h3>The brain <span class="tag brain">to bring across</span></h3>
+        <p style="margin:0;font-size:14.5px;color:var(--muted)">mazerunner-core — mature, header-only C++</p>
+        <ul>
+          <li>16&times;16 flood-fill maze solver</li>
+          <li>Trapezoidal motion profiles</li>
+          <li>Forward / rotation PD controllers</li>
+          <li>Search, wall-follow &amp; calibration behaviour</li>
+          <li>Serial CLI &amp; telemetry reporting</li>
+        </ul>
+      </div>
+      <div class="half body-card">
+        <h3>The body <span class="tag body">already working</span></h3>
+        <p style="margin:0;font-size:14.5px;color:var(--muted)">Your E4 CubeIDE project — HAL drivers</p>
+        <ul>
+          <li>Both encoders in hardware timer mode</li>
+          <li>4-channel motor PWM on one timer</li>
+          <li>SSD1306 OLED talking over I&sup2;C</li>
+          <li>MPU-9250 gyro talking over SPI</li>
+          <li>ADC, Bluetooth UART, buttons &amp; LEDs</li>
+        </ul>
+      </div>
+    </div>
+    <p class="measure" style="margin-top:22px">The fiddly, get-stuck-here work — hardware quadrature decoding, landing four PWM channels on one timer, bringing up SPI and I&sup2;C peripherals — is <b>done</b>. What remains is mostly C++ structure and wiring things together, which is much closer to familiar ground.</p>
+  </section>
+
+  <!-- TARGET ARCHITECTURE -->
+  <section>
+    <p class="kicker"><span class="n">02</span> Target architecture</p>
+    <h2>One boundary holds the two languages apart</h2>
+    <p class="measure">The generated HAL stays as C, so CubeMX can still regenerate it. Everything you write lives in C++ above an <code>extern "C"</code> boundary. The logic layer never touches a register — it calls a thin wrapper class, and the wrapper calls your HAL driver.</p>
+    <figure>
+      <div class="figframe">
+        <svg viewBox="0 0 760 430" role="img" aria-label="Layered architecture: C++ maze-solving logic sits above a thin C++ hardware-wrapper layer, which calls C HAL drivers across an extern C boundary, which reach the F411 peripherals. A control loop ties the wrappers together each tick.">
+          <defs>
+            <marker id="ah" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+            <marker id="ahc" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+          <!-- layer bands -->
+          <g font-family="'IBM Plex Sans', sans-serif">
+            <!-- Logic layer -->
+            <rect x="24" y="20" width="560" height="92" rx="10" fill="var(--accent-soft)" stroke="var(--line-strong)"/>
+            <text x="44" y="45" font-size="12" font-family="'IBM Plex Mono', monospace" fill="var(--accent-ink)" letter-spacing="1.5">C++ · MAZERUNNER-CORE — the brain</text>
+            <g font-size="12.5" fill="var(--ink)" font-family="'IBM Plex Mono', monospace">
+              <rect x="44" y="58" width="92" height="38" rx="6" fill="var(--surface)" stroke="var(--line-strong)"/><text x="90" y="81" text-anchor="middle">maze</text>
+              <rect x="146" y="58" width="92" height="38" rx="6" fill="var(--surface)" stroke="var(--line-strong)"/><text x="192" y="81" text-anchor="middle">mouse</text>
+              <rect x="248" y="58" width="92" height="38" rx="6" fill="var(--surface)" stroke="var(--line-strong)"/><text x="294" y="81" text-anchor="middle">motion</text>
+              <rect x="350" y="58" width="98" height="38" rx="6" fill="var(--surface)" stroke="var(--line-strong)"/><text x="399" y="81" text-anchor="middle">profile</text>
+              <rect x="458" y="58" width="104" height="38" rx="6" fill="var(--surface)" stroke="var(--line-strong)"/><text x="510" y="81" text-anchor="middle">cli · report</text>
+            </g>
+
+            <!-- Wrapper layer -->
+            <rect x="24" y="150" width="560" height="92" rx="10" fill="var(--surface-2)" stroke="var(--line-strong)"/>
+            <text x="44" y="175" font-size="12" font-family="'IBM Plex Mono', monospace" fill="var(--muted)" letter-spacing="1.5">C++ · HARDWARE WRAPPERS — thin classes</text>
+            <g font-size="12" fill="var(--ink)" font-family="'IBM Plex Mono', monospace">
+              <rect x="44" y="188" width="84" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="86" y="211" text-anchor="middle">Encoders</text>
+              <rect x="138" y="188" width="74" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="175" y="211" text-anchor="middle">Motors</text>
+              <rect x="222" y="188" width="80" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="262" y="211" text-anchor="middle">Sensors</text>
+              <rect x="312" y="188" width="64" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="344" y="211" text-anchor="middle">IMU</text>
+              <rect x="386" y="188" width="86" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="429" y="211" text-anchor="middle">Display</text>
+              <rect x="482" y="188" width="80" height="38" rx="6" fill="var(--surface)" stroke="var(--line)"/><text x="522" y="211" text-anchor="middle">Battery</text>
+            </g>
+
+            <!-- extern C boundary -->
+            <line x1="24" y1="272" x2="584" y2="272" stroke="var(--accent)" stroke-width="1.5" stroke-dasharray="6 5"/>
+            <rect x="250" y="261" width="108" height="22" rx="11" fill="var(--ground)" stroke="var(--accent)"/>
+            <text x="304" y="276" text-anchor="middle" font-size="11" font-family="'IBM Plex Mono', monospace" fill="var(--accent-ink)">extern "C"</text>
+
+            <!-- HAL layer -->
+            <rect x="24" y="300" width="560" height="60" rx="10" fill="var(--surface)" stroke="var(--line-strong)"/>
+            <text x="44" y="323" font-size="12" font-family="'IBM Plex Mono', monospace" fill="var(--muted)" letter-spacing="1.5">C · STM32 HAL (CubeMX-generated, regenerable)</text>
+            <text x="44" y="345" font-size="12.5" font-family="'IBM Plex Mono', monospace" fill="var(--ink-2)">TIM2/3/4 · ADC1+DMA · SPI2 · I²C1 · USART1 · GPIO</text>
+
+            <!-- peripherals -->
+            <rect x="24" y="386" width="560" height="30" rx="8" fill="var(--surface-2)" stroke="var(--line)"/>
+            <text x="304" y="405" text-anchor="middle" font-size="12" font-family="'IBM Plex Mono', monospace" fill="var(--muted)">F411 silicon — motors · encoders · wall sensors · gyro · screen</text>
+
+            <!-- vertical call arrows -->
+            <g stroke="currentColor" stroke-width="1.4" fill="none" opacity="0.75">
+              <line x1="304" y1="112" x2="304" y2="148" marker-end="url(#ah)"/>
+              <line x1="304" y1="242" x2="304" y2="259" marker-end="url(#ah)"/>
+              <line x1="304" y1="285" x2="304" y2="298" marker-end="url(#ah)"/>
+              <line x1="304" y1="360" x2="304" y2="384" marker-end="url(#ah)"/>
+            </g>
+            <text x="314" y="134" font-size="11" fill="var(--muted)" font-family="'IBM Plex Mono', monospace">calls</text>
+
+            <!-- control loop spine -->
+            <g>
+              <rect x="612" y="58" width="126" height="184" rx="10" fill="var(--accent-soft)" stroke="var(--accent)"/>
+              <text x="675" y="88" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--accent-ink)" font-family="'IBM Plex Sans',sans-serif">Control</text>
+              <text x="675" y="105" text-anchor="middle" font-size="12.5" font-weight="600" fill="var(--accent-ink)" font-family="'IBM Plex Sans',sans-serif">loop</text>
+              <text x="675" y="128" text-anchor="middle" font-size="11" fill="var(--accent-ink)" font-family="'IBM Plex Mono', monospace">timer ISR</text>
+              <text x="675" y="145" text-anchor="middle" font-size="11" fill="var(--accent-ink)" font-family="'IBM Plex Mono', monospace">1 kHz</text>
+              <line x1="675" y1="162" x2="675" y2="196" stroke="var(--accent)" stroke-width="1.2"/>
+              <text x="675" y="182" text-anchor="middle" font-size="10.5" fill="var(--accent-ink)" font-family="'IBM Plex Mono', monospace">every tick</text>
+              <line x1="675" y1="216" x2="675" y2="196" stroke="var(--accent)" stroke-width="1.2"/>
+            </g>
+            <!-- loop drives wrappers -->
+            <line x1="610" y1="205" x2="566" y2="205" stroke="var(--accent)" stroke-width="1.6" fill="none" marker-end="url(#ahc)"/>
+          </g>
+        </svg>
+      </div>
+      <figcaption><b>The bridge in one picture.</b> Logic calls wrappers, wrappers call HAL — each layer only knows the one below it. The <b>control loop</b> (a timer ISR, the successor to the Nano's 500&nbsp;Hz Timer2 tick) reaches into the wrapper layer every tick to read the encoders and gyro, run the controllers, and update the motors. Regenerating the HAL in CubeMX never disturbs anything above the dashed line.</figcaption>
+    </figure>
+  </section>
+
+  <!-- SUBSYSTEM MAP -->
+  <section>
+    <p class="kicker"><span class="n">03</span> Subsystem map</p>
+    <h2>What each part becomes</h2>
+    <p class="measure">Every subsystem in the Nano firmware, where it stands on the E4 board today, and what porting it means. The interfaces the logic layer expects (<code>get_raw()</code>, <code>robot_angle()</code>, and so on) stay the same — only what's underneath changes.</p>
+    <div class="legend" aria-hidden="true">
+      <span class="pill ok">working on E4</span>
+      <span class="pill wip">to build / rework</span>
+      <span class="pill new">new capability</span>
+    </div>
+    <div class="tablescroll">
+      <table>
+        <thead>
+          <tr><th>Subsystem</th><th>On the Nano</th><th>On the E4 today</th><th>Port plan</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Control loop</td>
+            <td>Timer2 CTC, 500&nbsp;Hz ISR <span class="sub">runs the whole update()</span></td>
+            <td><span class="pill ok">working</span><span class="sub">1&nbsp;kHz SysTick control ISR</span></td>
+            <td>Run the C++ update every SysTick (1&nbsp;kHz) — the beating heart of the port.</td>
+          </tr>
+          <tr>
+            <td>Encoders</td>
+            <td>Pin-change interrupt, software decode</td>
+            <td><span class="pill ok">working</span><span class="sub">TIM2 &amp; TIM4 encoder mode</span></td>
+            <td>Thin class reads <code>TIMx-&gt;CNT</code>; derive distance &amp; angle per tick. Free of CPU cost.</td>
+          </tr>
+          <tr>
+            <td>Motors</td>
+            <td>analogWrite + DIR pin, Timer1 registers</td>
+            <td><span class="pill ok">working</span><span class="sub">TIM3, 4-ch, 2-in drive</span></td>
+            <td>Keep the PD + feed-forward maths; swap the output stage to TIM3 duty. Rescale max-PWM to the timer's period, not 255.</td>
+          </tr>
+          <tr>
+            <td>Wall sensing</td>
+            <td>Interrupt ADC scan, 2 emitters</td>
+            <td><span class="pill wip">placeholder</span><span class="sub">ADC1 <span class="pin">PA0·PA2–PA5</span> set up</span></td>
+            <td>The one greenfield block: DMA scan + timed emitter pulses (4 independent emitters), behind the same sensor interface.</td>
+          </tr>
+          <tr>
+            <td>Battery</td>
+            <td>ADC channel + divider maths</td>
+            <td><span class="pill ok">reads</span><span class="sub"><span class="pin">PA0</span> · 1S LiPo</span></td>
+            <td>Thin wrapper; the existing divider maths already suits the 1S LiPo range.</td>
+          </tr>
+          <tr>
+            <td>User input</td>
+            <td>Analog resistor ladder &rarr; function 0–15</td>
+            <td><span class="pill ok">2 buttons</span><span class="sub"><span class="pin">PA11 · PA12</span></span></td>
+            <td>The ladder is gone — replaced by the menu below. Buttons become OK / Cancel.</td>
+          </tr>
+          <tr>
+            <td>Display</td>
+            <td>—</td>
+            <td><span class="pill ok">working</span><span class="sub">SSD1306, I²C1 <span class="pin">PB8/PB9</span></span></td>
+            <td>New: status readouts and the menu UI. C++ wrapper over your driver.</td>
+          </tr>
+          <tr>
+            <td>IMU / gyro</td>
+            <td>— <span class="sub">(code has hooks)</span></td>
+            <td><span class="pill ok">working</span><span class="sub">MPU-9250, SPI2</span></td>
+            <td>Polled each tick; feeds angle &amp; steering. The code already invites it in <code>angle_controller()</code>.</td>
+          </tr>
+          <tr>
+            <td>Menu / launcher</td>
+            <td>Turn switch + button</td>
+            <td><span class="pill wip">in progress</span><span class="sub">where you left off</span></td>
+            <td>Encoder wheel = cursor, buttons = OK/Cancel, OLED = screen. Replaces the CLI function picker.</td>
+          </tr>
+          <tr>
+            <td>Maze persistence</td>
+            <td><code>.noinit</code> RAM <span class="sub">warm-reset only</span></td>
+            <td><span class="pill new">new capability</span><span class="sub">24-series I²C EEPROM</span></td>
+            <td>Save the map to the daughterboard EEPROM — survives a full power-off, which the Nano never managed.</td>
+          </tr>
+          <tr>
+            <td>Serial / CLI</td>
+            <td>USB serial</td>
+            <td><span class="pill ok">working</span><span class="sub">USART1 &rarr; Bluetooth</span></td>
+            <td>Route the CLI &amp; telemetry over Bluetooth — tune and watch the robot untethered.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section>
+    <p class="kicker"><span class="n">04</span> Sequenced roadmap</p>
+    <h2>Eight phases, each one runnable</h2>
+    <p class="measure">Ordered so the robot does something real at the end of every phase, and so nothing depends on the greenfield sensing work until it has to. Each phase names what "done" looks like, so you always know where the line is.</p>
+    <div class="phases">
+
+      <div class="phase complete">
+        <div class="idx">P0</div>
+        <div>
+          <h3>Stand the project up as C++ <span class="cbadge">✓ complete</span></h3>
+          <p>Switch the CubeIDE project to a C++ toolchain, wrap the CubeMX/HAL includes in <code>extern "C"</code>, and settle the folder split: generated HAL stays C, your app and logic become C++. <em>Along the way we cleared four latent bugs: constants defined in <code>config.h</code> (split into <code>config.c</code>), eight headers missing or mis-typed C++ guards, and a const-correctness issue in the OLED driver.</em></p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done:</b> builds green as mixed C/C++ with the entry point in <code>app_main.cpp</code>, confirmed running on the mouse — live OLED, encoders, battery and motors.</span></div>
+        </div>
+      </div>
+
+      <div class="phase complete">
+        <div class="idx">P1</div>
+        <div>
+          <h3>Bring the brain across <span class="cbadge">&#10003; complete</span></h3>
+          <p>Port the hardware-independent classes — <code>maze</code>, <code>queue</code>, <code>profile</code>, <code>motion</code>, <code>mouse</code>, <code>reporting</code> — with their hardware calls stubbed. This is the bulk of the code and it moves almost intact.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done:</b> maze flood-fill solver, trapezoidal motion profiles and a self-contained UART reporting layer ported and verified on the mouse; the flooded maze dumps over the Bluetooth link.</span></div>
+        </div>
+      </div>
+
+      <div class="phase complete">
+        <div class="idx">P2</div>
+        <div>
+          <h3>Wire the wrappers to your drivers <span class="cbadge">&#10003; complete</span></h3>
+          <p>Fill in <code>Encoders</code>, <code>Motors</code>, <code>Battery</code>, and the control-loop tick against the HAL drivers you already have. Now the logic layer can actually move the robot. <em>Along the way: solved the Bluetooth debug link (the module was set to 230400&nbsp;baud, found with an on-board AT sweep), fixed a motor-PWM scaling bug (duty was scaled to a phantom full-scale instead of TIM3's real period, so anything above ~10% pegged at full speed), and calibrated the drive on the bench — motor/encoder polarities, and the effective turning radius for the skid-steer "tetra" drive.</em></p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done:</b> a 1&nbsp;kHz SysTick loop runs the profiles through feed-forward + PD controllers; she drives straight (150&nbsp;mm, dead straight) and spins on the spot (360&deg;, no translation), with odometry reporting distance &amp; angle.</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">P3</div>
+        <div>
+          <h3>Build the wall sensing</h3>
+          <p>The one block written from scratch: pulse the emitters, DMA-scan the receiver channels, subtract dark from lit, and expose it behind the same sensor interface the logic expects. Add the calibration routine.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done when:</b> live wall readings drive the steering feedback and left/right/front wall detection works.</span></div>
+        </div>
+      </div>
+
+      <div class="phase complete">
+        <div class="idx">P4</div>
+        <div>
+          <h3>Fold in the gyro <span class="cbadge">&#10003; complete</span></h3>
+          <p>Read the MPU-9250 each tick and feed its angle and rate into the rotation and steering controllers, alongside — or in place of — the encoder-derived angle.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done:</b> yaw heading from the MPU-9250 Z-gyro (bias-calibrated, scale-trimmed) feeds the rotation controller; turns are now smooth and on-target (358&deg; on a 360&deg; spin, clean stop) where encoder-only turns hunted and slipped.</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">P5</div>
+        <div>
+          <h3>Build the menu &amp; launcher</h3>
+          <p>Pick up where you left off: OLED menu, encoder wheel as the cursor, buttons as OK / Cancel — the on-robot way to choose and start each routine.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done when:</b> you can scroll to a routine and launch it from the screen, no serial needed.</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">P6</div>
+        <div>
+          <h3>Persistence &amp; tuning</h3>
+          <p>Store the solved maze to the I²C EEPROM and reload on boot, then tune the config constants — wheel diameter, mouse radius, controller gains, feed-forward — on the real robot.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done when:</b> the maze survives a power cycle and the robot searches to the goal and back.</span></div>
+        </div>
+      </div>
+
+      <div class="phase">
+        <div class="idx">P7</div>
+        <div>
+          <h3>Companion maze app</h3>
+          <p>A host-side visualiser the mouse talks to directly over the Bluetooth link, in place of a raw serial viewer. It draws the maze from a known starting state and fills in walls and costs live as the mouse explores, showing her position and heading moving through the grid in near-real-time. Needs a small, defined telemetry protocol &mdash; pose plus wall updates &mdash; streamed from the reporting layer. Likely a single Web&nbsp;Bluetooth page opened in Chrome on the Mac, so there is nothing to install.</p>
+          <div class="done"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span><b>Done when:</b> a live on-screen maze shows the mouse's position and the walls she has found, updating as she drives.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- RISKS -->
+  <section>
+    <p class="kicker"><span class="n">05</span> Open items &amp; decisions</p>
+    <h2>Things to settle before they bite</h2>
+    <p class="measure">The hardware all checks out — these are choices to make up front, not problems to fix. Deciding each one early is cheap; discovering it at link time or mid-tune is not.</p>
+    <div class="risks">
+
+      <div class="risk-item ok-item">
+        <span class="sev-badge">decided</span>
+        <div>
+          <h3>Control loop runs at 1&nbsp;kHz</h3>
+          <p>Chosen over mazerunner's 500&nbsp;Hz — it suits the gyro and the F411 has huge headroom. It also lands neatly on the project's existing 1&nbsp;ms SysTick, so the control update just runs every tick. <code>LOOP_FREQUENCY</code> = 1000 and <code>LOOP_INTERVAL</code> = 0.001 propagate through most of the rate-dependent maths automatically; the controller gains (the D terms especially) get re-tuned on the robot in Phase&nbsp;6.</p>
+        </div>
+      </div>
+
+      <div class="risk-item dec">
+        <span class="sev-badge">your call</span>
+        <div>
+          <h3>Encoder resolution — &times;2 or &times;4</h3>
+          <p>The timers are set to count one edge (TI1, &times;2). Switching to both edges (TI12, &times;4) doubles your odometry resolution for free — a small config change now, well worth taking.</p>
+        </div>
+      </div>
+
+      <div class="risk-item dec">
+        <span class="sev-badge">note</span>
+        <div>
+          <h3>A couple of C++ housekeeping points</h3>
+          <p>The header-only classes each need exactly one translation unit that instantiates them, and mazerunner's file-scope <code>const</code> config values want care so they don't multiply-define across units. Both are routine — just decided up front, not discovered at link time.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PIN MAP -->
+  <section>
+    <p class="kicker"><span class="n">06</span> Appendix</p>
+    <h2>Confirmed pin map</h2>
+    <p class="measure">Read directly from the v2 board netlist — the single source of truth for the config header. Peripheral column shows the STM32 function each pin is wired for, which is what the HAL init has to match.</p>
+    <div class="tablescroll">
+      <table class="pinmap">
+        <thead>
+          <tr><th>Signal</th><th>MCU pin</th><th>Peripheral</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          <tr class="grp"><td colspan="4">Motors <span class="cnt">— DRV8833, all on TIM3</span></td></tr>
+          <tr><td class="sig">MDRIVER_IN1</td><td class="mcu">PA6</td><td class="per">TIM3_CH1</td><td>Left motor, reverse</td></tr>
+          <tr><td class="sig">MDRIVER_IN2</td><td class="mcu">PA7</td><td class="per">TIM3_CH2</td><td>Left motor, forward</td></tr>
+          <tr><td class="sig">MDRIVER_IN3</td><td class="mcu">PB0</td><td class="per">TIM3_CH3</td><td>Right motor, reverse</td></tr>
+          <tr><td class="sig">MDRIVER_IN4</td><td class="mcu">PB1</td><td class="per">TIM3_CH4</td><td>Right motor, forward</td></tr>
+
+          <tr class="grp"><td colspan="4">Encoders <span class="cnt">— hardware timer mode</span></td></tr>
+          <tr><td class="sig">ML-CHA</td><td class="mcu">PA15</td><td class="per">TIM2_CH1</td><td>Left encoder A</td></tr>
+          <tr><td class="sig">ML-CHB</td><td class="mcu">PB3</td><td class="per">TIM2_CH2</td><td>Left encoder B</td></tr>
+          <tr><td class="sig">MR-CHB</td><td class="mcu">PB6</td><td class="per">TIM4_CH1</td><td>Right encoder B</td></tr>
+          <tr><td class="sig">MR-CHA</td><td class="mcu">PB7</td><td class="per">TIM4_CH2</td><td>Right encoder A</td></tr>
+
+          <tr class="grp"><td colspan="4">Wall sensing <span class="cnt">— receivers on ADC1, emitters GPIO</span></td></tr>
+          <tr><td class="sig">RECEIVER_FRONT_RIGHT</td><td class="mcu">PA2</td><td class="per">ADC1_IN2</td><td>Front-right detector</td></tr>
+          <tr><td class="sig">RECEIVER_SIDE_RIGHT</td><td class="mcu">PA3</td><td class="per">ADC1_IN3</td><td>Side-right detector</td></tr>
+          <tr><td class="sig">RECEIVER_SIDE_LEFT</td><td class="mcu">PA4</td><td class="per">ADC1_IN4</td><td>Side-left detector</td></tr>
+          <tr><td class="sig">RECEIVER_FRONT_LEFT</td><td class="mcu">PA5</td><td class="per">ADC1_IN5</td><td>Front-left detector</td></tr>
+          <tr><td class="sig">EMITTER_FRONT_LEFT</td><td class="mcu">PB4</td><td class="per">GPIO out</td><td>Front-left emitter</td></tr>
+          <tr><td class="sig">EMITTER_SIDE_LEFT</td><td class="mcu">PB5</td><td class="per">GPIO out</td><td>Side-left emitter</td></tr>
+          <tr><td class="sig">EMITTER_SIDE_RIGHT</td><td class="mcu">PC14</td><td class="per">GPIO out</td><td>Side-right emitter</td></tr>
+          <tr><td class="sig">EMITTER_FRONT_RIGHT</td><td class="mcu">PC15</td><td class="per">GPIO out</td><td>Front-right emitter</td></tr>
+          <tr><td class="sig">BATTERY_VOLTAGE</td><td class="mcu">PA0</td><td class="per">ADC1_IN0</td><td>1S LiPo via ÷2 divider (~2.1&nbsp;V max)</td></tr>
+
+          <tr class="grp"><td colspan="4">IMU <span class="cnt">— MPU-9250 on SPI2</span></td></tr>
+          <tr><td class="sig">GYRO_NCS</td><td class="mcu">PB12</td><td class="per">SPI2_NSS</td><td>Chip select</td></tr>
+          <tr><td class="sig">GYRO_SCL</td><td class="mcu">PB13</td><td class="per">SPI2_SCK</td><td>Clock</td></tr>
+          <tr><td class="sig">GYRO_SDO</td><td class="mcu">PB14</td><td class="per">SPI2_MISO</td><td>Data in (ADO)</td></tr>
+          <tr><td class="sig">GYRO_SDA</td><td class="mcu">PB15</td><td class="per">SPI2_MOSI</td><td>Data out (SDI)</td></tr>
+
+          <tr class="grp"><td colspan="4">Display &amp; EEPROM <span class="cnt">— shared I²C1 (daughterboard)</span></td></tr>
+          <tr><td class="sig">IIC_SCL</td><td class="mcu">PB8</td><td class="per">I2C1_SCL</td><td>OLED + 24-series EEPROM</td></tr>
+          <tr><td class="sig">IIC_SDA</td><td class="mcu">PB9</td><td class="per">I2C1_SDA</td><td>OLED + 24-series EEPROM</td></tr>
+
+          <tr class="grp"><td colspan="4">Comms &amp; UI</td></tr>
+          <tr><td class="sig">BLUE-RX</td><td class="mcu">PA9</td><td class="per">USART1_TX</td><td>Bluetooth module RX</td></tr>
+          <tr><td class="sig">BLUE-TX</td><td class="mcu">PA10</td><td class="per">USART1_RX</td><td>Bluetooth module TX</td></tr>
+          <tr><td class="sig">BUTTONLEFT</td><td class="mcu">PA11</td><td class="per">GPIO in</td><td>Button — OK</td></tr>
+          <tr><td class="sig">BUTTONRIGHT</td><td class="mcu">PA12</td><td class="per">GPIO in</td><td>Button — Cancel</td></tr>
+          <tr><td class="sig">LED-RIGHT</td><td class="mcu">PB2</td><td class="per">GPIO out</td><td>User LED</td></tr>
+          <tr><td class="sig">LED-LEFT</td><td class="mcu">PB10</td><td class="per">GPIO out</td><td>User LED</td></tr>
+          <tr><td class="sig">LED_ON</td><td class="mcu">PC13</td><td class="per">GPIO out</td><td>Onboard Blackpill LED</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="mono">E4 micromouse &middot; port planning brief</span>
+    <span class="mono">Pin map confirmed &middot; v2 board netlist</span>
+  </div>
+</footer>
