@@ -1,5 +1,6 @@
 #include <config.h>
 #include "app_main.h"
+#include "version.h"   // FW_VERSION / FW_BUILD
 #include "ssd1306.h"
 #include "mpu9250.h"
 #include "IRS.h"
@@ -19,6 +20,7 @@
 #include "bt_rx.h"       // interrupt-driven UART1 receive ring buffer
 #include "eeprom.h"      // 24LC256 persistence driver (diagnostic)
 #include <string.h>
+#include <stdlib.h>
 
 // access to global variables in system code generated files
 extern I2C_HandleTypeDef hi2c1;
@@ -35,6 +37,14 @@ int16_t cntr = 500;
 uint8_t button_held = 0;
 int16_t accData[3], gyroData[3];
 static uint8_t s_haveOled = 1;   // set from SSD1306_Init(); 0 => run headless (no OLED)
+
+// Two-colour 128x64 SSD1306 on E4: rows 0..15 are YELLOW, rows 16..63 are
+// BLUE, with a single non-displayed pixel line at the seam (~y16). Never let
+// a text line straddle the seam or it falls in the dead row. Title -> yellow,
+// list -> blue. Tune here if a different panel is fitted.
+static const int OLED_TITLE_Y = 3;    // title baseline, inside the yellow band
+static const int OLED_LIST_Y0 = 18;   // first list row, just below the seam (blue)
+static const int OLED_ROW_H   = 12;   // line pitch in the blue band (3 rows: 18,30,42)
 
 float xval,yval,zval;
 int16_t xval_raw = 0;
@@ -81,12 +91,6 @@ static void act_set_bt_57k(void) {
 	bt_ensure_baud(57600);
 	bt_rx_init();      // DeInit/Init during re-baud cleared the RXNE interrupt
 	HAL_Delay(1800);   // hold the OLED result so it can be read
-}
-
-static void act_stub(void) {
-	report_write("not implemented yet\r\n");
-	for (int i = 0; i < 6; i++) { LED_ALL_TOGGLE(); HAL_Delay(70); }
-	LED_ALL_OFF();
 }
 
 // Substrate self-test: prove the persistent-run + concurrent forward/rotation
@@ -246,6 +250,130 @@ static void act_sensor_mode(void) {
 	}
 }
 
+// --- Stubs for actions not built yet (see spec roadmap). Each announces
+// itself over BT + OLED so the menu is fully navigable before the feature lands.
+static void act_todo(const char *what) {
+	report_printf("ACT,todo %s\r\n", what);
+	if (s_haveOled) {
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, 3);  SSD1306_Puts("Not built yet", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, 26); SSD1306_Puts(what,            &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+		HAL_Delay(1200);
+	}
+}
+static const uint8_t SIZE_PRESETS[] = { 3, 4, 5, 6, MAZE_WIDTH };
+static int s_size_idx = (int)(sizeof(SIZE_PRESETS) / sizeof(SIZE_PRESETS[0])) - 1;  // boot = Full
+static void act_set_maze_size(void) {           // cycles 3x3 .. 6x6 .. Full on each run
+	s_size_idx = (s_size_idx + 1) % (int)(sizeof(SIZE_PRESETS) / sizeof(SIZE_PRESETS[0]));
+	uint8_t n = SIZE_PRESETS[s_size_idx];
+	maze.set_bounds(n, n);
+	report_printf("ACT,size %dx%d\r\n", maze.width(), maze.height());
+	if (s_haveOled) {
+		char b[20]; snprintf(b, sizeof(b), "Arena %dx%d", maze.width(), maze.height());
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, 3);  SSD1306_Puts("Set size", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, 26); SSD1306_Puts(b,          &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen(); HAL_Delay(900);
+	}
+	mouse.show_arena();
+}
+static int s_goal_idx = 3;                       // first run -> Far corner
+static void act_set_goal(void) {                // cycles corner/centre presets of the arena
+	int w = maze.width(), h = maze.height();
+	s_goal_idx = (s_goal_idx + 1) % 4;
+	Location g(0, 0); const char *nm = "";
+	switch (s_goal_idx) {
+		case 0: g = Location((uint8_t)(w - 1), (uint8_t)(h - 1));                 nm = "Far corner"; break;
+		case 1: g = Location((uint8_t)(w / 2), (uint8_t)(h / 2));                 nm = "Centre";     break;
+		case 2: g = Location((uint8_t)(w > 1 ? 1 : 0), (uint8_t)(h > 1 ? 1 : 0)); nm = "Near start"; break;
+		case 3: g = Location((uint8_t)(w - 1), 0);                               nm = "Right edge"; break;
+	}
+	maze.set_goal(g);
+	report_printf("ACT,goal %d,%d\r\n", maze.goal().x, maze.goal().y);
+	if (s_haveOled) {
+		char b[22]; snprintf(b, sizeof(b), "%s %d,%d", nm, maze.goal().x, maze.goal().y);
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, 3);  SSD1306_Puts("Set goal", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, 26); SSD1306_Puts(b,          &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen(); HAL_Delay(900);
+	}
+	mouse.show_arena();
+}
+static void act_turn_tune(void)     { act_todo("Turn tuning"); }
+static void act_wall_follow(void)   { act_todo("Wall follower"); }
+static void act_speed_run(void)     { act_todo("Speed run"); }
+static void act_resume_saved(void)  { act_todo("Resume saved"); }
+static void act_run_options(void)   { act_todo("Run options"); }
+
+// --- Emitter hold: light one / all IR emitters for camera-based aiming. ------
+// Driven at ~50% high-frequency PWM so the average current stays well under the
+// SFH 4550's 100 mA DC limit whatever the emitter rail; a camera integrates the
+// tens-of-kHz switching into a steady spot. RIGHT / 'E' cycles the target,
+// LEFT / '<' exits (all emitters off).
+static inline void emit_pwm_wait(void) { for (volatile uint32_t c = 180; c; c--) { } }
+static void act_ir_emitter_hold(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	const ADCSensors ids[4] = { IR_SIDE_LEFT, IR_FRONT_LEFT, IR_FRONT_RIGHT, IR_SIDE_RIGHT };
+	const char *names[5] = { "SL side-left", "FL front-left", "FR front-right", "SR side-right", "ALL four" };
+	int sel = 0, run = 1, redraw = 1;
+	uint8_t rp = 1, lp = 1; uint32_t note = 0;
+	report_write("Emitter hold (camera aid): ~50% PWM, safe DC. RIGHT/E=next, LEFT/<=exit.\r\n");
+	while (run) {
+		for (int i = 0; i < 300; i++) {                       // ~50% PWM burst
+			if (sel == 4) { for (int k = 0; k < 4; k++) Irs_Emitter_Set(ids[k], 1); }
+			else          { Irs_Emitter_Set(ids[sel], 1); }
+			emit_pwm_wait();
+			if (sel == 4) { for (int k = 0; k < 4; k++) Irs_Emitter_Set(ids[k], 0); }
+			else          { Irs_Emitter_Set(ids[sel], 0); }
+			emit_pwm_wait();
+		}
+		uint8_t r = SWITCH_RIGHT(), l = SWITCH_LEFT();
+		if (r && !rp) { sel = (sel + 1) % 5; redraw = 1; }
+		if (l && !lp) { run = 0; }
+		rp = r; lp = l;
+		uint8_t ch;
+		while (bt_rx_pop(&ch)) {
+			if (ch == 'E' || ch == 'n' || ch == 'r' || ch == ' ') { sel = (sel + 1) % 5; redraw = 1; }
+			else if (ch == '<' || ch == 'q') { run = 0; }
+		}
+		if (run && (redraw || HAL_GetTick() - note >= 600)) {
+			note = HAL_GetTick(); redraw = 0;
+			report_printf("EMIT,%d,%s\r\n", sel, names[sel]);
+			if (s_haveOled) {
+				SSD1306_Fill(SSD1306_COLOR_BLACK);
+				SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Emitter hold", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(names[sel],      &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("R=next L=exit", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+			}
+		}
+	}
+	for (int k = 0; k < 4; k++) Irs_Emitter_Set(ids[k], 0);
+	report_write("Emitter hold: off\r\n");
+}
+
+// Diagnostics: show the firmware version + build stamp until a button / BT key.
+static void act_fw_version(void) {
+	report_printf("VER,%s,%s\r\n", FW_VERSION, FW_BUILD);
+	if (s_haveOled) {
+		char l[24];
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y);                SSD1306_Puts("Firmware", &Font_7x10, SSD1306_COLOR_WHITE);
+		snprintf(l, sizeof(l), "v%s", FW_VERSION);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);                SSD1306_Puts(l, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H);   SSD1306_Puts(__DATE__, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + 2*OLED_ROW_H); SSD1306_Puts(__TIME__, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+	}
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }   // wait for release
+	uint8_t junk; while (bt_rx_pop(&junk)) { }                  // clear pending BT
+	while (!(SWITCH_LEFT() || SWITCH_RIGHT())) {                // hold until a press / BT key
+		if (bt_rx_pop(&junk)) break;
+		HAL_Delay(10);
+	}
+}
+
 // Flat action registry. `key` is the BT shortcut (the app sends it to run the
 // action directly, bypassing the OLED menu hierarchy). Order matters: the
 // categories below index into this array.
@@ -268,55 +396,85 @@ static const MenuItem MENU[] = {
 	/*14*/ { "Test mode",   'k', act_toggle_test },
 	/*15*/ { "EEPROM test", 't', act_eeprom_test },
 	/*16*/ { "BT ->57600",  'b', act_set_bt_57k  },
+	/*17*/ { "Set maze size",'c', act_set_maze_size },
+	/*18*/ { "Set goal",     'y', act_set_goal      },
+	/*19*/ { "Turn tuning",  'j', act_turn_tune     },
+	/*20*/ { "Wall follower",'w', act_wall_follow   },
+	/*21*/ { "Speed run",    'l', act_speed_run     },
+	/*22*/ { "Resume saved", 'R', act_resume_saved  },
+	/*23*/ { "Run options",  'O', act_run_options   },
+	/*24*/ { "Emitter hold", 'E', act_ir_emitter_hold },
+	/*25*/ { "Firmware ver", 'V', act_fw_version },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
-// Grouped categories for the OLED (2-level menu). Wheels scroll, RIGHT enters/
-// runs, LEFT goes back. BT keys above bypass all of this.
+// Categories group items; modes group categories. Nav is 3-level:
+// MODE -> CATEGORY -> ITEM. Wheels scroll, RIGHT enters/runs, LEFT backs out.
+// BT keys above bypass all of this.  (*) marks a stub, not built yet.
 typedef struct { const char *name; const uint8_t *items; uint8_t n; } Category;
-static const uint8_t CAT_MOVE[]    = { 0, 1, 2, 3, 4 };
-static const uint8_t CAT_MAZE[]    = { 5, 6, 7, 8, 9 };
-static const uint8_t CAT_SENSORS[] = { 10, 11 };
-static const uint8_t CAT_SETUP[]   = { 12, 13, 14, 15, 16 };
+static const uint8_t CAT_CAL[]    = { 12, 10, 19, 4 };      // Recal gyro, IR monitor, Turn tuning*, Motion test
+static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
+static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
+static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
+static const uint8_t CAT_DIAG[]   = { 15, 11, 13, 14, 16, 24, 25 }; // EEPROM test, Sensor mode, Reset pose, Test mode, BT57600, Emitter hold, Firmware ver
+static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
+static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
+static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
-	{ "Move",    CAT_MOVE,    5 },
-	{ "Maze",    CAT_MAZE,    5 },
-	{ "Sensors", CAT_SENSORS, 2 },
-	{ "Setup",   CAT_SETUP,   5 },
+	/*0*/ { "Calibration", CAT_CAL,    4 },
+	/*1*/ { "Moves",       CAT_MOVES,  4 },
+	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
+	/*3*/ { "Simulation",  CAT_SIM,    3 },
+	/*4*/ { "Diagnostics", CAT_DIAG,   7 },
+	/*5*/ { "Wall follow", CAT_WALL,   1 },
+	/*6*/ { "Maze solver", CAT_SOLVE,  3 },
+	/*7*/ { "Run options", CAT_RUNOPT, 1 },
 };
-static const int NUM_CAT = (int)(sizeof(CAT) / sizeof(CAT[0]));
+
+// Two top-level modes, each grouping a set of categories (by CAT[] index).
+typedef struct { const char *name; const uint8_t *cats; uint8_t n; } Mode;
+static const uint8_t MODE_TEST[] = { 0, 1, 2, 3, 4 };   // Calibration, Moves, In-maze, Simulation, Diagnostics
+static const uint8_t MODE_COMP[] = { 5, 6, 7 };         // Wall follow, Maze solver, Run options
+static const Mode MODE[] = {
+	{ "TEST / BENCH", MODE_TEST, 5 },
+	{ "COMPETITION",  MODE_COMP, 3 },
+};
+static const int NUM_MODE = (int)(sizeof(MODE) / sizeof(MODE[0]));
+
+// Position of category c within mode m (for LEFT/back navigation).
+static int cat_pos_in_mode(int m, int c) {
+	for (int i = 0; i < (int)MODE[m].n; i++) if (MODE[m].cats[i] == c) return i;
+	return 0;
+}
 
 static const int MENU_VIS  = 3;    // visible list rows in the blue band (y=18,30,42)
 static const int MENU_JOG_COUNTS = 800;  // wheel counts (both wheels summed) per cursor step
 static const int MENU_JOG_DIR    = -1;    // flip to -1 if scrolling feels inverted
 
-// Two-colour 128x64 SSD1306 on E4: rows 0..15 are YELLOW, rows 16..63 are
-// BLUE, with a single non-displayed pixel line at the seam (~y16). Never let
-// a text line straddle the seam or it falls in the dead row. Title -> yellow,
-// list -> blue. Tune here if a different panel is fitted.
-static const int OLED_TITLE_Y = 3;    // title baseline, inside the yellow band
-static const int OLED_LIST_Y0 = 18;   // first list row, just below the seam (blue)
-static const int OLED_ROW_H   = 12;   // line pitch in the blue band (3 rows: 18,30,42)
 
-static void menu_render(int level, int cat, int sel, int top)
+static void menu_render(int level, int mode, int cat, int sel, int top)
 {
 	if (!s_haveOled) return;   // headless: nothing to draw, drive via BT
 	char ln[24];
 	SSD1306_Fill(SSD1306_COLOR_BLACK);
 	SSD1306_GotoXY(0, OLED_TITLE_Y);
 	if (level == 0)
-		snprintf(ln, sizeof(ln), "E4 MENU %s", control_test_mode() ? "TEST" : "");
+		snprintf(ln, sizeof(ln), "E4 MODE%s", control_test_mode() ? " T" : "");
+	else if (level == 1)
+		snprintf(ln, sizeof(ln), "%s%s", MODE[mode].name, control_test_mode() ? " T" : "");
 	else
 		snprintf(ln, sizeof(ln), "%s%s", CAT[cat].name, control_test_mode() ? " T" : "");
 	SSD1306_Puts(ln, &Font_7x10, SSD1306_COLOR_WHITE);
-	int count = (level == 0) ? NUM_CAT : (int)CAT[cat].n;
+	int count = (level == 0) ? NUM_MODE : (level == 1) ? (int)MODE[mode].n : (int)CAT[cat].n;
 	for (int r = 0; r < MENU_VIS; r++) {
 		int i = top + r;
 		if (i >= count) break;
 		int y = OLED_LIST_Y0 + r * OLED_ROW_H;   // 18,30,42 -- all in blue
 		char cur = (i == sel) ? '>' : ' ';
 		if (level == 0) {
-			snprintf(ln, sizeof(ln), "%c%s", cur, CAT[i].name);
+			snprintf(ln, sizeof(ln), "%c%s", cur, MODE[i].name);
+		} else if (level == 1) {
+			snprintf(ln, sizeof(ln), "%c%s", cur, CAT[MODE[mode].cats[i]].name);
 		} else {
 			int mi = CAT[cat].items[i];
 			if (MENU[mi].run == act_toggle_test)
@@ -341,14 +499,23 @@ void app_main()
 	Encoder_Initialize();
 
 	report_write("E4 boot\r\n");
+	report_printf("VER,%s,%s\r\n", FW_VERSION, FW_BUILD);
 
-	SSD1306_GotoXY (0, 0);
-	SSD1306_Puts ("Welcome to E4", &Font_7x10, SSD1306_COLOR_WHITE);
-	SSD1306_GotoXY (0, 20);
-	SSD1306_Puts ("(c) James Clarke", &Font_7x10, SSD1306_COLOR_WHITE);
-	SSD1306_UpdateScreen(); //display
+	{
+		char vln[24];
+		SSD1306_GotoXY (0, 0);
+		snprintf(vln, sizeof(vln), "E4  v%s", FW_VERSION);
+		SSD1306_Puts (vln, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY (0, 16);
+		SSD1306_Puts ("(c) James Clarke", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY (0, 36);
+		SSD1306_Puts (__DATE__, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY (0, 50);
+		SSD1306_Puts (__TIME__, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen(); //display
+	}
 
-	HAL_Delay(1000);
+	HAL_Delay(1600);
 
 	SSD1306_Clear();
 	SSD1306_GotoXY (0,0);
@@ -372,12 +539,12 @@ void app_main()
 	truth_load_default();
 	maze.set_goal(Location(1, 1));
 
-	int level = 0, cat = 0, sel = 0, top = 0;
+	int level = 0, mode = 0, cat = 0, sel = 0, top = 0;
 	uint8_t left_prev = 0, right_prev = 0;
 	uint32_t stream_then = 0;
 	long jog_ref = (long)MENU_JOG_DIR * ((long)odometry.total_left() + odometry.total_right());
 
-	menu_render(level, cat, sel, top);
+	menu_render(level, mode, cat, sel, top);
 	report_write("E4 ready. Wheels scroll; RIGHT=enter/run, LEFT=back. BT: <key> runs an action, n/p scroll, r enter, < back\r\n");
 
 	while (1)
@@ -393,21 +560,23 @@ void app_main()
 
 		bool dirty   = false;
 		int  run_idx = -1;                                   // MENU index to run, or -1
-		int  count   = (level == 0) ? NUM_CAT : (int)CAT[cat].n;
+		int  count   = (level == 0) ? NUM_MODE : (level == 1) ? (int)MODE[mode].n : (int)CAT[cat].n;
 
 		// --- buttons: RIGHT = enter/run, LEFT = back ---
 		uint8_t l = SWITCH_LEFT();
 		uint8_t r = SWITCH_RIGHT();
 		if (r && !right_prev) {
-			if (level == 0) { level = 1; cat = sel; sel = 0; top = 0; dirty = true; }   // enter category
-			else            { run_idx = CAT[cat].items[sel]; }                          // run item
+			if      (level == 0) { mode = sel; level = 1; sel = 0; top = 0; dirty = true; }         // enter mode
+			else if (level == 1) { cat = MODE[mode].cats[sel]; level = 2; sel = 0; top = 0; dirty = true; }  // enter category
+			else                 { run_idx = CAT[cat].items[sel]; }                              // run item
 		}
 		if (l && !left_prev) {
-			if (level == 1) { level = 0; sel = cat; top = 0; dirty = true; }            // back to categories
+			if      (level == 2) { level = 1; sel = cat_pos_in_mode(mode, cat); top = 0; dirty = true; }     // back to categories
+			else if (level == 1) { level = 0; sel = mode; top = 0; dirty = true; }                           // back to modes
 		}
 		left_prev  = l;
 		right_prev = r;
-		count = (level == 0) ? NUM_CAT : (int)CAT[cat].n;    // level may have changed
+		count = (level == 0) ? NUM_MODE : (level == 1) ? (int)MODE[mode].n : (int)CAT[cat].n;    // level may have changed
 
 		// --- wheel jog: spin/roll the wheels to scroll the current view ---
 		long jog = (long)MENU_JOG_DIR * ((long)odometry.total_left() + odometry.total_right());
@@ -422,16 +591,28 @@ void app_main()
 			if (ch == '\n' || ch == '\r') {
 				if (bt_len > 0) {
 					bt_line[bt_len] = '\0';
-					if (!maze_inject_line(bt_line) && bt_len == 1) {
+					if (strncmp(bt_line, "SIZE,", 5) == 0) {
+						int nw = atoi(bt_line + 5);
+						const char *cc = strchr(bt_line + 5, ',');
+						int nh = cc ? atoi(cc + 1) : nw;
+						if (nw > 0 && nh > 0) { maze.set_bounds((uint8_t)nw, (uint8_t)nh); mouse.show_arena(); }
+					}
+					else if (strncmp(bt_line, "GOAL,", 5) == 0) {
+						const char *a = bt_line + 5; const char *cc = strchr(a, ',');
+						if (cc) { maze.set_goal(Location((uint8_t)atoi(a), (uint8_t)atoi(cc + 1))); mouse.show_arena(); }
+					}
+					else if (!maze_inject_line(bt_line) && bt_len == 1) {
 						char c = bt_line[0];
 						if      (c == 'n' || c == '+') { if (sel < count - 1) { sel++; dirty = true; } }
 						else if (c == 'p' || c == '-') { if (sel > 0) { sel--; dirty = true; } }
 						else if (c == 'r' || c == ' ') {                        // enter / run (as RIGHT)
-							if (level == 0) { level = 1; cat = sel; sel = 0; top = 0; dirty = true; }
-							else            { run_idx = CAT[cat].items[sel]; }
+							if      (level == 0) { mode = sel; level = 1; sel = 0; top = 0; dirty = true; }
+							else if (level == 1) { cat = MODE[mode].cats[sel]; level = 2; sel = 0; top = 0; dirty = true; }
+							else                 { run_idx = CAT[cat].items[sel]; }
 						}
 						else if (c == '<' || c == 'q') {                        // back (as LEFT)
-							if (level == 1) { level = 0; sel = cat; top = 0; dirty = true; }
+							if      (level == 2) { level = 1; sel = cat_pos_in_mode(mode, cat); top = 0; dirty = true; }
+							else if (level == 1) { level = 0; sel = mode; top = 0; dirty = true; }
 						}
 						else {                                                  // direct action key
 							for (int i = 0; i < MENU_N; i++) if (MENU[i].key == c) { run_idx = i; break; }
@@ -462,12 +643,12 @@ void app_main()
 
 		// --- redraw only on change (no flicker) ---
 		if (dirty) {
-			count = (level == 0) ? NUM_CAT : (int)CAT[cat].n;
+			count = (level == 0) ? NUM_MODE : (level == 1) ? (int)MODE[mode].n : (int)CAT[cat].n;
 			if (sel >= count) sel = count - 1;
 			if (sel < 0)      sel = 0;
 			if (sel < top)                top = sel;
 			if (sel > top + MENU_VIS - 1) top = sel - (MENU_VIS - 1);
-			menu_render(level, cat, sel, top);
+			menu_render(level, mode, cat, sel, top);
 		}
 
 		HAL_Delay(20);

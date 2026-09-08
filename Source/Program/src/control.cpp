@@ -9,6 +9,7 @@
 #include "report.h"
 #include "motors_ctrl.h"
 #include "profile.h"       // extern Profile forward, rotation
+#include "IRS.h"          // Battery_GetVoltage for the low-battery guard
 #include <math.h>
 
 enum CtrlMode { CTRL_IDLE = 0, CTRL_OPEN_LOOP, CTRL_CLOSED_LOOP };
@@ -26,6 +27,11 @@ static volatile float s_pose_x = 90.0f, s_pose_y = 90.0f, s_pose_heading = 0.0f;
 // POSE_TEST_*_OFFSET so a move can be run from an on-maze spot. Default OFF
 // (real column-0 start). Toggled from the menu; never persisted.
 static bool s_test_mode = false;
+
+// --- Low-battery cutoff state (thresholds live in motion_config.h) ----------
+static uint32_t s_batt_low_since = 0;   // tick the pack first dropped low (0 = not low)
+static bool     s_batt_tripped   = false;
+bool control_batt_tripped() { return s_batt_tripped; }
 
 // ---------------------------------------------------------------------------
 // The 1 kHz control ISR. Keep it short and non-blocking. No HAL_Delay, no
@@ -45,6 +51,9 @@ extern "C" void control_isr(void) {
     s_pose_x += -ds * sinf(th);
     s_pose_y +=  ds * cosf(th);
   }
+  if (s_batt_tripped) {
+    motors.stop();                         // low-battery lockout: motors held off
+  } else
   switch (s_mode) {
     case CTRL_IDLE:
       break;                               // motors already stopped
@@ -111,9 +120,33 @@ void control_run_end() {
 
 void control_update_battery(float v) {
   motors.set_battery_voltage(v);
+
+  // Low-battery cutoff. Ignore implausible readings (no pack / USB bench
+  // power): a cell that isn't there can't be over-discharged, and a ~0 V sense
+  // line must never park the motors.
+  if (v < BATT_VALID_VOLTS) { s_batt_low_since = 0; return; }
+
+  if (v < BATT_CUTOFF_VOLTS) {
+    uint32_t now = HAL_GetTick();
+    if (s_batt_low_since == 0) {
+      s_batt_low_since = now ? now : 1;                 // 0 is the "clear" sentinel
+    } else if (!s_batt_tripped && (now - s_batt_low_since) >= BATT_CUTOFF_MS) {
+      s_batt_tripped = true;
+      control_run_end();                                // motors off, controllers disabled
+      int iv = (int)v, fv = (int)(v * 100) % 100; if (fv < 0) fv = -fv;
+      report_printf("ACT,lowbatt\r\n");
+      report_printf("STATE,LOWBATT %d.%02dV\r\n", iv, fv);
+    }
+  } else if (v >= BATT_RECOVER_VOLTS) {
+    s_batt_low_since = 0;
+    s_batt_tripped   = false;                           // re-arm once the pack recovers
+  } else {
+    s_batt_low_since = 0;                               // 3.30-3.45 band: not sustained-low now
+  }
 }
 
 void control_open_loop_pulse(float left_volts, float right_volts, uint32_t ms) {
+  if (control_batt_tripped()) return;   // low-battery lockout
   motors.reset_controllers();
   odometry.reset();
   s_open_left_v  = left_volts;   // set volts BEFORE switching mode
@@ -126,6 +159,7 @@ void control_open_loop_pulse(float left_volts, float right_volts, uint32_t ms) {
 
 void control_forward_move(float distance, float top_speed,
                           float final_speed, float acceleration) {
+  if (control_batt_tripped()) return;   // low-battery lockout
   // Wait for the triggering button to be released first -- otherwise the
   // abort check in the loop below fires immediately on the same press that
   // started this move, and it stops before it moves.
@@ -144,11 +178,11 @@ void control_forward_move(float distance, float top_speed,
   forward.start(distance, top_speed, final_speed, acceleration);
   uint32_t t_tel = HAL_GetTick();
   while (!forward.is_finished()) {
-    if (SWITCH_LEFT() || SWITCH_RIGHT()) {   // manual abort
+    if (SWITCH_LEFT() || SWITCH_RIGHT() || control_batt_tripped()) {   // manual abort
       forward.stop();
       break;
     }
-    if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_stream_telemetry(); }
+    if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_update_battery(Battery_GetVoltage()); control_stream_telemetry(); }
     HAL_Delay(2);
   }
   HAL_Delay(60);           // let the controller settle at the stop point
@@ -159,6 +193,7 @@ void control_forward_move(float distance, float top_speed,
 
 
 void control_spin(float angle, float top_omega, float final_omega, float alpha) {
+  if (control_batt_tripped()) return;   // low-battery lockout
   // Wait for the triggering button to be released (same reason as the move).
   while (SWITCH_LEFT() || SWITCH_RIGHT()) {
     HAL_Delay(5);
@@ -175,13 +210,13 @@ void control_spin(float angle, float top_omega, float final_omega, float alpha) 
   rotation.start(angle, top_omega, final_omega, alpha);
   uint32_t t_log = HAL_GetTick();
   while (!rotation.is_finished()) {
-    if (SWITCH_LEFT() || SWITCH_RIGHT()) {   // fresh press aborts
+    if (SWITCH_LEFT() || SWITCH_RIGHT() || control_batt_tripped()) {   // fresh press aborts
       rotation.stop();
       break;
     }
     if (HAL_GetTick() - t_log >= 50) {       // stream telemetry during the spin
       t_log = HAL_GetTick();
-      control_stream_telemetry();
+      control_update_battery(Battery_GetVoltage()); control_stream_telemetry();
     }
     HAL_Delay(2);
   }
@@ -193,6 +228,7 @@ void control_spin(float angle, float top_omega, float final_omega, float alpha) 
 
 void control_arc_turn(float v, float lead_in, float angle,
                       float omega_max, float alpha, float lead_out) {
+  if (control_batt_tripped()) return;   // low-battery lockout
   while (SWITCH_LEFT() || SWITCH_RIGHT()) {   // wait for release
     HAL_Delay(5);
   }
@@ -212,16 +248,16 @@ void control_arc_turn(float v, float lead_in, float angle,
 
   // Phase 1: straight lead-in -- carry her into the cell before turning.
   while (odometry.robot_distance() < lead_in) {
-    if (SWITCH_LEFT() || SWITCH_RIGHT()) { aborted = true; break; }
-    if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_stream_telemetry(); }
+    if (SWITCH_LEFT() || SWITCH_RIGHT() || control_batt_tripped()) { aborted = true; break; }
+    if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_update_battery(Battery_GetVoltage()); control_stream_telemetry(); }
     HAL_Delay(2);
   }
   // Phase 2: the arc -- forward speed held while the rotation profile sweeps.
   if (!aborted) {
     rotation.start(angle, omega_max, 0.0f, alpha);
     while (!rotation.is_finished()) {
-      if (SWITCH_LEFT() || SWITCH_RIGHT()) { rotation.stop(); aborted = true; break; }
-      if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_stream_telemetry(); }
+      if (SWITCH_LEFT() || SWITCH_RIGHT() || control_batt_tripped()) { rotation.stop(); aborted = true; break; }
+      if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_update_battery(Battery_GetVoltage()); control_stream_telemetry(); }
       HAL_Delay(2);
     }
   }
@@ -230,8 +266,8 @@ void control_arc_turn(float v, float lead_in, float angle,
   if (!aborted) {
     float d0 = odometry.robot_distance();
     while (odometry.robot_distance() - d0 < lead_out) {
-      if (SWITCH_LEFT() || SWITCH_RIGHT()) { aborted = true; break; }
-      if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_stream_telemetry(); }
+      if (SWITCH_LEFT() || SWITCH_RIGHT() || control_batt_tripped()) { aborted = true; break; }
+      if (HAL_GetTick() - t_tel >= 50) { t_tel = HAL_GetTick(); control_update_battery(Battery_GetVoltage()); control_stream_telemetry(); }
       HAL_Delay(2);
     }
   }

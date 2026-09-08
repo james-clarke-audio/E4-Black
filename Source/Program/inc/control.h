@@ -38,6 +38,11 @@ void control_set_idle();
 // loop, never in the ISR) to the motor controller for PWM compensation.
 void control_update_battery(float v);
 
+// True once the low-battery cutoff has tripped (pack held below the floor).
+// Motion calls abort on it and the ISR holds the motors off; clears when the
+// pack recovers above BATT_RECOVER_VOLTS.
+bool control_batt_tripped();
+
 // Open-loop: apply fixed left/right volts for `ms` milliseconds, then stop.
 // Blocking. Odometry is zeroed first so you can read the resulting distance/
 // angle. Use for polarity verification and speed-vs-volts characterisation.

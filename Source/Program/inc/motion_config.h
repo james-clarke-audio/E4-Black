@@ -33,4 +33,18 @@ constexpr float MOTOR_SUPPLY_VOLTS = 9.0f;
 constexpr float MAX_MOTOR_VOLTS = 4.0f;
 constexpr int   MOTOR_MAX_PWM   = 1000;
 
+// --- Low-battery cutoff (1S LiPo pack protection) --------------------------
+// The guard (control.cpp) parks the motors if the raw pack voltage stays below
+// BATT_CUTOFF_VOLTS for BATT_CUTOFF_MS continuously. It is sampled ~20 Hz from
+// inside the motion loops (the run blocks the main loop, so it must be), which
+// naturally reads at the lighter-load moments between profile pushes -- so it
+// trips on genuine depletion, not a momentary boost-stage sag on hard accel.
+// Re-arms once the pack recovers above BATT_RECOVER_VOLTS (rest or a fresh
+// cell). Readings below BATT_VALID_VOLTS are treated as "no pack / USB bench
+// power" and ignored so the motors are never parked with no battery present.
+constexpr float    BATT_CUTOFF_VOLTS  = 3.30f;   // trip floor (under load)
+constexpr float    BATT_RECOVER_VOLTS = 3.45f;   // re-arm above this
+constexpr float    BATT_VALID_VOLTS   = 2.50f;   // below = no cell / bench USB
+constexpr unsigned BATT_CUTOFF_MS     = 200u;    // sustained time before trip
+
 #endif // MOTION_CONFIG_H

@@ -260,10 +260,32 @@ class Maze {
     return m_goal;
   }
 
-  /// @brief  changes the default goal. For example in a practice maze
+  /// @brief  changes the default goal. For example in a practice maze.
+  /// Clamped into the active arena bounds (see set_bounds).
   void set_goal(const Location goal) {
-    m_goal = goal;
+    int gx = goal.x, gy = goal.y;
+    if (gx > m_width  - 1) gx = m_width  - 1;
+    if (gy > m_height - 1) gy = m_height - 1;
+    if (gx < 0) gx = 0;
+    if (gy < 0) gy = 0;
+    m_goal = Location((uint8_t)gx, (uint8_t)gy);
   }
+
+  /// @brief  set the active arena size for practice/test mazes (<= 16x16).
+  /// The 16x16 storage is unchanged; initialise() walls the perimeter at these
+  /// bounds so the search stays inside. Does not reflood - call initialise()
+  /// (or start a search) to apply it. The goal is re-clamped into the arena.
+  void set_bounds(uint8_t w, uint8_t h) {
+    if (w < 1) w = 1;
+    if (w > MAZE_WIDTH)  w = MAZE_WIDTH;
+    if (h < 1) h = 1;
+    if (h > MAZE_HEIGHT) h = MAZE_HEIGHT;
+    m_width = w;
+    m_height = h;
+    set_goal(m_goal);          // pull the goal back inside if it fell outside
+  }
+  uint8_t width()  const { return m_width; }
+  uint8_t height() const { return m_height; }
 
   /// @brief  return the state of the walls in a cell
   WallInfo walls(const Location cell) const {
@@ -393,13 +415,13 @@ class Maze {
         m_walls[x][y].west = UNKNOWN;
       }
     }
-    for (int x = 0; x < MAZE_WIDTH; x++) {
+    for (int x = 0; x < m_width; x++) {
       m_walls[x][0].south = WALL;
-      m_walls[x][MAZE_HEIGHT - 1].north = WALL;
+      m_walls[x][m_height - 1].north = WALL;
     }
-    for (int y = 0; y < MAZE_HEIGHT; y++) {
+    for (int y = 0; y < m_height; y++) {
       m_walls[0][y].west = WALL;
-      m_walls[MAZE_WIDTH - 1][y].east = WALL;
+      m_walls[m_width - 1][y].east = WALL;
     }
     set_wall_state(START, EAST, WALL);
     set_wall_state(START, NORTH, EXIT);
@@ -575,6 +597,8 @@ class Maze {
 
   MazeMask m_mask = MASK_OPEN;
   Location m_goal{7, 7};
+  uint8_t  m_width  = MAZE_WIDTH;   // active arena size (practice/test mazes)
+  uint8_t  m_height = MAZE_HEIGHT;
   // on Arduino only use 8 bits for cost to save space
   uint8_t m_cost[MAZE_WIDTH][MAZE_HEIGHT];
   WallInfo m_walls[MAZE_WIDTH][MAZE_HEIGHT];
