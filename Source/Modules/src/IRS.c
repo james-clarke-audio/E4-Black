@@ -14,8 +14,8 @@ extern ADC_HandleTypeDef hadc1;
 
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
-void Delay() { //this is how you can do a delay, modify the DELAY_COUNT in the .h file if your readings aren't consistent
-	volatile uint32_t counter = DELAY_COUNT;
+void Irs_Delay(uint32_t count) { //busy-loop settle; callers pass IR_LIT_SETTLE_COUNT / IR_DARK_SETTLE_COUNT
+	volatile uint32_t counter = count;
 	while(counter--);
 }
 #pragma GCC pop_options
@@ -49,7 +49,9 @@ const float BATTERY_R2 = 10000.0; //resistor to Gnd
 const float BATTERY_DIVIDER_RATIO = BATTERY_R2 / (BATTERY_R1 + BATTERY_R2);
 const float ADC_FSR = 4095.0;    //The maximum reading for the ADC
 const float ADC_REF_VOLTS = 3.3; //Reference voltage of ADC
-const float BATTERY_MULTIPLIER = (ADC_REF_VOLTS / ADC_FSR / BATTERY_DIVIDER_RATIO);
+// One-point calibration trim: multimeter 3.758 V (loaded) vs read 3.71 V -> x1.013.
+const float BATTERY_CAL = 1.013f;
+const float BATTERY_MULTIPLIER = (ADC_REF_VOLTS / ADC_FSR / BATTERY_DIVIDER_RATIO) * BATTERY_CAL;
 
 float Battery_GetVoltage(void)
 {
@@ -127,12 +129,12 @@ uint32_t Irs_Read(ADCSensors ir)
 			// Turn on LED
 			HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);
 			// Wait a bit...
-			Delay();
+			Irs_Delay(IR_LIT_SETTLE_COUNT);
 			// Get reading and turn of LED
 			value = Analog_Read(ir);
 			HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
 			// Wait again...
-			Delay();
+			Irs_Delay(IR_DARK_SETTLE_COUNT);
 			break;
 
 	}
@@ -152,6 +154,14 @@ static int ir_port_pin(ADCSensors ir, GPIO_TypeDef **port, uint16_t *pin)
 	}
 }
 
+// Drive one emitter's GPIO directly (diagnostics: camera-based aiming). No ADC.
+void Irs_Emitter_Set(ADCSensors ir, uint8_t on)
+{
+	GPIO_TypeDef *port; uint16_t pin;
+	if (!ir_port_pin(ir, &port, &pin)) return;
+	HAL_GPIO_WritePin(port, pin, on ? GPIO_PIN_SET : GPIO_PIN_RESET);
+}
+
 // Ambient-subtracted read: sample dark (emitter off), pulse the emitter, sample
 // lit, subtract. Rejects room/IR ambient so wall thresholds are stable. Clamped
 // at 0. This is what the wall-sensing layer should use (not the raw Irs_Read).
@@ -161,11 +171,43 @@ uint32_t Irs_Read_Diff(ADCSensors ir)
 	if (!ir_port_pin(ir, &port, &pin)) return Analog_Read(ir);   // battery: raw
 	uint32_t dark = Analog_Read(ir);            // ambient (emitter off)
 	HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET); // emitter on
-	Delay();
+	Irs_Delay(IR_LIT_SETTLE_COUNT);
 	uint32_t lit = Analog_Read(ir);             // ambient + reflected
 	HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
-	Delay();
+	Irs_Delay(IR_DARK_SETTLE_COUNT);
 	return (lit > dark) ? (lit - dark) : 0;
+}
+
+// Batched ambient-subtracted read of the four IR detectors, in two clean phases:
+//   1. DARK: every emitter off, settle (IR_DARK_SETTLE_COUNT), then read each
+//            detector's ambient baseline back-to-back.
+//   2. LIT:  one emitter at a time - on, settle (IR_LIT_SETTLE_COUNT), read that
+//            detector, off - so a sensor never sees a neighbour's beam.
+// Because every dark sample is taken with all emitters off (and after a settle),
+// no detector is still bleeding charge from a pulse when its baseline is measured,
+// giving a cleaner, larger diff than the old per-sensor interleaved read.
+// out[] is indexed by ADCSensors; entries IR_SIDE_RIGHT..IR_SIDE_LEFT are filled.
+void Irs_Read_Diff_All(uint32_t out[5])
+{
+	static const ADCSensors order[4] = {
+		IR_SIDE_LEFT, IR_FRONT_LEFT, IR_FRONT_RIGHT, IR_SIDE_RIGHT
+	};
+	uint32_t dark[5] = {0};
+
+	// Phase 1: DARK. All emitters off, let the detectors settle, read all ambients.
+	for (int i = 0; i < 4; ++i) Irs_Emitter_Set(order[i], 0);
+	Irs_Delay(IR_DARK_SETTLE_COUNT);
+	for (int i = 0; i < 4; ++i) dark[order[i]] = Analog_Read(order[i]);
+
+	// Phase 2: LIT. One emitter at a time; subtract this sensor's phase-1 baseline.
+	for (int i = 0; i < 4; ++i) {
+		ADCSensors s = order[i];
+		Irs_Emitter_Set(s, 1);
+		Irs_Delay(IR_LIT_SETTLE_COUNT);
+		uint32_t lit = Analog_Read(s);
+		Irs_Emitter_Set(s, 0);
+		out[s] = (lit > dark[s]) ? (lit - dark[s]) : 0;
+	}
 }
 
 uint32_t Analog_Read(ADCSensors ir)
@@ -194,12 +236,18 @@ uint32_t Analog_Read(ADCSensors ir)
 	}
 
 	ADC_ChannelConfTypeDef sConfig = {0}; //this initializes the IR ADC [Analog to Digital Converter]
-	ADC_HandleTypeDef *hadc1_ptr = Get_HAdc1_Ptr(); //this is a pointer to your hal_adc, you will need this when you call HAL_ADC_PollForConversion
+	ADC_HandleTypeDef *hadc1_ptr = &hadc1;                  //this is a pointer to your hal_adc, you will need this when you call HAL_ADC_PollForConversion
 	//this pointer will also be used to read the analog value, val = HAL_ADC_GetValue(hadc1_ptr);
 
 	sConfig.Channel = channel;
 	sConfig.Rank = 1;
-	sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+	// Match the ADC sample window to the source impedance so the S&H cap charges
+	// fully. Battery divider ~5k source -> 480 cycles. IR detectors sit on a 1.8k
+	// load to ground (~1.8k source, worst case near cutoff): a 1.8k source needs
+	// ~300 ns to settle at 12-bit, but 3 cycles is only ~125 ns, so the old setting
+	// read the (weak, forward) returns systematically low. 28 cycles (~1.17 us) gives
+	// ~4x margin at a negligible ~1 us/conversion cost.
+	sConfig.SamplingTime = (ir == BATTERY) ? ADC_SAMPLETIME_480CYCLES : ADC_SAMPLETIME_28CYCLES;
 	HAL_ADC_ConfigChannel(hadc1_ptr, &sConfig);
 
 	HAL_ADC_Start(hadc1_ptr); //this starts the ADC

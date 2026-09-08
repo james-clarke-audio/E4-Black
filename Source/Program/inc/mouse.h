@@ -521,6 +521,24 @@ class Mouse {
     report_write("STATE,IDLE\r\n");
   }
 
+  //---- redraw the current arena (bounds + goal) to the app, no motors -------
+  // Applies the perimeter for the current bounds, then streams the empty arena
+  // and its goal so you can see the test maze before running in it.
+  void show_arena() {
+    maze.initialise();                 // perimeter for current bounds + reflood
+    report_write("RST\r\n");
+    report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_printf("SIZE,%d,%d\r\n", maze.width(), maze.height());
+    for (int x = 0; x < maze.width(); x++)
+      for (int y = 0; y < maze.height(); y++) {
+        WallInfo w = maze.walls(Location(x, y));
+        int m = (w.north == WALL ? 1 : 0) | (w.east == WALL ? 2 : 0) |
+                (w.south == WALL ? 4 : 0) | (w.west == WALL ? 8 : 0);
+        if (m) report_printf("W,%d,%d,%d\r\n", x, y, m);
+      }
+    report_write("STATE,IDLE\r\n");
+  }
+
   //---- bring the robot to a safe halt and wait for a button ----------------
   void blink(int count) {
     for (int i = 0; i < count; i++) { LED_ALL_ON(); HAL_Delay(100); LED_ALL_OFF(); HAL_Delay(100); }

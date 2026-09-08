@@ -180,7 +180,7 @@ uint32_t bt_ensure_baud(uint32_t target) {
   // 3) switch the module: "AT+BAUD<idx>" (reply arrives at the OLD baud).
   //    Try bare, then CRLF; accept "OK"/"Set" as success. Settle after.
   char cmd[16];
-  sprintf(cmd, "AT+BAUD%d", idx);
+  snprintf(cmd, sizeof(cmd), "AT+BAUD%d", idx);
   char sw[48]; sw[0] = 0;
   int n = bt_send_at(cur, cmd, false, sw, sizeof(sw));
   if (n <= 0 || !(strstr(sw, "Set") || strstr(sw, "OK"))) {

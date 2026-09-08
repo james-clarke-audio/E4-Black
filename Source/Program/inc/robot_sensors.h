@@ -8,7 +8,7 @@
  *
  *   REAL (use_real=true): reads the four IR detectors (ambient-subtracted, via
  *   Irs_Read_Diff) and sets the wall flags against tunable thresholds;
- *   get_front_sum() returns front-left + front-right. Nothing in the brain
+ *   get_front_sum() returns FL + FR (inner forward pair). Nothing in the brain
  *   changes - it calls the same update()/see_*_wall/get_front_sum() either way.
  *
  * Toggle at runtime from the menu (Sensors > Mode). The IR monitor streams the
@@ -37,7 +37,7 @@ class VirtualSensors {
 
   // Tunable wall-present thresholds on the ambient-subtracted reading. Set from
   // the IR monitor / calibration; sensible placeholders until the sensors exist.
-  int thresh_side  = 80;   // side wall present when its diff exceeds this
+  int thresh_side  = 60;   // side wall present when its diff exceeds this (SR right wall reads ~79)
   int thresh_front = 80;   // front wall present when (FL + FR) exceeds this
 
   // Last raw ambient-subtracted reads (for the monitor / calibration).
@@ -51,10 +51,12 @@ class VirtualSensors {
   // Sample all four detectors (ambient-subtracted) into rd_*. Always reads the
   // real hardware regardless of use_real -- used by the IR monitor.
   void sample_raw() {
-    rd_left  = (int)Irs_Read_Diff(IR_SIDE_LEFT);
-    rd_fl    = (int)Irs_Read_Diff(IR_FRONT_LEFT);
-    rd_fr    = (int)Irs_Read_Diff(IR_FRONT_RIGHT);
-    rd_right = (int)Irs_Read_Diff(IR_SIDE_RIGHT);
+    uint32_t d[5] = {0};
+    Irs_Read_Diff_All(d);                 // batched: one dark phase, then per-emitter lit
+    rd_left  = (int)d[IR_SIDE_LEFT];
+    rd_fl    = (int)d[IR_FRONT_LEFT];
+    rd_fr    = (int)d[IR_FRONT_RIGHT];
+    rd_right = (int)d[IR_SIDE_RIGHT];
   }
 
   // Refresh the three relative wall flags. VIRTUAL: from the ground truth for
@@ -69,9 +71,14 @@ class VirtualSensors {
       return;
     }
     sample_raw();
-    m_front_sum    = rd_fl + rd_fr;
-    see_left_wall  = rd_left  > thresh_side;
-    see_right_wall = rd_right > thresh_side;
+    // Mapping CONFIRMED by IR monitor (2 Sep 2026): a LEFT wall lights rd_left
+    // (SL), a RIGHT wall lights rd_right (SR), a FRONT wall lights FL+FR. So the
+    // OUTER pair SL/SR watch the SIDE walls; the INNER pair FL/FR watch FORWARD.
+    // (The earlier SL/SR=front guess, from a verbal description, was backwards -
+    // the hardware disagreed on a left-wall-only test. This is the original map.)
+    m_front_sum    = rd_fl + rd_fr;           // FL + FR (inner, forward) = FRONT
+    see_left_wall  = rd_left  > thresh_side;  // SL (outer) = LEFT wall
+    see_right_wall = rd_right > thresh_side;  // SR (outer) = RIGHT wall
     see_front_wall = m_front_sum > thresh_front;
   }
 
