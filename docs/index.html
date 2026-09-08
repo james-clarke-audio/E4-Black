@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Reference Manual</title>
+<meta name="description" content="Contents page for the E4 micromouse reference manual — hardware, sensors, firmware and app, in numbered chapters.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f4; --panel:#f9fafb; --panel2:#f1f4f7;
+    --ink:#1a222c; --muted:#586574; --faint:#8592a1;
+    --line:#c6cfd9; --line2:#d7dee6;
+    --beam:#c67d18; --beam-ink:#a8660e;
+    --accent-soft:rgba(198,125,24,0.10);
+    --ok:#3c8a5c;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0d1015; --panel:#151b23; --panel2:#1a212b;
+      --ink:#e6edf5; --muted:#8b97a6; --faint:#5c6773;
+      --line:#262f3a; --line2:#313b47;
+      --beam:#e6b34a; --beam-ink:#f0c368;
+      --accent-soft:rgba(230,179,74,0.12); --ok:#54cc72;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1015; --panel:#151b23; --panel2:#1a212b;
+    --ink:#e6edf5; --muted:#8b97a6; --faint:#5c6773;
+    --line:#262f3a; --line2:#313b47;
+    --beam:#e6b34a; --beam-ink:#f0c368;
+    --accent-soft:rgba(230,179,74,0.12); --ok:#54cc72;
+  }
+
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;padding:40px 22px 72px}
+  .wrap{max-width:820px;margin:0 auto}
+  a{color:inherit;text-decoration:none}
+
+  /* masthead */
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--beam-ink);margin:0 0 14px;display:flex;align-items:center;gap:12px}
+  .eyebrow::before{content:"";width:28px;height:2px;background:var(--beam)}
+  h1{font-size:clamp(32px,6vw,44px);font-weight:700;letter-spacing:-.025em;line-height:1.03;
+    margin:0 0 12px;text-wrap:balance}
+  .lede{color:var(--muted);font-size:16.5px;margin:0 0 22px;max-width:60ch}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 24px;font-family:var(--mono);font-size:12.5px;color:var(--muted);
+    padding:16px 0 0;border-top:1px solid var(--line)}
+  .meta b{color:var(--ink);font-weight:600}
+
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+    margin:44px 0 4px;font-weight:600;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* chapter list */
+  .toc{margin:18px 0 0;display:grid;gap:10px}
+  .ch{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:18px;
+    background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:17px 20px;
+    transition:border-color .14s, transform .14s, box-shadow .14s}
+  .ch:hover{border-color:var(--beam);transform:translateY(-1px)}
+  .ch .num{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--bg);background:var(--beam);
+    width:26px;height:26px;border-radius:7px;display:grid;place-items:center;letter-spacing:0}
+  .ch .ico{font-size:22px;line-height:1;width:26px;text-align:center}
+  .ch .body{display:flex;flex-direction:column;min-width:0}
+  .ch .body .t{font-size:16.5px;font-weight:600;letter-spacing:-.01em}
+  .ch .body .d{font-size:13px;color:var(--muted);font-family:var(--mono);margin-top:3px;line-height:1.45}
+  .ch .go{font-family:var(--mono);font-size:12px;color:var(--muted);opacity:.7;white-space:nowrap}
+  .ch:hover .go{color:var(--beam-ink);opacity:1}
+  @media(max-width:560px){
+    .ch{grid-template-columns:auto auto 1fr;gap:13px}
+    .ch .go{display:none}
+  }
+
+  .note{margin:26px 0 0;padding:15px 18px;border-radius:11px;background:var(--accent-soft);
+    border:1px solid var(--line);font-size:14px;color:var(--ink);line-height:1.55}
+  .note b{font-weight:600}
+  .note .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--beam-ink);display:block;margin-bottom:5px}
+
+  footer{margin-top:46px;padding-top:16px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Reference Manual</p>
+  <h1>E4 Micromouse</h1>
+  <p class="lede">The working reference for the E4 — an STM32F411 micromouse running a C++ port of ukmars mazerunner-core, with a Web&nbsp;Bluetooth companion app. Everything here is drawn from the real board, firmware and bench tests, and kept current as the build moves.</p>
+  <div class="meta">
+    <span><b>MCU</b> STM32F411CEU6 · Cortex-M4F</span>
+    <span><b>Firmware</b> mazerunner-core port, C/C++</span>
+    <span><b>Control</b> 1 kHz loop</span>
+  </div>
+
+  <h2 class="sec">Contents</h2>
+  <div class="toc">
+
+    <a class="ch" href="e4-rebuild.html">
+      <span class="num">1</span><span class="ico">🐭</span>
+      <span class="body"><span class="t">Overview</span><span class="d">what E4 is, and why the Nano&nbsp;→&nbsp;STM32 rebuild — the port story</span></span>
+      <span class="go">read →</span>
+    </a>
+
+    <a class="ch" href="e4-port.html">
+      <span class="num">2</span><span class="ico">🧭</span>
+      <span class="body"><span class="t">Architecture &amp; Pin Map</span><span class="d">the C++/HAL layering, subsystem map, and confirmed pin assignments</span></span>
+      <span class="go">read →</span>
+    </a>
+
+    <a class="ch" href="sensor-aim.html">
+      <span class="num">3</span><span class="ico">🛞</span>
+      <span class="body"><span class="t">Sensor Aim</span><span class="d">which detector watches which wall — SL/SR sides, FL/FR forward</span></span>
+      <span class="go">read →</span>
+    </a>
+
+    <a class="ch" href="e4-sensor-geometry.html">
+      <span class="num">4</span><span class="ico">📐</span>
+      <span class="body"><span class="t">Sensor Geometry</span><span class="d">plan view — positions, 15°/45° aim, beam path lengths to each wall</span></span>
+      <span class="go">read →</span>
+    </a>
+
+    <a class="ch" href="e4-sensor-housing.html">
+      <span class="num">5</span><span class="ico">🔦</span>
+      <span class="body"><span class="t">Sensor Housing</span><span class="d">labelled cross-section — 5° detector tilt, OP505A detectors, seating</span></span>
+      <span class="go">read →</span>
+    </a>
+
+    <a class="ch" href="e4-build-map.html">
+      <span class="num">6</span><span class="ico">🗺️</span>
+      <span class="body"><span class="t">Firmware &amp; Menu Map</span><span class="d">every menu action by state — Test/Bench and Competition modes (living)</span></span>
+      <span class="go">read →</span>
+    </a>
+
+  </div>
+
+  <div class="note">
+    <span class="lab">How to use this</span>
+    Each chapter is its own page with a nav strip back to these contents and on to the next. Chapters&nbsp;1–2 cover the whole build; 3–5 are the wall-sensing subsystem in detail; 6 tracks firmware progress and is updated as slots fill.
+  </div>
+
+  <footer>
+    <span>E4 · STM32F411 · mazerunner-core port</span>
+    <span>living manual — updated as the build moves</span>
+  </footer>
+</div>
+</body>
+</html>
