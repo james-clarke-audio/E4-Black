@@ -21,6 +21,7 @@
   header h1{font-size:14px;margin:0;font-weight:600;letter-spacing:.2px}
   header h1 .mouse{color:var(--accent2)}
   .status{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .fwver{font-family:var(--mono);font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:2px 7px;background:var(--panel2);white-space:nowrap}
   .dot{width:9px;height:9px;border-radius:50%;background:var(--faint)}
   .dot.on{background:var(--accent2);box-shadow:0 0 8px var(--accent2)}
   .dot.err{background:var(--bad)}
@@ -34,12 +35,36 @@
   button.cmd{padding:6px 4px;font-size:11px}
   .cmdgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
   main{flex:1;display:flex;min-height:0}
-  .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0;position:relative}
+  .stage{flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:12px;min-width:0;position:relative}
   #maze{background:#0a0d11;border:1px solid var(--line);border-radius:8px;max-width:100%;max-height:100%;cursor:grab}
   #maze:active{cursor:grabbing}
   .legend{position:absolute;left:20px;bottom:18px;display:flex;gap:13px;font-size:11px;color:var(--dim);
     background:rgba(10,13,17,.72);padding:6px 10px;border-radius:6px;font-family:var(--mono)}
   .legend b{font-weight:600}
+  .midpanel{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:20px;min-width:0;font-family:var(--mono)}
+  .midpanel h3{font-size:11px;color:var(--dim);letter-spacing:.1em;text-transform:uppercase;margin:0;
+    display:flex;gap:10px;align-items:center}
+  .mp-hint{font-size:10.5px;color:var(--faint);max-width:260px;text-align:center;line-height:1.5}
+  .mp-hint b{color:var(--dim);font-weight:500}
+  .sp-mode{color:var(--faint);font-size:10px}
+  .sp-mode.real{color:#7ee787}
+  .sp-svg{width:min(340px,88%);height:auto;display:block}
+  .sp-svg .beam{stroke:#39465a;stroke-width:2.4;stroke-linecap:round;transition:stroke .1s}
+  .sp-svg .beam.on{stroke:#e6b34a}
+  .sp-svg .dot{fill:#5a6675;stroke:#0e1116;stroke-width:1.2;transition:fill .1s}
+  .sp-svg .dot.on{fill:#e6b34a}
+  .sp-svg .body{fill:#161d27;stroke:#39465a;stroke-width:1.5}
+  .sp-svg .val{fill:#d6deea;font-size:12px;paint-order:stroke;stroke:#0e1116;stroke-width:2.6px;stroke-linejoin:round}
+  .sp-svg .val.on{fill:#e6b34a}
+  .sp-svg .nm{fill:#8794a5;font-size:8px;paint-order:stroke;stroke:#0e1116;stroke-width:2px;stroke-linejoin:round}
+  /* emitter-hold identify: pulse the marker the mouse is currently lighting */
+  .sp-svg .dot.ident{fill:#e6b34a;stroke:#e6b34a;stroke-width:2.2;animation:identpulse .8s ease-in-out infinite}
+  .sp-svg .beam.ident{stroke:#e6b34a;stroke-width:3;animation:identpulse .8s ease-in-out infinite}
+  .sp-svg .nm.ident{fill:#e6b34a;font-weight:700}
+  @keyframes identpulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .sp-foot{display:flex;gap:26px;font-size:11px;color:var(--dim)}
+  .sp-foot b{color:#d6deea;font-weight:500}
   aside{width:320px;flex:0 0 320px;background:var(--panel);border-left:1px solid var(--line);
     display:flex;flex-direction:column;overflow-y:auto}
   .sec{padding:12px 14px;border-bottom:1px solid var(--line)}
@@ -71,12 +96,35 @@
   details summary{cursor:pointer;color:var(--dim);font-size:11px}
   .proto{font-family:var(--mono);font-size:11px;color:var(--dim);line-height:1.6;margin-top:8px;white-space:pre-wrap}
   .proto b{color:var(--accent2)}
+  /* battery gauge */
+  .battwrap h2{display:flex;justify-content:space-between;align-items:center}
+  .batt-status{font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 7px;border-radius:10px;color:var(--faint);background:var(--panel2);text-transform:uppercase}
+  .batt-status.ok{color:#7ee787;background:rgba(126,231,135,.12)}
+  .batt-status.low{color:#e6b34a;background:rgba(230,179,74,.14)}
+  .batt-status.crit{color:#ff6b6b;background:rgba(255,107,107,.16)}
+  .battrow{display:flex;align-items:center;gap:14px}
+  .battglyph{display:flex;align-items:center}
+  .battcell{width:66px;height:30px;border:2px solid var(--line);border-radius:5px;padding:2px;overflow:hidden;background:var(--panel2)}
+  .battcap{width:4px;height:14px;background:var(--line);border-radius:0 2px 2px 0;margin-left:1px}
+  .battfill{height:100%;width:0;border-radius:2px;background:var(--accent);transition:width .3s,background .3s}
+  .battfill.ok{background:#54c98a}.battfill.low{background:#e6b34a}.battfill.crit{background:#ff6b6b}
+  .battnums{display:flex;flex-direction:column;line-height:1.12}
+  .battv{font-family:var(--mono);font-size:22px;font-weight:500}
+  .battv small{font-size:11px;color:var(--dim)}
+  .battpct{font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .battfoot{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);font-family:var(--mono);margin-top:9px}
+  .battfoot b{color:var(--ink);font-weight:500}
+  .batt-reset{cursor:pointer;color:var(--faint);text-decoration:underline}
+  .batt-reset:hover{color:var(--ink)}
+  @keyframes battpulse{0%,100%{opacity:1}50%{opacity:.45}}
+  .battwrap.alarm .battcell{border-color:#ff6b6b;animation:battpulse 1s infinite}
 </style>
 </head>
 <body>
 <header>
   <h1>E4 <span class="mouse">Mouse</span> · Maze Monitor</h1>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Disconnected</span></div>
+  <span class="fwver" id="fwver" hidden></span>
   <div class="spacer"></div>
   <button id="demoBtn">▶ Demo run</button>
   <button id="connectBtn" class="primary">Connect Bluetooth</button>
@@ -95,7 +143,43 @@
     </div>
   </div>
 
+  <div class="midpanel">
+    <h3>Live sensors <span class="sp-mode" id="sp-mode">virt</span></h3>
+    <svg viewBox="0 0 200 250" class="sp-svg" aria-label="Live IR sensor readout">
+      <image href="board.jpg" xlink:href="board.jpg" x="20" y="24" width="160" height="211"/>
+      <line class="beam" id="b-fl" x1="33.8" y1="93" x2="30" y2="73"/>
+      <line class="beam" id="b-fr" x1="170.2" y1="94" x2="174" y2="74"/>
+      <line class="beam" id="b-sl" x1="65.4" y1="47" x2="47" y2="33"/>
+      <line class="beam" id="b-sr" x1="133.9" y1="47" x2="152" y2="33"/>
+      <circle class="dot" id="d-fl" cx="33.8" cy="93" r="4"/>
+      <circle class="dot" id="d-fr" cx="170.2" cy="94" r="4"/>
+      <circle class="dot" id="d-sl" cx="65.4" cy="47" r="4"/>
+      <circle class="dot" id="d-sr" cx="133.9" cy="47" r="4"/>
+      <text class="nm" id="nm-fl" x="30" y="106" text-anchor="middle">FL</text>
+      <text class="nm" id="nm-fr" x="174" y="107" text-anchor="middle">FR</text>
+      <text class="nm" id="nm-sl" x="75" y="45" text-anchor="start">SL</text>
+      <text class="nm" id="nm-sr" x="125" y="45" text-anchor="end">SR</text>
+      <text class="val" id="s-fl" x="2" y="99" text-anchor="start">-</text>
+      <text class="val" id="s-fr" x="198" y="100" text-anchor="end">-</text>
+      <text class="val" id="s-sl" x="58" y="18" text-anchor="middle">-</text>
+      <text class="val" id="s-sr" x="142" y="18" text-anchor="middle">-</text>
+    </svg>
+    <div class="sp-foot"><span>front <b id="sp-front">-</b></span><span>thr <b id="sp-thr">s60 f80</b></span></div>
+    <div class="mp-hint">outer FL/FR &rarr; forward · inner SL/SR &rarr; side walls · run <b>IR monitor</b> on the mouse</div>
+  </div>
+
   <aside>
+    <div class="sec battwrap">
+      <h2>Battery <span class="batt-status" id="batt-status">— no data</span></h2>
+      <div class="battrow">
+        <div class="battglyph"><div class="battcell"><div class="battfill" id="batt-fill"></div></div><div class="battcap"></div></div>
+        <div class="battnums"><div class="battv" id="batt-v">—<small> V</small></div><div class="battpct" id="batt-pct">—</div></div>
+      </div>
+      <div class="battfoot">
+        <span>min under load <b id="batt-min">—</b></span>
+        <span class="batt-reset" id="batt-reset" onclick="state.battMin=null;updateBattery(state.tel&&state.tel.batt)">reset</span>
+      </div>
+    </div>
     <div class="sec">
       <h2>View</h2>
       <div class="row">
@@ -255,7 +339,7 @@ const state={
   walls:new Int8Array(N*N), known:new Uint8Array(N*N), ref:new Int8Array(N*N),
   cost:new Int16Array(N*N).fill(-1),
   goals:new Set(), mouse:{x:90,y:90,deg:0,has:false,hasPos:false,cell:null}, trail:[],
-  sensors:[0,0,0,0], tel:{}, stateLabel:'IDLE',
+  sensors:[0,0,0,0], tel:{}, stateLabel:'IDLE', battMin:null, arena:null,
   solution:[], solveMs:0, solveSteps:0,
 };
 const idx=(x,y)=>y*N+x;
@@ -263,13 +347,37 @@ const inb=(x,y)=>x>=0&&x<N&&y>=0&&y<N;
 function resetMaze(){
   state.walls.fill(0); state.known.fill(0); state.cost.fill(-1);
   state.goals.clear(); state.trail.length=0; state.mouse.has=false; state.mouse.hasPos=false; state.mouse.cell=null;
-  state.solution.length=0; state.solveMs=0; state.solveSteps=0;
+  state.solution.length=0; state.solveMs=0; state.solveSteps=0; state.arena=null;
   [[7,7],[8,7],[7,8],[8,8]].forEach(([x,y])=>state.goals.add(idx(x,y)));
   needsDraw=true;
 }
 //---------------- protocol ----------------
+function updateSensors(){
+  const s=state.sensors||[0,0,0,0];
+  const ts=(state.sensThr&&state.sensThr.side)||60, tf=(state.sensThr&&state.sensThr.front)||80;
+  const set=(id,v)=>{const e=document.getElementById(id); if(e) e.textContent=v;};
+  const on=(id,c)=>{const e=document.getElementById(id); if(e) e.classList.toggle('on',!!c);};
+  set('s-sl',s[0]); set('s-fl',s[1]); set('s-fr',s[2]); set('s-sr',s[3]);
+  const fsum=(s[1]||0)+(s[2]||0);
+  set('sp-front',fsum); set('sp-thr','s'+ts+' f'+tf);
+  on('b-sl',s[0]>ts); on('d-sl',s[0]>ts); on('s-sl',s[0]>ts);
+  on('b-sr',s[3]>ts); on('d-sr',s[3]>ts); on('s-sr',s[3]>ts);
+  const fw=fsum>tf;
+  on('b-fl',fw); on('d-fl',fw); on('s-fl',fw);
+  on('b-fr',fw); on('d-fr',fw); on('s-fr',fw);
+  const m=document.getElementById('sp-mode');
+  if(m){ m.textContent=state.sensReal?'REAL':'virt'; m.classList.toggle('real',!!state.sensReal); }
+}
+function identSensor(sel){                 // EMIT,<sel> from the mouse's emitter-hold: pulse that marker
+  const ids=['sl','fl','fr','sr'];
+  ids.forEach(k=>['d-','b-','nm-'].forEach(pre=>{const e=document.getElementById(pre+k); if(e) e.classList.remove('ident');}));
+  const light=k=>['d-','b-','nm-'].forEach(pre=>{const e=document.getElementById(pre+k); if(e) e.classList.add('ident');});
+  if(sel===4) ids.forEach(light);
+  else if(sel>=0&&sel<4) light(ids[sel]);
+}
 function parseLine(line){
   const raw=line.trim(); if(!raw) return;
+  if(raw.indexOf('Emitter hold: off')>=0) identSensor(-1);
   const p=raw.split(','), tag=p[0].toUpperCase(); let ok=true;
   switch(tag){
     case 'RST': resetMaze(); break;
@@ -285,9 +393,19 @@ function parseLine(line){
     case 'C': if(inb(+p[1],+p[2])) state.cost[idx(+p[1],+p[2])]=+p[3]; break;
     case 'GOAL': state.goals.clear();
       for(let i=1;i+1<p.length;i+=2) if(inb(+p[i],+p[i+1])) state.goals.add(idx(+p[i],+p[i+1])); break;
+    case 'SIZE': state.arena=(+p[1]>0&&+p[2]>0)?{w:Math.min(N,+p[1]),h:Math.min(N,+p[2])}:null; break;
     case 'STATE': state.stateLabel=p.slice(1).join(',')||'—'; break;
     case 'TEL': state.tel={t:+p[1],v:+p[2],omega:+p[3],dist:+p[4],ang:+p[5],gyro:+p[6],batt:+p[7]}; break;
-    case 'IR': state.sensors=[+p[1]||0,+p[2]||0,+p[3]||0,+p[4]||0]; break;
+    case 'VER': { const ver=p[1]||'?', build=p.slice(2).join(',').trim();
+      state.fw={ver,build};
+      const e=document.getElementById('fwver');
+      if(e){ e.textContent='fw v'+ver+(build?' · '+build:''); e.title='Running firmware'; e.hidden=false; }
+    } break;
+    case 'IR': state.sensors=[+p[1]||0,+p[2]||0,+p[3]||0,+p[4]||0]; updateSensors(); break;
+    case 'EMIT': identSensor(+p[1]); break;
+    case 'SENS':{ const mm=raw.match(/thr\(s(\d+) f(\d+)\)\s*(\w+)/);
+      if(mm){ state.sensThr={side:+mm[1],front:+mm[2]}; state.sensReal=(mm[3]==='REAL'); }
+      updateSensors(); break; }
     case 'SOLVE': state.solution=[]; break;
     case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
@@ -335,6 +453,11 @@ function draw(){
   ctx.fillStyle='#15271b'; fillMM(0,0,c,c);
   ctx.fillStyle='#1c3149';
   state.goals.forEach(k=>{const x=k%N,y=(k/N|0); fillMM(x*c,y*c,(x+1)*c,(y+1)*c);});
+
+  // test-arena frame (when a sub-grid practice arena is set)
+  if(state.arena){ const aw=state.arena.w*c, ah=state.arena.h*c, ins=c*0.07;
+    ctx.save(); ctx.setLineDash([7,5]); ctx.lineWidth=2; ctx.strokeStyle='rgba(230,179,74,.55)';
+    ctx.strokeRect(PX(ins),PY(ah-ins),(aw-2*ins)*T.scale,(ah-2*ins)*T.scale); ctx.restore(); }
 
   // flood costs
   if(opts.cost){
@@ -396,11 +519,32 @@ function draw(){
     }
     ctx.restore();
   }
-  const zi=document.getElementById('zinfo'); if(zi) zi.textContent=`${view.zoom.toFixed(1)}× ${view.follow?'· follow':''}`;
+  const zi=document.getElementById('zinfo'); if(zi) zi.textContent=`${view.zoom.toFixed(1)}× ${view.follow?'· follow ':''}${state.arena?'· arena '+state.arena.w+'×'+state.arena.h:''}`;
 }
 function loop(){ if(needsDraw){needsDraw=false; draw();} requestAnimationFrame(loop);} requestAnimationFrame(loop);
 
 //---------------- readouts ----------------
+function batteryPct(v){ // 1S LiPo curve, resting-ish
+  const T=[[4.20,100],[4.10,92],[4.00,82],[3.90,70],[3.85,62],[3.80,54],[3.75,47],[3.70,40],[3.65,33],[3.60,26],[3.55,18],[3.50,12],[3.45,8],[3.40,5],[3.35,2],[3.30,0]];
+  if(v>=T[0][0])return 100; if(v<=T[T.length-1][0])return 0;
+  for(let i=0;i<T.length-1;i++){const a=T[i],b=T[i+1]; if(v<=a[0]&&v>=b[0]) return b[1]+(a[1]-b[1])*(v-b[0])/(a[0]-b[0]);}
+  return 0;
+}
+function updateBattery(v){
+  const fill=document.getElementById('batt-fill'),vs=document.getElementById('batt-v'),ps=document.getElementById('batt-pct'),
+        st=document.getElementById('batt-status'),mn=document.getElementById('batt-min'),wrap=document.querySelector('.battwrap');
+  if(v==null||!isFinite(v)||v<=0.5){ if(vs)vs.innerHTML='—<small> V</small>'; if(ps)ps.textContent='—';
+    if(fill){fill.style.width='0%';fill.className='battfill';} if(st){st.textContent='— no data';st.className='batt-status';}
+    if(mn)mn.textContent=(state.battMin!=null?state.battMin.toFixed(2)+' V':'—'); if(wrap)wrap.classList.remove('alarm'); return; }
+  const pct=Math.round(batteryPct(v));
+  if(vs)vs.innerHTML=v.toFixed(2)+'<small> V</small>'; if(ps)ps.textContent=pct+'%';
+  let cls='ok',label='OK'; if(v<3.30){cls='crit';label='CRITICAL';} else if(v<3.45){cls='low';label='LOW';}
+  if(fill){fill.style.width=Math.max(3,pct)+'%'; fill.className='battfill '+cls;}
+  if(st){st.textContent=label; st.className='batt-status '+cls;}
+  if(state.battMin==null||v<state.battMin) state.battMin=v;
+  if(mn)mn.textContent=(state.battMin!=null?state.battMin.toFixed(2)+' V':'—');
+  if(wrap)wrap.classList.toggle('alarm', v<3.30);
+}
 function updateReadouts(){
   const m=state.mouse,t=state.tel,c=state.cellmm;
   set('s_cell', m.has?`${Math.floor(m.x/c)},${Math.floor(m.y/c)}`:'—');
@@ -409,6 +553,7 @@ function updateReadouts(){
   set('s_dist',fmt(t.dist),' mm'); set('s_vel',fmt(t.v),' mm/s');
   set('s_gyro',fmt(t.gyro),'°'); set('s_omega',fmt(t.omega),'°/s');
   set('s_batt',t.batt!=null?(+t.batt).toFixed(2):'—',' V'); set('s_state',state.stateLabel);
+  updateBattery(t.batt!=null?+t.batt:null);
   state.sensors.forEach((val,i)=>{const f=document.getElementById('sfill'+i); if(!f)return;
     f.style.width=Math.max(0,Math.min(100,val/4095*100))+'%';
     f.style.background=val>=thresholds[i]?'var(--warn)':'var(--accent)';
@@ -499,6 +644,7 @@ document.getElementById('connectBtn').onclick=async()=>{
     btChar=await (await srv.getPrimaryService(BT_SERVICE)).getCharacteristic(BT_CHAR);
     await btChar.startNotifications(); btChar.addEventListener('characteristicvaluechanged',onNotify);
     setStatus('Connected · '+(btDevice.name||'mouse'),'on');
+    state.battMin=null;
     document.getElementById('connectBtn').textContent='Disconnect'; logLine('Connected','evt');
   }catch(err){setStatus('Connect failed','err'); logLine('BT error: '+err.message,'unk'); btDevice=null;}
 };
