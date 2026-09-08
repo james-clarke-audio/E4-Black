@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Build Map</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1015; --panel:#151a21; --panel2:#1b212b; --line:#262e39; --line2:#333d4a;
+    --ink:#e8eef5; --dim:#93a0b1; --faint:#5c6773;
+    --amber:#e6b34a; --blue:#5aa8ff;
+    --built:#54cc72; --built-bg:rgba(84,204,114,.13);
+    --stub:#f0a34b;  --stub-bg:rgba(240,163,75,.13);
+    --plan:#9aa2f0;  --plan-bg:rgba(154,162,240,.13);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.5;
+    -webkit-font-smoothing:antialiased;padding:34px 22px 72px}
+  .wrap{max-width:1060px;margin:0 auto}
+  a{color:var(--blue)}
+
+  /* header */
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--amber);margin:0 0 10px;display:flex;align-items:center;gap:11px}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--amber)}
+  h1{font-size:33px;font-weight:700;letter-spacing:-.02em;margin:0 0 8px;line-height:1.05;text-wrap:balance}
+  .sub{color:var(--dim);font-size:15.5px;margin:0 0 26px;max-width:64ch}
+  .sub b{color:var(--ink);font-weight:500}
+
+  /* progress strip */
+  .prog{display:flex;flex-wrap:wrap;gap:22px 30px;align-items:center;
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin-bottom:12px}
+  .track{flex:1 1 320px;min-width:260px}
+  .track .bar{height:12px;border-radius:6px;overflow:hidden;display:flex;background:var(--panel2);border:1px solid var(--line)}
+  .track .bar i{display:block;height:100%}
+  .track .bar .b{background:var(--built)} .track .bar .s{background:var(--stub)}
+  .track .cap{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:7px}
+  .counts{display:flex;gap:20px}
+  .counts .c{display:flex;flex-direction:column;gap:1px}
+  .counts .n{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1;font-variant-numeric:tabular-nums}
+  .counts .k{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-top:4px}
+  .n.built{color:var(--built)} .n.stub{color:var(--stub)} .n.plan{color:var(--plan)}
+
+  .legend{display:flex;flex-wrap:wrap;gap:8px 16px;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin:0 2px 30px}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:11px;height:11px;border-radius:3px;display:inline-block}
+  .sw-b{background:var(--built)} .sw-s{background:var(--stub)} .sw-p{background:var(--plan)}
+  .keycap{font-family:var(--mono);font-size:11px;color:var(--blue);border:1px solid var(--line2);
+    border-radius:5px;padding:1px 6px;background:var(--panel2)}
+
+  /* mode columns */
+  .modes{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:34px}
+  @media(max-width:760px){.modes{grid-template-columns:1fr}}
+  .mode{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .mode > h2{font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+    margin:0;padding:15px 18px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line)}
+  .mode.test > h2{color:var(--amber)} .mode.comp > h2{color:var(--blue)}
+  .mode > h2 .tag{margin-left:auto;font-size:10px;letter-spacing:.06em;color:var(--faint);font-weight:400}
+  .cat{padding:12px 18px;border-bottom:1px solid var(--line)}
+  .cat:last-child{border-bottom:0}
+  .cat h3{font-family:var(--mono);font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--dim);
+    margin:0 0 9px;font-weight:500}
+  .item{display:grid;grid-template-columns:1fr auto;gap:6px 10px;align-items:baseline;padding:5px 0}
+  .item + .item{border-top:1px solid var(--line)}
+  .item .name{font-size:14px;color:var(--ink)}
+  .item .note{grid-column:1/2;font-size:11.5px;color:var(--faint);font-family:var(--mono);margin-top:1px}
+  .item .rt{display:inline-flex;align-items:center;gap:8px;justify-self:end}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;
+    padding:2px 8px;border-radius:20px;white-space:nowrap}
+  .chip.built{color:var(--built);background:var(--built-bg)}
+  .chip.stub{color:var(--stub);background:var(--stub-bg)}
+  .chip.plan{color:var(--plan);background:var(--plan-bg)}
+
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+    margin:0 0 16px;font-weight:500;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+  /* dependency flow */
+  .flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin-bottom:14px}
+  .node{flex:1 1 150px;min-width:140px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 15px;position:relative}
+  .node .st{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+  .node.done .st{color:var(--built)} .node.next .st{color:var(--stub)} .node.later .st{color:var(--plan)}
+  .node .t{font-size:14px;font-weight:600;line-height:1.2}
+  .node .d{font-size:11.5px;color:var(--dim);margin-top:5px;font-family:var(--mono);line-height:1.45}
+  .arrow{align-self:center;color:var(--faint);font-family:var(--mono);font-size:17px;flex:0 0 auto}
+  @media(max-width:680px){.arrow{transform:rotate(90deg)}.flow{flex-direction:column}}
+  .flow-note{font-size:12.5px;color:var(--faint);font-family:var(--mono);margin:0 2px 34px}
+
+  /* build order */
+  .order{list-style:none;margin:0;padding:0;counter-reset:step;display:grid;gap:9px}
+  .order li{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;counter-increment:step;
+    background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:12px 16px}
+  .order li::before{content:counter(step);font-family:var(--mono);font-size:13px;font-weight:600;color:var(--bg);
+    background:var(--amber);width:24px;height:24px;border-radius:6px;display:grid;place-items:center}
+  .order li.done::before{background:var(--built);content:"\2713"}
+  .order .ot{font-size:14.5px;font-weight:500}
+  .order .od{font-size:12px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+  .order .step-chip{font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint)}
+  .order li.done .step-chip{color:var(--built)}
+
+  /* reference docs */
+  .docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:12px;margin-bottom:8px}
+  .doc{display:flex;gap:13px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);
+    border-radius:12px;padding:14px 16px;text-decoration:none;color:var(--ink);transition:border-color .12s}
+  .doc:hover{border-color:var(--line2)}
+  .doc .ic{font-size:21px;line-height:1.05;flex:0 0 auto}
+  .doc .dt{font-size:14px;font-weight:600;color:var(--ink)}
+  .doc .dd{font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:3px;line-height:1.42}
+  .doc .new{font-family:var(--mono);font-size:9px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--bg);background:var(--amber);border-radius:4px;padding:1px 5px;margin-left:7px;vertical-align:middle}
+
+  footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+    font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+  /* E4 manual nav (shared chrome) */
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.03em;
+    padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+<nav class="e4nav" style="max-width:1060px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 6 &middot; Firmware &amp; Menu Map</span><span class="sp"></span><a href="e4-sensor-housing.html">&larr; Prev</a><span class="dis">Next &rarr;</span></nav>
+
+<div class="wrap">
+  <p class="eyebrow">E4 Micromouse · firmware roadmap</p>
+  <h1>Build Map</h1>
+  <p class="sub">The menu is splitting into two worlds — a <b>Test / Bench</b> side for calibration, simulation and diagnostics, and a <b>Competition</b> side for the run modes. This tracks every action by state as we fill the skeleton in. BT shortcut keys shown in <span class="keycap">mono</span>.</p>
+
+  <div class="prog">
+    <div class="track">
+      <div class="bar" role="img" aria-label="20 built, 5 stubbed of 25 menu actions">
+        <i class="b" style="width:80%"></i><i class="s" style="width:20%"></i>
+      </div>
+      <div class="cap"><span>menu actions</span><span>20 built · 5 stubbed of 25</span></div>
+    </div>
+    <div class="counts">
+      <div class="c"><span class="n built">20</span><span class="k">Built</span></div>
+      <div class="c"><span class="n stub">5</span><span class="k">Stub</span></div>
+      <div class="c"><span class="n plan">4</span><span class="k">Planned</span></div>
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="swatch sw-b"></i> Built &amp; working</span>
+    <span><i class="swatch sw-s"></i> Stubbed — slot exists, feature to come</span>
+    <span><i class="swatch sw-p"></i> Planned — cross-cutting, not a menu leaf yet</span>
+    <span><span class="keycap">k</span> BT shortcut key</span>
+  </div>
+
+  <div class="modes">
+    <!-- TEST / BENCH -->
+    <section class="mode test">
+      <h2>Test / Bench <span class="tag">virtual sensors · pose offsets</span></h2>
+
+      <div class="cat">
+        <h3>Calibration</h3>
+        <div class="item"><span class="name">Recal gyro</span><span class="rt"><span class="keycap">g</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">IR monitor</span><span class="rt"><span class="keycap">i</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Threshold calibration</span><span class="note">guided side/front thresholds via companion app · <code style="color:var(--dim);font-family:var(--mono)">THR,s,f</code> &rarr; saved to EEPROM, read on boot</span><span class="rt"><span class="chip plan">Planned</span></span></div>
+        <div class="item"><span class="name">Turn tuning</span><span class="note">run a turn, live-tweak arc radius / speed</span><span class="rt"><span class="keycap">j</span><span class="chip stub">Stub</span></span></div>
+        <div class="item"><span class="name">Motion test</span><span class="rt"><span class="keycap">o</span><span class="chip built">Built</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Moves</h3>
+        <div class="item"><span class="name">Forward 180</span><span class="rt"><span class="keycap">f</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Right 90</span><span class="rt"><span class="keycap">d</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Left 90</span><span class="rt"><span class="keycap">a</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Spin 180</span><span class="rt"><span class="keycap">s</span><span class="chip built">Built</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>In-maze bench</h3>
+        <div class="item"><span class="name">Set maze size</span><span class="note">cycles 3×3 … 6×6 · Full · <code style="color:var(--dim);font-family:var(--mono)">SIZE,w,h</code> over BT</span><span class="rt"><span class="keycap">c</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Set goal cell</span><span class="note">corner/centre presets · <code style="color:var(--dim);font-family:var(--mono)">GOAL,x,y</code> over BT</span><span class="rt"><span class="keycap">y</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Search</span><span class="rt"><span class="keycap">h</span><span class="chip built">Built</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Simulation</h3>
+        <div class="item"><span class="name">Simulate route</span><span class="rt"><span class="keycap">u</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Sim explore</span><span class="rt"><span class="keycap">x</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Recall maze</span><span class="rt"><span class="keycap">m</span><span class="chip built">Built</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Diagnostics</h3>
+        <div class="item"><span class="name">EEPROM test</span><span class="rt"><span class="keycap">t</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Sensor mode</span><span class="note">virtual ↔ real IR</span><span class="rt"><span class="keycap">v</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Reset pose</span><span class="rt"><span class="keycap">z</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Test mode</span><span class="rt"><span class="keycap">k</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">BT →57600</span><span class="rt"><span class="keycap">b</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Emitter hold</span><span class="note">light emitters for camera aiming · 50% PWM (safe DC)</span><span class="rt"><span class="keycap">E</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Firmware ver</span><span class="note">version + build stamp on OLED &amp; boot · streams <code style="color:var(--dim);font-family:var(--mono)">VER,ver,build</code></span><span class="rt"><span class="keycap">V</span><span class="chip built">Built</span></span></div>
+      </div>
+    </section>
+
+    <!-- COMPETITION -->
+    <section class="mode comp">
+      <h2>Competition <span class="tag">real IR · real start · guard live</span></h2>
+
+      <div class="cat">
+        <h3>Wall follower</h3>
+        <div class="item"><span class="name">Wall follower</span><span class="note">left / right hand · integrated-turn option</span><span class="rt"><span class="keycap">w</span><span class="chip stub">Stub</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Maze solver</h3>
+        <div class="item"><span class="name">Explore</span><span class="note">search out + back, saves the map</span><span class="rt"><span class="keycap">e</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Speed run</span><span class="note">solve on the known map, no explore</span><span class="rt"><span class="keycap">l</span><span class="chip stub">Stub</span></span></div>
+        <div class="item"><span class="name">Resume saved</span><span class="note">load EEPROM map, continue unknowns</span><span class="rt"><span class="keycap">R</span><span class="chip stub">Stub</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Run options</h3>
+        <div class="item"><span class="name">Run options</span><span class="note">search speed · integrated turns · diagonals · runs</span><span class="rt"><span class="keycap">O</span><span class="chip stub">Stub</span></span></div>
+      </div>
+
+      <div class="cat">
+        <h3>Cross-cutting <span style="color:var(--faint)">— behind the options</span></h3>
+        <div class="item"><span class="name">Mode defaults</span><span class="note">Comp forces real IR + real start + batt guard</span><span class="rt"><span class="chip plan">Planned</span></span></div>
+        <div class="item"><span class="name">Integrated-turn primitive</span><span class="note">shared by flowing wall-follow &amp; fast search</span><span class="rt"><span class="chip plan">Planned</span></span></div>
+        <div class="item"><span class="name">Diagonal navigation</span><span class="note">path re-plan + 45° motion — the big one</span><span class="rt"><span class="chip plan">Planned</span></span></div>
+      </div>
+    </section>
+  </div>
+
+  <h2 class="sec">Dependency chain</h2>
+  <div class="flow">
+    <div class="node done"><div class="st">Foundation</div><div class="t">Turn tuning</div><div class="d">accurate arcs first — everything fast sits on this</div></div>
+    <div class="arrow">→</div>
+    <div class="node next"><div class="st">Unlocks</div><div class="t">Integrated turns</div><div class="d">one arc primitive, flow through junctions without stopping</div></div>
+    <div class="arrow">→</div>
+    <div class="node later"><div class="st">Serves both</div><div class="t">Flow + fast search</div><div class="d">wall-follower flow &amp; quicker exploration, same machinery</div></div>
+    <div class="arrow">→</div>
+    <div class="node later"><div class="st">Capstone</div><div class="t">Diagonals</div><div class="d">re-plan the solved route at 45° — needs all of the above</div></div>
+  </div>
+  <p class="flow-note">The insight: "integrated turns in a wall follower" isn't a separate build — it's the same arc primitive the solver uses, driven by the reactive rule instead of the flood.</p>
+
+  <h2 class="sec">Build order</h2>
+  <ol class="order">
+    <li class="done"><div><div class="ot">Two-mode menu skeleton</div><div class="od">Mode → Category → Item, existing actions rebucketed, new ones stubbed</div></div><span class="step-chip">Shipped</span></li>
+    <li class="done"><div><div class="ot">Set size + set goal (bench)</div><div class="od">runtime arena bounds + goal presets + BT commands · arena framed in the app</div></div><span class="step-chip">Shipped</span></li>
+    <li><div><div class="ot">Sensor threshold calibration</div><div class="od">firmware <code style="color:var(--dim);font-family:var(--mono)">THR</code> command + EEPROM config slot (magic + version + checksum, own region) · standalone guided calibration app</div></div><span class="step-chip">Next</span></li>
+    <li><div><div class="ot">Turn tuning</div><div class="od">calibrate arcs before anything runs fast</div></div><span class="step-chip">Then</span></li>
+    <li><div><div class="ot">Integrated-turn primitive + toggles</div><div class="od">wire the arc into search &amp; the wall follower</div></div><span class="step-chip">Then</span></li>
+    <li><div><div class="ot">Diagonal navigation</div><div class="od">biggest rock — planner + 45° motion, last</div></div><span class="step-chip">Later</span></li>
+    <li><div><div class="ot">Native iPad companion app</div><div class="od">SwiftUI + Core Bluetooth · polished, shareable build — the web app is its prototype &amp; protocol spec (Apple account in hand)</div></div><span class="step-chip">Nice-to-have</span></li>
+  </ol>
+
+  <h2 class="sec">Reference docs</h2>
+  <div class="docs">
+    <a class="doc" href="e4-sensor-geometry.html">
+      <span class="ic">📐</span>
+      <span><span class="dt">Sensor Geometry<span class="new">new</span></span><span class="dd">plan view — sensor positions, 15°/45° aim &amp; beam path lengths to each wall</span></span>
+    </a>
+    <a class="doc" href="e4-sensor-housing.html">
+      <span class="ic">🔦</span>
+      <span><span class="dt">Sensor Housing</span><span class="dd">labelled cross-section — 5° detector-bore tilt, seat-flush notes</span></span>
+    </a>
+    <a class="doc" href="sensor-aim.html">
+      <span class="ic">🛞</span>
+      <span><span class="dt">Sensor Aim</span><span class="dd">which detector watches which wall — SL/SR sides, FL/FR forward</span></span>
+    </a>
+    <a class="doc" href="e4-rebuild.html">
+      <span class="ic">🐭</span>
+      <span><span class="dt">The E4 Rebuild</span><span class="dd">the port story — Arduino Nano → STM32F411</span></span>
+    </a>
+  </div>
+
+  <footer>
+    <span>E4 · STM32F411 · mazerunner-core port</span>
+    <span>living document — updated as slots fill</span>
+  </footer>
+</div>
+</body>
+</html>

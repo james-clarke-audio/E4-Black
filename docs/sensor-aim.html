@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Sensor Aim</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root{
+    --bg:#eef1f4;
+    --panel:#f9fafb;
+    --ink:#1c2530;
+    --muted:#5a6675;
+    --line:#c3ccd6;
+    --grid:#d9e0e8;
+    --beam:#d9852a;      /* IR line-of-sight */
+    --target:#1f9d6b;    /* where the beam should land */
+    --wall:#3b4756;      /* maze walls */
+    --mouse:#dfe5ec;     /* mouse body fill */
+    --accent-soft:rgba(217,133,42,0.13);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#0f151c;
+      --panel:#161d26;
+      --ink:#dbe3ec;
+      --muted:#8b97a6;
+      --line:#2c3745;
+      --grid:#212b36;
+      --beam:#f0a54a;
+      --target:#37c088;
+      --wall:#59677a;
+      --mouse:#232d38;
+      --accent-soft:rgba(240,165,74,0.14);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0f151c;
+    --panel:#161d26;
+    --ink:#dbe3ec;
+    --muted:#8b97a6;
+    --line:#2c3745;
+    --grid:#212b36;
+    --beam:#f0a54a;
+    --target:#37c088;
+    --wall:#59677a;
+    --mouse:#232d38;
+    --accent-soft:rgba(240,165,74,0.14);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,sans-serif;
+    line-height:1.55;
+    margin:0;
+    padding:32px 20px 64px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+
+  .eyebrow{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:12px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--beam);margin:0 0 8px;
+  }
+  h1{font-size:30px;font-weight:600;letter-spacing:-.01em;margin:0 0 10px;text-wrap:balance}
+  .lede{color:var(--muted);font-size:16px;margin:0 0 30px;max-width:60ch}
+
+  figure{margin:0 0 14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 20px 8px}
+  svg{display:block;width:100%;height:auto;color:var(--ink)}
+  figcaption{color:var(--muted);font-size:13.5px;margin:12px 2px 0}
+  figcaption b{color:var(--ink);font-weight:500}
+
+  h2{font-size:13px;font-family:"IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:38px 0 14px;font-weight:500}
+
+  .specs{display:grid;gap:10px;margin:0;padding:0;list-style:none}
+  .spec{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:baseline;padding:13px 16px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+  .spec .k{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:500;color:var(--ink)}
+  .spec .n{font-family:"IBM Plex Mono",monospace;color:var(--beam);font-size:12px;display:block;margin-top:3px}
+  .spec .v{color:var(--muted);font-size:14.5px}
+  .spec .v b{color:var(--ink);font-weight:500}
+
+  .notes{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+  .note{display:grid;grid-template-columns:20px 1fr;gap:12px;font-size:15px;color:var(--muted)}
+  .note b{color:var(--ink);font-weight:600}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:7px;background:var(--beam)}
+
+  .callout{margin:34px 0 0;padding:16px 18px;border-radius:10px;background:var(--accent-soft);border:1px solid var(--line);font-size:14.5px;color:var(--ink)}
+  .callout b{font-weight:600}
+  .legend{display:flex;flex-wrap:wrap;gap:16px 22px;margin:14px 2px 0;font-size:12.5px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+  .legend span{display:inline-flex;align-items:center;gap:7px}
+  .swatch{width:22px;border-top-width:3px;border-top-style:solid;display:inline-block}
+  .swatch.dot-s{width:10px;height:10px;border-top:0;border-radius:50%}
+  .swatch.sq{width:11px;height:11px;border:0}
+  .foot{color:var(--muted);font-size:12.5px;margin-top:40px;font-family:"IBM Plex Mono",monospace}
+
+  /* E4 manual nav (shared chrome) */
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:12px;letter-spacing:.03em;
+    padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+<nav class="e4nav" style="max-width:760px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 3 &middot; Sensor Aim</span><span class="sp"></span><a href="e4-port.html">&larr; Prev</a><a href="e4-sensor-geometry.html">Next &rarr;</a></nav>
+
+<div class="wrap">
+  <p class="eyebrow">Micromouse · IR wall sensing</p>
+  <h1>Aiming the E4's wall sensors</h1>
+  <p class="lede">Matched to your build: the inner diagonal pair (SL/SR) looks out at the side walls, the outer pair (FL/FR) looks forward at the wall ahead. Rough targets to dial in on the bench — beam patterns vary, so treat the angles as ballpark.</p>
+
+  <figure>
+    <div class="card">
+      <svg viewBox="0 0 600 560" role="img" aria-label="Top-down view of the mouse in a maze lane. The outer sensors FL and FR point forward to the wall ahead. The inner sensors SL and SR point diagonally out toward the side walls and the leading posts.">
+        <!-- lane guides -->
+        <g stroke="var(--grid)" stroke-width="1">
+          <line x1="140" y1="60" x2="140" y2="540"/>
+          <line x1="460" y1="60" x2="460" y2="540"/>
+        </g>
+        <!-- walls -->
+        <g stroke="var(--wall)" stroke-width="7" stroke-linecap="round">
+          <line x1="140" y1="70" x2="140" y2="540"/>
+          <line x1="460" y1="70" x2="460" y2="540"/>
+          <line x1="140" y1="95" x2="460" y2="95"/>
+        </g>
+        <!-- posts (lattice corners) -->
+        <g fill="var(--wall)">
+          <rect x="133" y="88" width="14" height="14" rx="2"/>
+          <rect x="453" y="88" width="14" height="14" rx="2"/>
+        </g>
+        <text x="150" y="150" fill="var(--muted)" font-size="12" font-family="'IBM Plex Mono',monospace">side wall</text>
+        <text x="300" y="84" fill="var(--muted)" font-size="12" font-family="'IBM Plex Mono',monospace" text-anchor="middle">wall ahead</text>
+        <text x="123" y="112" fill="var(--muted)" font-size="11" font-family="'IBM Plex Mono',monospace" text-anchor="end">post</text>
+
+        <!-- forward reference -->
+        <line x1="300" y1="378" x2="300" y2="120" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 6"/>
+        <text x="307" y="135" fill="var(--muted)" font-size="11.5" font-family="'IBM Plex Mono',monospace">forward</text>
+
+        <!-- beams -->
+        <g stroke="var(--beam)" stroke-width="2.4" fill="none">
+          <!-- outer pair FL/FR -> forward (wall ahead) -->
+          <line x1="243" y1="384" x2="233" y2="100"/>
+          <line x1="357" y1="384" x2="367" y2="100"/>
+          <!-- inner pair SL/SR -> diagonal out to the side wall / leading post -->
+          <line x1="285" y1="382" x2="146" y2="172"/>
+          <line x1="315" y1="382" x2="454" y2="172"/>
+        </g>
+        <!-- beam-spread hint -->
+        <g fill="var(--beam)" opacity="0.10">
+          <polygon points="243,384 218,112 250,108"/>
+          <polygon points="357,384 350,108 382,112"/>
+          <polygon points="285,382 130,154 166,196"/>
+          <polygon points="315,382 470,154 434,196"/>
+        </g>
+
+        <!-- target hit-spots -->
+        <g fill="var(--target)">
+          <circle cx="233" cy="100" r="5.5"/>
+          <circle cx="367" cy="100" r="5.5"/>
+          <circle cx="146" cy="172" r="5.5"/>
+          <circle cx="454" cy="172" r="5.5"/>
+        </g>
+
+        <!-- angle callouts -->
+        <text x="300" y="356" fill="var(--ink)" font-size="12.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">FL / FR forward</text>
+        <text x="150" y="300" fill="var(--ink)" font-size="12.5" font-family="'IBM Plex Mono',monospace">SL / SR ≈45°</text>
+        <line x1="205" y1="304" x2="280" y2="368" stroke="var(--line)" stroke-width="1"/>
+
+        <!-- mouse body -->
+        <rect x="225" y="382" width="150" height="150" rx="14" fill="var(--mouse)" stroke="var(--wall)" stroke-width="2"/>
+        <text x="300" y="474" fill="var(--muted)" font-size="12.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">mouse</text>
+        <polygon points="300,442 292,456 308,456" fill="var(--muted)"/>
+
+        <!-- sensor nodes + labels -->
+        <g fill="var(--beam)">
+          <circle cx="243" cy="384" r="4.5"/><circle cx="357" cy="384" r="4.5"/>
+          <circle cx="285" cy="382" r="4.5"/><circle cx="315" cy="382" r="4.5"/>
+        </g>
+        <g fill="var(--ink)" font-size="12" font-family="'IBM Plex Mono',monospace" font-weight="500">
+          <text x="238" y="405" text-anchor="end">FL</text>
+          <text x="362" y="405" text-anchor="start">FR</text>
+          <text x="285" y="405" text-anchor="middle">SL</text>
+          <text x="315" y="405" text-anchor="middle">SR</text>
+        </g>
+
+        <!-- gap dimension -->
+        <g stroke="var(--muted)" stroke-width="1">
+          <line x1="140" y1="500" x2="225" y2="500"/>
+          <line x1="140" y1="494" x2="140" y2="506"/>
+          <line x1="225" y1="494" x2="225" y2="506"/>
+        </g>
+        <text x="182" y="520" fill="var(--muted)" font-size="11.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">gap ≈45 mm</text>
+      </svg>
+      <div class="legend">
+        <span><i class="swatch" style="border-top-color:var(--beam)"></i> line of sight</span>
+        <span><i class="swatch dot-s" style="background:var(--target)"></i> should land here</span>
+        <span><i class="swatch sq" style="background:var(--wall)"></i> post</span>
+      </div>
+    </div>
+    <figcaption><b>Plan view — your arrangement.</b> The <b>inner</b> diagonal pair <b>SL / SR</b> looks out at the side wall and the leading <em>post</em>: that's your <em>side-wall + steering</em> read (left←SL, right←SR). The <b>outer</b> pair <b>FL / FR</b> looks straight ahead: <em>FL + FR</em> summed is your <em>front</em> detection (wall ahead). Right side mirrors the left. The firmware maps <b>left←SL, right←SR, front←FL+FR</b> to match.</figcaption>
+  </figure>
+
+  <h2>Rough target angles</h2>
+  <ul class="specs">
+    <li class="spec">
+      <div class="k">Inner pair<span class="n">SL · SR → sides</span></div>
+      <div class="v"><b>≈30–45°</b> out from forward, aimed to graze the side wall / leading post ~40–70&nbsp;mm ahead of the nose. This is your left/right wall + opening detection and steering error.</div>
+    </li>
+    <li class="spec">
+      <div class="k">Outer pair<span class="n">FL · FR → front</span></div>
+      <div class="v"><b>≈forward</b>, ~5–15° splay. Both catch the wall ahead; FL + FR summed is your front distance, and the small splay helps front-wall squareness.</div>
+    </li>
+    <li class="spec">
+      <div class="k">Toe-in<span class="n">per pair</span></div>
+      <div class="v"><b>a few °</b> — nudge each emitter and its detector onto the <em>same spot</em> so their cones overlap at working distance (~40–90&nbsp;mm).</div>
+    </li>
+  </ul>
+
+  <h2>Side view — keep it on the 12 mm band</h2>
+  <figure>
+    <div class="card">
+      <svg viewBox="0 0 560 250" role="img" aria-label="Side view. The maze wall is only 12mm tall. Aim the beam level or slightly down so it lands on that short band. Too high skims over; too low bounces off the floor.">
+        <line x1="40" y1="196" x2="520" y2="196" stroke="var(--wall)" stroke-width="2.5"/>
+        <text x="46" y="214" fill="var(--muted)" font-size="11.5" font-family="'IBM Plex Mono',monospace">floor</text>
+        <rect x="452" y="150" width="12" height="46" fill="var(--wall)"/>
+        <line x1="486" y1="150" x2="486" y2="196" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="481" y1="150" x2="491" y2="150" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="481" y1="196" x2="491" y2="196" stroke="var(--muted)" stroke-width="1"/>
+        <text x="498" y="176" fill="var(--muted)" font-size="12" font-family="'IBM Plex Mono',monospace">12 mm</text>
+        <rect x="52" y="150" width="30" height="20" rx="3" fill="var(--mouse)" stroke="var(--wall)" stroke-width="1.6"/>
+        <text x="67" y="142" fill="var(--ink)" font-size="11.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">sensor</text>
+        <line x1="82" y1="162" x2="452" y2="170" stroke="var(--beam)" stroke-width="2.6"/>
+        <circle cx="452" cy="170" r="5" fill="var(--target)"/>
+        <text x="250" y="156" fill="var(--ink)" font-size="12.5" font-family="'IBM Plex Sans',sans-serif">level → lands on the band</text>
+        <line x1="82" y1="160" x2="520" y2="120" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="300" y="120" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">too high → skims over</text>
+        <line x1="82" y1="166" x2="300" y2="196" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="150" y="192" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">too low → floor bounce</text>
+      </svg>
+    </div>
+    <figcaption><b>Vertical aim.</b> Same for all four. The wall is only 12&nbsp;mm tall, so this is the fussy axis — keep the beam level or a hair down onto the band. Over the top sees nothing; into the floor gives a strong <em>false</em> reading.</figcaption>
+  </figure>
+
+  <h2>Why this arrangement works</h2>
+  <ul class="notes">
+    <li class="note"><span class="dot"></span><div><b>Diagonals on the post = the best steering signal.</b> Aimed forward-out at the wall/post, SL and SR give a clean lateral error for wall-following and spot a side opening before she's on top of it — plus a sharp peak as she passes each post, a natural cell-boundary reference.</div></li>
+    <li class="note"><span class="dot"></span><div><b>Forward pair for the wall ahead.</b> FL + FR summed is your front distance; the small splay between them helps tell if you're square, which is what you'll want for front-wall centring later.</div></li>
+    <li class="note"><span class="dot"></span><div><b>Mind direct crosstalk.</b> Keep a little separation (or a rib) between each emitter and its detector so IR can't leak straight across without hitting a wall. Ambient subtraction kills daylight, not optical crosstalk.</div></li>
+  </ul>
+
+  <div class="callout">
+    <b>Ties back to tonight's reading.</b> A side wall giving only ~10 at cell-centre but 300–400 up close means the <b>diagonal</b> pair (SL/SR) isn't landing on the side wall at lane distance — aimed too shallow (skimming down the lane) or over the band. Bring them onto that ~45&nbsp;mm side wall / leading post and the cell-centre reading should climb well clear of the floor; then the thresholds set themselves.
+  </div>
+
+  <p class="foot">Angles are ballpark — narrow-beam parts want tighter aim and reach further; wide-beam parts are more forgiving but noisier. Firm up once you have the emitter/detector part numbers.</p>
+</div>
+</body>
+</html>
