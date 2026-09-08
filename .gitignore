@@ -13,3 +13,14 @@
 # OS / editor cruft
 .DS_Store
 *~
+
+# Editing backups (safety copies)
+*.bak
+*.bak-*
+*.bak[0-9]
+
+# Cowork scratch (redundant copies)
+Claude outputs/
+
+# Upstream reference (mazerunner-core, kept locally only)
+Arduino Reference/
