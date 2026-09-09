@@ -52,7 +52,7 @@ const int ENCODER_RIGHT_POLARITY = (1);
 const int MOTOR_LEFT_POLARITY = (-1);
 const int MOTOR_RIGHT_POLARITY = (1);
 const int GYRO_POLARITY = (1);
-const float GYRO_SCALE = 1.02;   // trim so a commanded 360 = a true physical 360 (calibrate)
+const float GYRO_SCALE = 1.003;   // trim so a commanded 360 = a true physical 360 (calibrate)
 
 // Control-loop timing (1 kHz).
 const float LOOP_FREQUENCY = 1000.0f;
