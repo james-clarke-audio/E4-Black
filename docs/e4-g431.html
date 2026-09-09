@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Next Board G431</title>
+<meta name="description" content="Design note for the next-generation E4 board — an STM32G431 sensor front end using on-chip op-amps, timer-triggered ADC and comparators.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1015; --panel:#151a21; --panel2:#1b212b; --line:#262e39; --line2:#333d4a;
+    --ink:#e8eef5; --dim:#93a0b1; --faint:#5c6773;
+    --amber:#e6b34a; --blue:#5aa8ff;
+    --built:#54cc72; --built-bg:rgba(84,204,114,.13);
+    --plan:#9aa2f0;  --plan-bg:rgba(154,162,240,.13);
+    --no:#e5646d;    --no-bg:rgba(229,100,109,.13);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;padding:34px 22px 72px}
+  .wrap{max-width:820px;margin:0 auto}
+  a{color:var(--blue)}
+  code{font-family:var(--mono);font-size:.9em;color:var(--dim)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin:0 0 10px;display:flex;align-items:center;gap:11px}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--amber)}
+  h1{font-size:33px;font-weight:700;letter-spacing:-.02em;margin:0 0 10px;line-height:1.05;text-wrap:balance}
+  .sub{color:var(--dim);font-size:16px;margin:0 0 22px;max-width:64ch}
+  .sub b{color:var(--ink);font-weight:500}
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:38px 0 14px;font-weight:600;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  p{margin:0 0 14px}
+  table.dim{width:100%;border-collapse:collapse;margin:6px 0 18px;font-size:14px}
+  table.dim th,table.dim td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  table.dim th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  table.dim td.v{font-family:var(--mono);color:var(--amber);white-space:nowrap;width:1%}
+  table.dim td.n{color:var(--dim);font-size:13px}
+  .chain{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:0 0 16px;font-family:var(--mono);font-size:13px;color:var(--dim);line-height:1.9}
+  .chain b{color:var(--amber);font-weight:600}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin:0 0 12px}
+  .card h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--dim);font-size:13.5px;font-family:var(--mono);line-height:1.55}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-left:auto}
+  .chip.plan{color:var(--plan);background:var(--plan-bg)}
+  .chip.no{color:var(--no);background:var(--no-bg)}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 16px;margin:0 0 14px;font-size:14px;color:var(--dim)}
+  .note b{color:var(--ink);font-weight:600}
+  ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
+  ul.tight li b{color:var(--ink);font-weight:500}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+<nav class="e4nav" style="max-width:820px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 8 &middot; Next Board (G431)</span><span class="sp"></span><a href="e4-position.html">&larr; Prev</a><span class="dis">Next &rarr;</span></nav>
+
+<div class="wrap">
+  <p class="eyebrow">E4 Micromouse &middot; design note &middot; not built</p>
+  <h1>Next Board — G431 Front End</h1>
+  <p class="sub">A <b>forward-looking design note</b>, not a record of what exists. The competing mouse is the STM32F411 build documented in the rest of this manual; the <b>STM32G431</b> is the next-generation platform. This captures how its sensor front end should be built, and why two tempting external parts were ruled out.</p>
+  <div class="note"><b>Timing reality:</b> the G431 lands mid-October and the competition is in October — so this is a <b>post-competition</b> project. The F411 mouse is what runs. Kept here so the thinking isn't lost, not as a distraction from finishing the mouse that has a date.</div>
+
+  <h2 class="sec">Where the idea came from</h2>
+  <p>The starting question was whether to boost detector sensitivity in hardware. Two routes were considered, both drawn from a university micromouse build that used the same OP505A detector behind a <b>discrete darlington gain stage</b>.</p>
+  <p>That original design is the <em>right</em> shape: it keeps a <b>fast phototransistor</b> as the light-sensing element and puts the gain in a <b>separate stage behind it</b>. There's a bonus — feeding the phototransistor into a low-impedance darlington input unloads it, removing the Miller-loading of a large collector resistor, so it can be <b>faster</b> as well as higher-gain. That is not the same thing as a photodarlington, where the slowness is in the sensing die itself.</p>
+
+  <h2 class="sec">What the G431 brings</h2>
+  <table class="dim">
+    <tr><th>Block</th><th>Spec</th><th>Why it matters here</th></tr>
+    <tr><td>Op-amps</td><td class="v">3 × PGA</td><td class="n">on-chip gain, programmable in firmware, all terminals accessible</td></tr>
+    <tr><td>Comparators</td><td class="v">4</td><td class="n">ultra-fast, rail-to-rail — hardware edge detection</td></tr>
+    <tr><td>ADC</td><td class="v">2 × 12-bit, 4 Msps</td><td class="n">0.25 µs conversion, timer-triggerable, DMA-fed</td></tr>
+    <tr><td>Oversampling</td><td class="v">to 16-bit</td><td class="n">hardware averaging — free SNR, no CPU</td></tr>
+    <tr><td>Core</td><td class="v">170 MHz M4F</td><td class="n">plus CORDIC and FMAC accelerators</td></tr>
+  </table>
+
+  <h2 class="sec">The proposed signal chain</h2>
+  <div class="chain">
+    detector &rarr; <b>load resistor</b> &rarr; <b>on-chip op-amp (PGA)</b> &rarr; <b>ADC</b><br>
+    &nbsp;&nbsp;&#8627; ADC conversion <b>timer-triggered</b>, synchronised to the emitter pulse<br>
+    &nbsp;&nbsp;&#8627; whole dark/lit 4-channel sequence run by <b>DMA</b>, no CPU<br>
+    &nbsp;&nbsp;&#8627; <b>hardware oversampling</b> for SNR<br>
+    &nbsp;&nbsp;&#8627; <b>comparator</b> on a side channel &rarr; hardware capture of the encoder count on the wall-vanish edge
+  </div>
+  <ul class="tight">
+    <li><b>Per-channel gain in firmware.</b> The PGA setting is software, so channel-to-channel mismatch — the hand-soldered aim differences fought throughout this build — can be <b>normalised in code</b> rather than with matched resistors and an iron.</li>
+    <li><b>Sequential emitters make three op-amps enough for four channels.</b> Only one emitter is lit at a time, so no four simultaneous chains are needed: either one shared amp behind an analog mux, or three on-chip plus one channel straight to the ADC. <b>Decide this at schematic time</b>, not at layout.</li>
+    <li><b>Comparators serve the position plan.</b> Rather than polling the ADC for a threshold crossing, a comparator can trigger a hardware capture of the encoder count at the side-sensor falling edge — a far more precise longitudinal landmark at speed than software polling. See <a href="e4-position.html">Ch&nbsp;7 · Staying Located</a>.</li>
+  </ul>
+
+  <h2 class="sec">Ruled out — and why</h2>
+  <div class="card"><h3>OP535A photodarlington detector <span class="chip no">Rejected</span></h3><p>Roughly 15–30× more sensitive than the OP505A (10.5–32 mA at 0.13 mW/cm² vs 4.3–5.95 mA at 0.50 mW/cm²), and a mechanical drop-in. Rejected on three counts: it would <b>saturate</b> the ADC at close range — worse now the TSAL6100 emitter is spectrally matched to the ~935 nm detector and signal has gone up; a darlington sensing die is <b>slow</b>, capping the read rate a running mouse needs; and its distance response is <b>less linear</b>, which hurts steering and edge detection. Sensitivity was never the bottleneck.</p></div>
+  <div class="card"><h3>SMP04 sample-and-hold <span class="chip no">Rejected</span></h3><p>Its value is capturing the detector at the peak of the emitter pulse. The G431 does that natively: <b>trigger the ADC from a timer synchronised to the pulse</b> — hardware-timed, jitter-free, DMA-fed. An external sample-and-hold adds parts and an extra analog hop for no gain. (It is also an ageing part — check stock before designing anything around it.)</p></div>
+  <div class="card"><h3>External darlington gain stage <span class="chip plan">Superseded</span></h3><p>Sound technique, and the inspiration for this note — but the on-chip PGA does the same job with <b>firmware-settable, per-channel</b> gain, which fixed hardware cannot. Keep the idea in reserve if the on-chip op-amps prove short on bandwidth or noise performance in practice.</p></div>
+
+  <h2 class="sec">Open questions for schematic time</h2>
+  <ul class="tight">
+    <li>Shared amp behind a mux, or three op-amps plus one direct ADC channel?</li>
+    <li>Load-resistor value re-picked for the PGA input range — the current 1.8 k was chosen for a bare ADC input.</li>
+    <li>How much of the gain budget to take as PGA gain versus oversampling — oversampling adds no analog noise, so favour it first.</li>
+    <li>Whether the comparator edge-capture replaces or merely supplements the firmware threshold detection.</li>
+  </ul>
+
+  <footer>
+    <span>E4 &middot; design note &middot; STM32G431</span>
+    <span>not built — captured for the next board</span>
+  </footer>
+</div>
+</body>
+</html>
