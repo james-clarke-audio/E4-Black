@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Staying Located</title>
+<meta name="description" content="E4 position integrity — the start reference, dead-reckoning drift, and how the walls re-anchor the mouse as it runs.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1015; --panel:#151a21; --panel2:#1b212b; --line:#262e39; --line2:#333d4a;
+    --ink:#e8eef5; --dim:#93a0b1; --faint:#5c6773;
+    --amber:#e6b34a; --blue:#5aa8ff;
+    --built:#54cc72; --built-bg:rgba(84,204,114,.13);
+    --plan:#9aa2f0;  --plan-bg:rgba(154,162,240,.13);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;padding:34px 22px 72px}
+  .wrap{max-width:820px;margin:0 auto}
+  a{color:var(--blue)}
+  code{font-family:var(--mono);font-size:.9em;color:var(--dim)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin:0 0 10px;display:flex;align-items:center;gap:11px}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--amber)}
+  h1{font-size:33px;font-weight:700;letter-spacing:-.02em;margin:0 0 10px;line-height:1.05;text-wrap:balance}
+  .sub{color:var(--dim);font-size:16px;margin:0 0 30px;max-width:64ch}
+  .sub b{color:var(--ink);font-weight:500}
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:38px 0 14px;font-weight:600;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  p{margin:0 0 14px}
+  .lead{color:var(--ink)} .dimc{color:var(--dim)}
+  table.dim{width:100%;border-collapse:collapse;margin:6px 0 18px;font-size:14px}
+  table.dim th,table.dim td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  table.dim th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600}
+  table.dim td.v{font-family:var(--mono);color:var(--amber);white-space:nowrap;width:1%}
+  table.dim td.n{color:var(--dim);font-size:13px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin:0 0 12px}
+  .card h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--dim);font-size:13.5px;font-family:var(--mono);line-height:1.55}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-left:auto}
+  .chip.built{color:var(--built);background:var(--built-bg)}
+  .chip.plan{color:var(--plan);background:var(--plan-bg)}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 16px;margin:0 0 14px;font-size:14px;color:var(--dim)}
+  .note b{color:var(--ink);font-weight:600}
+  ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
+  ul.tight li b{color:var(--ink);font-weight:500}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+<nav class="e4nav" style="max-width:820px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 7 &middot; Staying Located</span><span class="sp"></span><a href="e4-build-map.html">&larr; Prev</a><span class="dis">Next &rarr;</span></nav>
+
+<div class="wrap">
+  <p class="eyebrow">E4 Micromouse &middot; position integrity</p>
+  <h1>Staying Located</h1>
+  <p class="sub">A micromouse navigates by <b>dead-reckoning</b> — it counts wheel turns to know where it is. But wheels slip and scrub, so that estimate drifts. This chapter is how the E4 keeps its believed position honest: where it starts, and how the walls re-anchor it as it runs.</p>
+
+  <h2 class="sec">The start reference</h2>
+  <p class="lead">She starts in cell <code>(0,0)</code>, the SW corner, facing north (heading 0), placed <b>back-edge flat against the back wall</b> — a hand-start.</p>
+  <p>The back wall pins <b>two of the three</b> degrees of freedom: it squares her <b>heading</b> (both rear corners touch, so she aligns to the cell axis) and gives a hard <b>longitudinal</b> zero. It does <em>not</em> fix her <b>lateral</b> position — placement (or the start cell's side wall) has to centre her left-to-right.</p>
+  <p class="dimc">The geometry, measured on the mouse (all distances from the cell's back boundary line):</p>
+  <table class="dim">
+    <tr><th>Quantity</th><th>Value</th><th>Meaning</th></tr>
+    <tr><td>Wall face</td><td class="v">6 mm</td><td class="n">a 12&nbsp;mm wall straddles the boundary, so its inner face sits 6&nbsp;mm into the cell</td></tr>
+    <tr><td>Rear&nbsp;&rarr;&nbsp;axle</td><td class="v">35 mm</td><td class="n">from the mouse's back edge to the axle / centre of rotation</td></tr>
+    <tr><td>Axle at start</td><td class="v">41 mm</td><td class="n">6 + 35 &mdash; where the axle sits when she's against the wall (<code>POSE_START_Y</code>)</td></tr>
+    <tr><td>Cell centre</td><td class="v">90 mm</td><td class="n">half of the 180&nbsp;mm cell pitch (<code>HALF_CELL</code>)</td></tr>
+    <tr><td><code>BACK_WALL_TO_CENTER</code></td><td class="v">49 mm</td><td class="n">90 &minus; 41 &mdash; the forward travel to put the axle on centre</td></tr>
+  </table>
+  <p>That 49&nbsp;mm reads two ways, which is a handy sanity check: it's the distance the axle travels from the wall to the cell centre, <em>and</em> the clearance from her back edge to the wall once she's centred. Sit her on the alignment jig's centre cross and a ruler from back edge to wall reads 49&nbsp;mm — if it does, the whole chain is confirmed.</p>
+  <div class="note">On <b>go</b> (hand-start) she drives the 49&nbsp;mm forward, then declares <code>set_position(HALF_CELL)</code> — she now knows she's at the centre of cell 0. The auto-start variant instead expects her placed <em>at the centre</em> and <b>reverses into the wall to square herself</b> first; the placement and the <code>m_handStart</code> flag must agree, or she'll try to reverse into a wall she's already touching.</p>
+
+  <h2 class="sec">Between cells — dead reckoning, and its drift</h2>
+  <p>Once running, the E4 currently tracks position by <b>odometry alone</b>. There is no sensor-based correction wired in yet:</p>
+  <ul class="tight">
+    <li><code>adjustPosition()</code> is an empty hook (<code>{ return; }</code>) — the designated home for per-cell correction, not yet filled.</li>
+    <li>The front-sensor turn trigger is off — turns fire on <b>wheel distance</b>, not on seeing the wall (<code>get_front_sum() &gt; 0</code>, "distance only").</li>
+    <li><code>FRONT_REFERENCE = 850</code> (the front-sum when centred on a wall ahead) is defined but unused.</li>
+  </ul>
+  <p>So between references her belief accumulates wheel error — slip, and the <b>skid-steer scrub of the tetra chassis</b> — with nothing correcting it mid-run. Left unchecked that's what makes a mouse turn a few millimetres early, clip a post, or mis-map a cell.</p>
+
+  <h2 class="sec">Three re-anchors</h2>
+  <p class="dimc">The plan to fill <code>adjustPosition()</code> — three ways the walls hand back a known position:</p>
+  <div class="card"><h3>Front-wall snap <span class="chip plan">Planned</span></h3><p>When a wall is ahead and the front-sum reaches <code>FRONT_REFERENCE</code>, she's a known distance from it &rarr; snap her longitudinal position to truth.</p></div>
+  <div class="card"><h3>Side-edge &mdash; "wall vanishes" <span class="chip plan">Planned</span></h3><p>The side sensors aim at the flat wall face just inboard of the (slotted) post, for a steady reflection. As the wall's trailing edge passes, the reading falls through a threshold at a fixed odometry count &rarr; snap. Calibrate the count empirically; guard the snap to a plausible window (reject a missing wall / glitch); blend, don't jump, at speed. A reference every cell, even with no wall ahead.</p></div>
+  <div class="card"><h3>Dead-end re-square <span class="chip plan">Planned</span></h3><p>At a dead end, after the 180 she reverses into the wall now behind her &rarr; re-zeroes both heading and longitudinal position. A dead end hands you a squaring wall for free.</p></div>
+
+  <h2 class="sec">Turn strategy — search vs speed run</h2>
+  <p>The per-cell reference depends on the side sensors watching the walls go by — but an <b>integrated (arc) turn</b> flies <em>through</em> the corner cell with the side sensors off, so that cell gets no reference of its own. The resolution is to use a different turn style in each phase:</p>
+  <ul class="tight">
+    <li><b>Search &mdash; stop-and-turn.</b> Every cell, corner cells included, is stopped in, sensed, mapped and referenced. Search is about a correct map, so it trades pace for a reference in every cell.</li>
+    <li><b>Speed run &mdash; integrated turns.</b> The map is already known from the search, so the flown-through corner cell needn't be sensed. The turn is <b>bracketed</b> by the wall-vanish reference on the approach straight (starts from truth) and the one on the exit straight (re-corrects immediately) — with the gyro-calibrated angle in between.</li>
+  </ul>
+  <div class="note"><b>Future work:</b> integrated turns <em>during</em> search — faster mapping, at the cost of the weaker corner referencing. One to revisit once everything beneath it is solid.</div>
+
+  <h2 class="sec">Where it stands</h2>
+  <ul class="tight">
+    <li><b>Built:</b> the start reference (back-wall geometry, verified) and odometry tracking through the run.</li>
+    <li><b>Planned:</b> the three re-anchors that fill <code>adjustPosition()</code>, and dead-end re-square — all of which lean on the side sensors working, which is why their aim and calibration matter for the <em>run</em>, not just the map.</li>
+  </ul>
+
+  <footer>
+    <span>E4 &middot; STM32F411 &middot; mazerunner-core port</span>
+    <span>living manual &mdash; updated as the build moves</span>
+  </footer>
+</div>
+</body>
+</html>
