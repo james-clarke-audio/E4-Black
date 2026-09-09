@@ -9,7 +9,7 @@
 #include "report.h"
 #include "motors_ctrl.h"
 #include "profile.h"       // extern Profile forward, rotation
-#include "IRS.h"          // Battery_GetVoltage for the low-battery guard
+#include "IRS.h"          // Battery_GetVoltage for the low-battery guard; Irs_Tick
 #include <math.h>
 
 enum CtrlMode { CTRL_IDLE = 0, CTRL_OPEN_LOOP, CTRL_CLOSED_LOOP };
@@ -38,6 +38,14 @@ bool control_batt_tripped() { return s_batt_tripped; }
 // blocking ADC (battery is fed in from the main loop).
 // ---------------------------------------------------------------------------
 extern "C" void control_isr(void) {
+  // Background wall sampler: one state per tick, a full ambient-subtracted set
+  // every 5 ms, no busy-wait (see IRS.h). Ticked ahead of the s_enabled gate so
+  // it keeps running while the control loop is parked -- the IR monitor and the
+  // gyro re-cal both hold s_enabled low, and neither touches the ADC. It is a
+  // no-op unless armed, and stands aside whenever thread context owns the ADC,
+  // so the main-loop battery read (the low-battery cutoff) always wins.
+  Irs_Tick();
+
   if (!s_enabled) {
     return;
   }
