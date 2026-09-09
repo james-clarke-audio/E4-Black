@@ -77,6 +77,6 @@ UK micromouse community.
 
 ## License
 
-Private project. The firmware derives from ukmars mazerunner-core — retain its
-license terms for any derived or redistributed code. Add a `LICENSE` file once a
-choice is settled.
+Released under the [MIT License](LICENSE) — © 2022 Peter Harrison
+(ukmars mazerunner-core), © 2026 James Clarke. E4 is a derivative of the
+MIT-licensed mazerunner-core and keeps the same terms.
