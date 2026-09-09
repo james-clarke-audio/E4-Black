@@ -300,7 +300,104 @@ static void act_set_goal(void) {                // cycles corner/centre presets 
 	}
 	mouse.show_arena();
 }
-static void act_turn_tune(void)     { act_todo("Turn tuning"); }
+// Parse up to `max` comma/space-separated floats from `s`; returns the count.
+static int tt_parse_floats(const char *s, float *out, int max) {
+	int n = 0; char *end;
+	while (*s && n < max) {
+		while (*s == ',' || *s == ' ') s++;
+		if (!*s) break;
+		float v = strtof(s, &end);
+		if (end == s) break;
+		out[n++] = v; s = end;
+	}
+	return n;
+}
+
+// Diagnostics: LIVE TURN TUNING, driven over Bluetooth (default) or by hand.
+// Runs parametric in-place spins and arc turns on command and streams the
+// achieved gyro angle + forward distance, so turn dynamics can be tuned to the
+// running surface WITHOUT reflashing. Not maze-specific. Line commands over BT:
+//   SPIN,<angle>,<omega>,<alpha>
+//   ARC,<v>,<angle>,<omega>,<alpha>,<lead_in>,<lead_out>
+//   R = repeat last run,  X or < = exit
+// Buttons: RIGHT = repeat last run, LEFT = exit. Give the mouse room before a run.
+static void act_turn_tune(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	uint8_t junk; while (bt_rx_pop(&junk)) { }
+
+	// Last-run parameters, seeded from the search-turn defaults.
+	float spin[3] = { 90.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN };                    // angle, omega, alpha
+	float arc[6]  = { SEARCH_TURN_SPEED, -90.0f, 170.0f, 2500.0f, 100.0f, 30.0f };  // v, angle, omega, alpha, in, out
+	int last_kind = 0;   // 0 none, 1 spin, 2 arc
+
+	report_write("Turn tune ready: SPIN,a,w,al | ARC,v,a,w,al,in,out | R=repeat <=exit\r\n");
+	if (s_haveOled) {
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune",      &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts("drive from app", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("R=rerun L=exit", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+	}
+
+	char line[64]; int len = 0;
+	uint8_t lp = 1, rp = 1;
+	int run = 1;
+
+	while (run) {
+		int do_run = 0;   // 0 none, 1 spin, 2 arc
+
+		uint8_t l = SWITCH_LEFT(), r = SWITCH_RIGHT();
+		if (l && !lp) { run = 0; }
+		if (r && !rp) { do_run = last_kind ? last_kind : 1; }
+		lp = l; rp = r;
+
+		uint8_t ch;
+		while (bt_rx_pop(&ch)) {
+			if (ch == '\r' || ch == '\n') {
+				if (len > 0) {
+					line[len] = '\0';
+					if      (strncmp(line, "SPIN,", 5) == 0) { tt_parse_floats(line + 5, spin, 3); do_run = 1; }
+					else if (strncmp(line, "ARC,",  4) == 0) { tt_parse_floats(line + 4, arc,  6); do_run = 2; }
+					else if (line[0] == 'R' || line[0] == 'r') { do_run = last_kind ? last_kind : 1; }
+					else if (line[0] == 'X' || line[0] == '<' || line[0] == 'q') { run = 0; }
+					len = 0;
+				}
+			} else if (len < (int)sizeof(line) - 1) {
+				line[len++] = (char)ch;
+			} else { len = 0; }
+		}
+
+		if (run && do_run) {
+			HAL_Delay(300);   // hands-off settle before moving
+			if (do_run == 1) {
+				control_spin(spin[0], spin[1], 0.0f, spin[2]);   // (angle, top_omega, final_omega=0, alpha)
+				last_kind = 1;
+				report_printf("TURNRES,spin,cmd=%d,gyro=%d,dist=%d\r\n",
+				              (int)spin[0], (int)gyro.angle(), (int)odometry.robot_distance());
+			} else {
+				control_arc_turn(arc[0], arc[4], arc[1], arc[2], arc[3], arc[5]); // (v, lead_in, angle, omega, alpha, lead_out)
+				last_kind = 2;
+				report_printf("TURNRES,arc,cmd=%d,gyro=%d,dist=%d\r\n",
+				              (int)arc[1], (int)gyro.angle(), (int)odometry.robot_distance());
+			}
+			if (s_haveOled) {
+				char b[24];
+				SSD1306_Fill(SSD1306_COLOR_BLACK);
+				SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune", &Font_7x10, SSD1306_COLOR_WHITE);
+				snprintf(b, sizeof(b), "%s cmd%d", last_kind == 1 ? "spin" : "arc",
+				         last_kind == 1 ? (int)spin[0] : (int)arc[1]);
+				SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
+				snprintf(b, sizeof(b), "gyro %d", (int)gyro.angle());
+				SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+			}
+			while (bt_rx_pop(&junk)) { }   // drain anything queued during the move
+			lp = SWITCH_LEFT(); rp = SWITCH_RIGHT();
+		}
+		HAL_Delay(4);
+	}
+	report_write("Turn tune: exit\r\n");
+}
 static void act_wall_follow(void)   { act_todo("Wall follower"); }
 static void act_speed_run(void)     { act_todo("Speed run"); }
 static void act_resume_saved(void)  { act_todo("Resume saved"); }
