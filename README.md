@@ -19,7 +19,8 @@ control and calibration. Built for the October 2026 micromouse competition.
 - **On-board UI** — SSD1306 OLED with a two-button menu; the whole menu is also
   drivable over Bluetooth.
 - **Bluetooth telemetry & control** via the companion app — live IR monitor, an
-  emitter-hold camera aid for aiming, and firmware-version reporting.
+  emitter-hold camera aid for aiming, live turn tuning (gyro-closed spins &
+  arcs), and firmware-version reporting.
 - **Maze persistence** to on-board EEPROM.
 - **Flood-fill search / speed run** from mazerunner-core, with a virtual/real
   sensor switch so the brain can be exercised in simulation.
