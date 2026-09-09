@@ -141,14 +141,14 @@
 
   <div class="prog">
     <div class="track">
-      <div class="bar" role="img" aria-label="20 built, 5 stubbed of 25 menu actions">
-        <i class="b" style="width:80%"></i><i class="s" style="width:20%"></i>
+      <div class="bar" role="img" aria-label="21 built, 4 stubbed of 25 menu actions">
+        <i class="b" style="width:84%"></i><i class="s" style="width:16%"></i>
       </div>
-      <div class="cap"><span>menu actions</span><span>20 built · 5 stubbed of 25</span></div>
+      <div class="cap"><span>menu actions</span><span>21 built · 4 stubbed of 25</span></div>
     </div>
     <div class="counts">
-      <div class="c"><span class="n built">20</span><span class="k">Built</span></div>
-      <div class="c"><span class="n stub">5</span><span class="k">Stub</span></div>
+      <div class="c"><span class="n built">21</span><span class="k">Built</span></div>
+      <div class="c"><span class="n stub">4</span><span class="k">Stub</span></div>
       <div class="c"><span class="n plan">4</span><span class="k">Planned</span></div>
     </div>
   </div>
@@ -169,7 +169,7 @@
         <div class="item"><span class="name">Recal gyro</span><span class="rt"><span class="keycap">g</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">IR monitor</span><span class="rt"><span class="keycap">i</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Threshold calibration</span><span class="note">guided side/front thresholds via companion app · <code style="color:var(--dim);font-family:var(--mono)">THR,s,f</code> &rarr; saved to EEPROM, read on boot</span><span class="rt"><span class="chip plan">Planned</span></span></div>
-        <div class="item"><span class="name">Turn tuning</span><span class="note">run a turn, live-tweak arc radius / speed</span><span class="rt"><span class="keycap">j</span><span class="chip stub">Stub</span></span></div>
+        <div class="item"><span class="name">Turn tuning</span><span class="note">live BT tuner — parametric spins &amp; arcs, gyro-closed; commanded-vs-achieved readout in the app’s Tuning tab</span><span class="rt"><span class="keycap">j</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Motion test</span><span class="rt"><span class="keycap">o</span><span class="chip built">Built</span></span></div>
       </div>
 
@@ -254,7 +254,7 @@
     <li class="done"><div><div class="ot">Two-mode menu skeleton</div><div class="od">Mode → Category → Item, existing actions rebucketed, new ones stubbed</div></div><span class="step-chip">Shipped</span></li>
     <li class="done"><div><div class="ot">Set size + set goal (bench)</div><div class="od">runtime arena bounds + goal presets + BT commands · arena framed in the app</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Sensor threshold calibration</div><div class="od">firmware <code style="color:var(--dim);font-family:var(--mono)">THR</code> command + EEPROM config slot (magic + version + checksum, own region) · standalone guided calibration app</div></div><span class="step-chip">Next</span></li>
-    <li><div><div class="ot">Turn tuning</div><div class="od">calibrate arcs before anything runs fast</div></div><span class="step-chip">Then</span></li>
+    <li class="done"><div><div class="ot">Turn tuning</div><div class="od">live tuner shipped · gyro scale calibrated (720° spin) · arc tuning in progress</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Integrated-turn primitive + toggles</div><div class="od">wire the arc into search &amp; the wall follower</div></div><span class="step-chip">Then</span></li>
     <li><div><div class="ot">Diagonal navigation</div><div class="od">biggest rock — planner + 45° motion, last</div></div><span class="step-chip">Later</span></li>
     <li><div><div class="ot">Native iPad companion app</div><div class="od">SwiftUI + Core Bluetooth · polished, shareable build — the web app is its prototype &amp; protocol spec (Apple account in hand)</div></div><span class="step-chip">Nice-to-have</span></li>
