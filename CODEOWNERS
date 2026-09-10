@@ -1,0 +1,11 @@
+# Code owners for E4-Black.
+#
+# Paired with the "Require review from Code Owners" branch rule on main, this
+# means every pull request needs an approval from the owner specifically —
+# collaborators approving each other no longer satisfies the requirement.
+#
+# Must live in .github/, the repo root, or docs/, and only takes effect once
+# it is on the base branch (main). Owners need explicit write access.
+
+# Everything, unless overridden below.
+*   @james-clarke-audio

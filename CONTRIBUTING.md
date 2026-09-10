@@ -32,9 +32,11 @@ request**:
 
 - **Branch first.** Short-lived branch off an up-to-date `main`, named for what
   it does (`feature/turn-tune`, `fix/adc-timing`).
-- **Open a PR.** Reviews aren't required, but the PR is where a change gets
-  discussed, and it's the only route in for collaborators — a direct push to
+- **Open a PR.** It's the only route in for collaborators — a direct push to
   `main` will be rejected.
+- **Get it approved.** `CODEOWNERS` makes @james-clarke-audio the owner of the
+  whole tree and the rule requires a code-owner review, so every PR needs an
+  approval from him — one collaborator approving another doesn't satisfy it.
 - **Keep `main` buildable.** Don't merge anything that doesn't compile in
   CubeIDE's Debug config.
 - Pull before you start; prefer clean, rebased history over merge noise where
