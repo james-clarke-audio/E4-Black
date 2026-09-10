@@ -156,6 +156,32 @@
   .tabbtn:hover{color:var(--ink)}
   .tabbtn.active{color:var(--ink);background:var(--panel2);border-bottom-color:var(--accent)}
   .tabpanel[hidden]{display:none}
+
+  /* Narrow screens. The three columns (maze / live sensors / controls) only
+     fit above ~1150px. Below that, stack them rather than dropping one: the
+     live-sensor readout is the whole point of the app during calibration, so
+     it must never be the thing that disappears. 1250 rather than 1150 because
+     an 11" iPad Pro in landscape is 1194: it clears three columns on paper but
+     squeezes the sensor photo to 163px, and stacked at 340px it is far more
+     readable. iPadOS 26 windows can be any width, so this keys off width,
+     never orientation. */
+  @media (max-width:1250px){
+    body{overflow:auto}
+    main{flex-direction:column;min-height:0}
+    .stage{flex:0 0 auto;width:100%}
+    #maze{max-height:52vh}
+    .midpanel{flex:0 0 auto;width:100%;padding:14px 0 18px;
+      border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+    .sp-svg{width:min(340px,72%)}
+    aside{width:auto;flex:0 0 auto;border-left:0;overflow-y:visible}
+    .asidetop{position:static}
+    footer{height:110px}
+  }
+  @media (max-width:620px){
+    header{flex-wrap:wrap;row-gap:6px}
+    header h1{flex:1 1 100%}
+    .navrow{grid-template-columns:repeat(2,1fr)}
+  }
   .thead{color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:12px 0 4px}
   .tl{color:var(--dim);font-size:11px;min-width:30px}
   .tu{color:var(--faint);font-size:10px}
@@ -167,6 +193,7 @@
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">Disconnected</span></div>
   <span class="fwver" id="fwver" hidden></span>
   <div class="spacer"></div>
+  <label class="chk" id="btAllWrap" title="List every nearby BLE device instead of filtering on the service UUID"><input type="checkbox" id="btAll"> All devices</label>
   <button id="demoBtn">▶ Demo run</button>
   <button id="connectBtn" class="primary">Connect Bluetooth</button>
 </header>
@@ -416,7 +443,11 @@
 // line protocol, renders the real maze (posts, walls) + the mouse as her
 // true footprint, with zoom/follow/pan, and records/replays runs.
 //====================================================================
-const BT_SERVICE=0xffe0, BT_CHAR=0xffe1;
+// Full canonical UUIDs, not the 16-bit shorthand (0xffe0 / 0xffe1). Chrome
+// accepts the shorthand; iOS Web-BLE wrappers such as Bluefy are fussier and
+// can reject a filter built from it before any chooser is shown.
+const BT_SERVICE='0000ffe0-0000-1000-8000-00805f9b34fb';
+const BT_CHAR   ='0000ffe1-0000-1000-8000-00805f9b34fb';
 const N=16;                                   // 16x16 cells
 const WALL_T=12, POST=12;                     // mm (full-size maze)
 const MOUSE={hw:39, front:65, rear:35};       // footprint from axle (mm)
@@ -733,7 +764,15 @@ document.getElementById('connectBtn').onclick=async()=>{
   if(!navigator.bluetooth){setStatus('Web Bluetooth unavailable','err');
     logLine('No Web Bluetooth here. Use Chrome; if file:// is blocked, serve via localhost.','unk'); return;}
   try{ setStatus('Requesting device…');
-    btDevice=await navigator.bluetooth.requestDevice({filters:[{services:[BT_SERVICE]}],optionalServices:[BT_SERVICE]});
+    // Filtering on the advertised service keeps the chooser short, but a module
+    // that doesn't put 0xffe0 in its advertisement — or a browser that handles
+    // service filters poorly — then shows nothing at all. "All devices" lists
+    // everything nearby so she can be picked by name.
+    const all=document.getElementById('btAll') && document.getElementById('btAll').checked;
+    const req = all ? {acceptAllDevices:true, optionalServices:[BT_SERVICE]}
+                    : {filters:[{services:[BT_SERVICE]}], optionalServices:[BT_SERVICE]};
+    logLine('requestDevice '+(all?'(all devices)':'(filtered on 0xffe0)'),'unk');
+    btDevice=await navigator.bluetooth.requestDevice(req);
     btDevice.addEventListener('gattserverdisconnected',onDisconnect);
     setStatus('Connecting…'); const srv=await btDevice.gatt.connect();
     btChar=await (await srv.getPrimaryService(BT_SERVICE)).getCharacteristic(BT_CHAR);
@@ -741,7 +780,15 @@ document.getElementById('connectBtn').onclick=async()=>{
     setStatus('Connected · '+(btDevice.name||'mouse'),'on');
     state.battMin=null;
     document.getElementById('connectBtn').textContent='Disconnect'; logLine('Connected','evt');
-  }catch(err){setStatus('Connect failed','err'); logLine('BT error: '+err.message,'unk'); btDevice=null;}
+  }catch(err){
+    // err.message is undefined for non-standard rejections (some iOS wrappers),
+    // which tells you nothing. Fall back through name, then the raw value.
+    const why=(err&&(err.message||err.name))||String(err);
+    setStatus('Connect failed','err');
+    logLine('BT error: '+why,'unk');
+    if(!(err&&err.message)) logLine('No error text — if the chooser never appeared, tick "All devices" and retry.','unk');
+    btDevice=null;
+  }
 };
 function onDisconnect(){setStatus('Disconnected'); btChar=null; btDevice=null;
   document.getElementById('connectBtn').textContent='Connect Bluetooth'; logLine('Disconnected','unk');}
