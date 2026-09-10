@@ -2,7 +2,8 @@
 
 E4 is an STM32F411 micromouse running a C++ port of the ukmars
 **mazerunner-core** firmware, paired with a Web Bluetooth companion app.
-This is a small private repo — this guide just keeps collaboration tidy.
+The repo is public and `main` is protected — this guide keeps collaboration
+tidy and says how changes get in.
 
 ## Repository layout
 
@@ -26,15 +27,24 @@ This is a small private repo — this guide just keeps collaboration tidy.
 
 ## Workflow
 
-No branch protection is set, so use judgement:
+`main` is protected by a branch rule, so **changes reach it through a pull
+request**:
 
-- **Small, safe changes** (a fix, a tweak, a doc edit) — commit straight to
-  `main`. Just keep `main` buildable.
-- **Anything larger, or that you'd like eyes on** — work on a short-lived
-  branch and open a PR. Reviews aren't enforced, but a PR is a good place to
-  discuss a change before it lands.
+- **Branch first.** Short-lived branch off an up-to-date `main`, named for what
+  it does (`feature/turn-tune`, `fix/adc-timing`).
+- **Open a PR.** Reviews aren't required, but the PR is where a change gets
+  discussed, and it's the only route in for collaborators — a direct push to
+  `main` will be rejected.
+- **Keep `main` buildable.** Don't merge anything that doesn't compile in
+  CubeIDE's Debug config.
 - Pull before you start; prefer clean, rebased history over merge noise where
   it's easy.
+
+The repo owner (@james-clarke-audio) has admin bypass and may push small doc or
+config fixes straight to `main`. That's the exception, not the pattern — and
+it's worth knowing that a branch whose commits reached `main` via a PR merge
+plus a cherry-pick won't `git branch -d` (the SHAs differ); use `-D`, the
+content is safe.
 
 ## Commits
 
