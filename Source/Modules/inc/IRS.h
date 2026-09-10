@@ -51,6 +51,56 @@ void Irs_Delay(uint32_t count);            // busy-loop settle (see IR_*_SETTLE_
 void Irs_Emitter_Set(ADCSensors ir, uint8_t on);   // diagnostics: hold an emitter on
 
 
+// ---------------------------------------------------------------------------
+// Background (non-blocking) sensor sampler
+//
+// The blocking reads above spend ~235 us on a full four-detector set, and
+// almost all of that is Irs_Delay busy-waiting for the emitter/detector to
+// settle - only ~16 us is actual conversion. That is fine standing still, but
+// unusable while driving, where the wall flags must stay live and the 1 kHz
+// control loop must not be stalled.
+//
+// The sampler spreads the same two-phase dark/lit sequence over five 1 kHz
+// ticks, one state per tick:
+//
+//   tick 0  DARK  all emitters off -> read the four ambient baselines,
+//                 then switch the SL emitter on
+//   tick 1  SL    read SL lit, subtract its baseline; SL off, FL on
+//   tick 2  FL    read FL lit, subtract;              FL off, FR on
+//   tick 3  FR    read FR lit, subtract;              FR off, SR on
+//   tick 4  SR    read SR lit, subtract;              SR off, publish the set
+//
+// A complete ambient-subtracted set therefore lands every 5 ms (200 Hz) while
+// the ISR does nothing but ADC conversions - no busy-wait at all. Because an
+// emitter is left on for a whole tick the settle is ~1 ms, 20x
+// IR_LIT_SETTLE_COUNT, so the detector is always fully settled and the settle
+// count stops being a tuning knob on this path.
+//
+// The cost is emitter duty: 1 ms on in each 5 ms cycle is 20%, against ~1% for
+// the blocking read - roughly 18 mA average at the ~90 mA pulse, well inside
+// the emitter's 100 mA continuous rating, but it is a real change in average
+// IR power and worth knowing when comparing readings between the two paths.
+// ---------------------------------------------------------------------------
+void     Irs_SM_Enable(uint8_t on);         // arm/disarm the background sampler
+uint8_t  Irs_SM_Enabled(void);
+void     Irs_SM_Reset(void);                // drop to the DARK state, emitters off
+void     Irs_Tick(void);                    // call once per tick from the 1 kHz ISR
+uint32_t Irs_Get_Latest(uint32_t out[5]);   // copy the latest published set;
+                                            // returns its sequence number, 0 = none yet
+
+// ADC ownership. Thread-context code that drives the ADC itself takes this
+// lock so the sampler skips its tick rather than reconfiguring the converter
+// underneath an in-flight conversion. Analog_Read takes it internally; the
+// batched reads take it around the whole dark/lit sequence so the sampler
+// cannot flip an emitter mid-batch. Nesting is counted.
+//
+// This matters because the low-battery guard reads the pack with the same
+// blocking ADC from the main loop, and Analog_Read polls with HAL_MAX_DELAY:
+// an ISR that stopped the converter under it would hang that read forever.
+void Irs_Adc_Lock(void);
+void Irs_Adc_Unlock(void);
+
+
 #ifdef __cplusplus
 }
 #endif

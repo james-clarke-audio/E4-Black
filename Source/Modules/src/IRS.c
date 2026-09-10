@@ -12,6 +12,50 @@
 
 extern ADC_HandleTypeDef hadc1;
 
+// --- ADC ownership -------------------------------------------------------
+// One converter, two callers: thread context (battery guard, blocking wall
+// reads, diagnostics) and the 1 kHz sampler tick. They must never overlap,
+// because Analog_Read polls with HAL_MAX_DELAY - an ISR that reconfigured or
+// stopped the ADC under a thread-context read would hang the main loop for
+// good, and that loop is what feeds the low-battery cutoff.
+//
+// The rule is simple: thread context always wins. It raises this counter and
+// the sampler skips its tick, retrying on the next one. That costs at most a
+// handful of the 1000 ticks each second, so the 200 Hz sample rate is
+// unaffected in practice.
+//
+// No critical section is needed. A thread only executes while no ISR is
+// running, and the ISR always runs its ADC work to completion, so the two can
+// never be interleaved: a plain counter is enough. Only thread context writes
+// it; the ISR only reads it.
+static volatile uint8_t s_adc_lock = 0;
+
+// Raw single conversion, no locking. The body of Analog_Read; used directly by
+// the sampler tick (which has already tested the lock) and wrapped for
+// everyone else.
+static uint32_t adc_read_channel(ADCSensors ir);
+
+// Park the background sampler: emitters dark, sequence rewound to its first
+// state. Defined with the sampler at the foot of this file.
+static void irs_sm_park(void);
+
+// Taking the lock does more than block the sampler's ADC access: it also puts
+// the sampler's EMITTERS out of the way. The tick that was interrupted may
+// have left one lit for its settle, and a blocking read that ran with a
+// neighbour's emitter on would measure that neighbour's beam rather than an
+// ambient baseline. Parking on the 0 -> 1 transition costs the sampler one
+// partial cycle (it restarts cleanly from DARK once the lock clears) and
+// guarantees the blocking path sees exactly the dark field it has always
+// assumed.
+void Irs_Adc_Lock(void)
+{
+	uint8_t outermost = (s_adc_lock == 0);
+	++s_adc_lock;                 // stop the sampler taking a tick first...
+	if (outermost) irs_sm_park(); // ...then clear whatever it left lit
+}
+
+void Irs_Adc_Unlock(void) { if (s_adc_lock) --s_adc_lock; }
+
 #pragma GCC push_options
 #pragma GCC optimize ("O0")
 void Irs_Delay(uint32_t count) { //busy-loop settle; callers pass IR_LIT_SETTLE_COUNT / IR_DARK_SETTLE_COUNT
@@ -126,6 +170,7 @@ uint32_t Irs_Read(ADCSensors ir)
 
 			break;
 		default:
+			Irs_Adc_Lock();   // own the emitters + ADC for the whole pulse
 			// Turn on LED
 			HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET);
 			// Wait a bit...
@@ -135,6 +180,7 @@ uint32_t Irs_Read(ADCSensors ir)
 			HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
 			// Wait again...
 			Irs_Delay(IR_DARK_SETTLE_COUNT);
+			Irs_Adc_Unlock();
 			break;
 
 	}
@@ -169,12 +215,16 @@ uint32_t Irs_Read_Diff(ADCSensors ir)
 {
 	GPIO_TypeDef *port; uint16_t pin;
 	if (!ir_port_pin(ir, &port, &pin)) return Analog_Read(ir);   // battery: raw
+	// Hold the ADC for the whole dark/lit pair: the sampler must not flip an
+	// emitter or reconfigure the converter between the two samples.
+	Irs_Adc_Lock();
 	uint32_t dark = Analog_Read(ir);            // ambient (emitter off)
 	HAL_GPIO_WritePin(port, pin, GPIO_PIN_SET); // emitter on
 	Irs_Delay(IR_LIT_SETTLE_COUNT);
 	uint32_t lit = Analog_Read(ir);             // ambient + reflected
 	HAL_GPIO_WritePin(port, pin, GPIO_PIN_RESET);
 	Irs_Delay(IR_DARK_SETTLE_COUNT);
+	Irs_Adc_Unlock();
 	return (lit > dark) ? (lit - dark) : 0;
 }
 
@@ -194,6 +244,10 @@ void Irs_Read_Diff_All(uint32_t out[5])
 	};
 	uint32_t dark[5] = {0};
 
+	// Hold the ADC across both phases (see Irs_Adc_Lock): a sampler tick
+	// landing mid-sequence would switch emitters under us.
+	Irs_Adc_Lock();
+
 	// Phase 1: DARK. All emitters off, let the detectors settle, read all ambients.
 	for (int i = 0; i < 4; ++i) Irs_Emitter_Set(order[i], 0);
 	Irs_Delay(IR_DARK_SETTLE_COUNT);
@@ -208,9 +262,21 @@ void Irs_Read_Diff_All(uint32_t out[5])
 		Irs_Emitter_Set(s, 0);
 		out[s] = (lit > dark[s]) ? (lit - dark[s]) : 0;
 	}
+
+	Irs_Adc_Unlock();
 }
 
+// Public single-channel read: takes the ADC lock so the background sampler
+// stands aside for the duration.
 uint32_t Analog_Read(ADCSensors ir)
+{
+	Irs_Adc_Lock();
+	uint32_t v = adc_read_channel(ir);
+	Irs_Adc_Unlock();
+	return v;
+}
+
+static uint32_t adc_read_channel(ADCSensors ir)
 {
 	uint32_t channel;
 
@@ -255,6 +321,12 @@ uint32_t Analog_Read(ADCSensors ir)
 	uint32_t sum = 0;
 	uint8_t measurements = 0;
 
+	// NOTE: this poll is unbounded (HAL_MAX_DELAY). It is reachable from the
+	// 1 kHz sampler tick, so a converter that never raised EOC would hang the
+	// ISR rather than just the main loop. HAL_MAX_DELAY at least skips HAL's
+	// HAL_GetTick() timeout path, which would deadlock inside SysTick anyway.
+	// Left as-is deliberately: this read is the proven one, and bounding it is
+	// a change to make on the bench, not alongside a new state machine.
 	while(measurements < NUM_SAMPLES) //this takes multiple measurements
 	{
 		if(HAL_ADC_PollForConversion(hadc1_ptr,HAL_MAX_DELAY) == HAL_OK) //this makes sure the ADC has recieved a value
@@ -266,4 +338,125 @@ uint32_t Analog_Read(ADCSensors ir)
 
 	HAL_ADC_Stop(hadc1_ptr); //this stops the ADC
 	return sum/NUM_SAMPLES;
+}
+
+
+//***************************************************************************//
+// Background sensor sampler -- the non-blocking read (see IRS.h for the model)
+//
+// One state per 1 kHz tick, five ticks to a full ambient-subtracted set:
+//
+//   S_DARK -> read four ambients (all emitters off), light SL
+//   S_SL   -> read SL lit, diff, SL off, light FL
+//   S_FL   -> read FL lit, diff, FL off, light FR
+//   S_FR   -> read FR lit, diff, FR off, light SR
+//   S_SR   -> read SR lit, diff, SR off, publish
+//
+// Emitters are switched at the END of a tick and sampled at the START of the
+// next, so every lit sample sits ~1 ms after its emitter came on -- 20x the
+// old IR_LIT_SETTLE_COUNT busy-wait, for free, because the wait is the tick
+// interval itself rather than CPU time.
+//
+// The only work in the ISR is ADC conversions: four in the DARK tick (~16 us
+// worst case) and one in each lit tick (~4 us). No Irs_Delay, no HAL_Delay.
+//***************************************************************************//
+
+// Lit order. Matches Irs_Read_Diff_All so both paths give the same numbers.
+static const ADCSensors SM_ORDER[4] = {
+	IR_SIDE_LEFT, IR_FRONT_LEFT, IR_FRONT_RIGHT, IR_SIDE_RIGHT
+};
+
+#define SM_S_DARK 0            // states 1..4 are lit reads of SM_ORDER[state-1]
+
+static volatile uint8_t  s_sm_on    = 0;   // armed?
+static volatile uint8_t  s_sm_state = SM_S_DARK;
+static uint32_t          s_sm_dark[5] = {0};   // ISR-only working baselines
+static uint32_t          s_sm_work[5] = {0};   // ISR-only set under construction
+
+// Published set + seqlock. The ISR bumps s_sm_seq either side of the copy;
+// a reader that sees the same (even) value before and after has a set that
+// was not being rewritten while it read it.
+static volatile uint32_t s_sm_pub[5] = {0};
+static volatile uint32_t s_sm_seq = 0;
+
+void Irs_SM_Reset(void)
+{
+	for (int i = 0; i < 4; ++i) Irs_Emitter_Set(SM_ORDER[i], 0);
+	s_sm_state = SM_S_DARK;
+}
+
+// Same thing, but only when the sampler is actually armed -- called from
+// Irs_Adc_Lock, which runs on every single blocking conversion, so it must be
+// free when the sampler is off.
+static void irs_sm_park(void)
+{
+	if (s_sm_on) Irs_SM_Reset();
+}
+
+void Irs_SM_Enable(uint8_t on)
+{
+	if (on) {
+		Irs_SM_Reset();
+		s_sm_on = 1;
+	} else {
+		s_sm_on = 0;
+		// Leave the emitters dark so a disarmed sampler costs nothing and the
+		// blocking path starts from the same clean state it always assumed.
+		for (int i = 0; i < 4; ++i) Irs_Emitter_Set(SM_ORDER[i], 0);
+	}
+}
+
+uint8_t Irs_SM_Enabled(void) { return s_sm_on; }
+
+// Called once per tick from the 1 kHz control ISR. Returns immediately when
+// disarmed, or when thread context is holding the ADC (that tick is simply
+// skipped -- the sequence resumes where it left off, one tick later).
+void Irs_Tick(void)
+{
+	if (!s_sm_on)    return;
+	if (s_adc_lock)  return;   // thread context owns the converter this tick
+
+	uint8_t st = s_sm_state;
+
+	if (st == SM_S_DARK) {
+		// All emitters have been off for a full tick: read the ambients.
+		for (int i = 0; i < 4; ++i) {
+			ADCSensors sen = SM_ORDER[i];
+			s_sm_dark[sen] = adc_read_channel(sen);
+		}
+		Irs_Emitter_Set(SM_ORDER[0], 1);   // light the first emitter for next tick
+		s_sm_state = 1;
+		return;
+	}
+
+	// Lit read of SM_ORDER[st-1], settled since the previous tick.
+	ADCSensors sen = SM_ORDER[st - 1];
+	uint32_t lit = adc_read_channel(sen);
+	Irs_Emitter_Set(sen, 0);
+	s_sm_work[sen] = (lit > s_sm_dark[sen]) ? (lit - s_sm_dark[sen]) : 0;
+
+	if (st < 4) {
+		Irs_Emitter_Set(SM_ORDER[st], 1);  // light the next one for next tick
+		s_sm_state = (uint8_t)(st + 1);
+		return;
+	}
+
+	// Set complete -- publish it under the seqlock and go back to DARK.
+	++s_sm_seq;                                  // odd: write in progress
+	for (int i = 0; i < 5; ++i) s_sm_pub[i] = s_sm_work[i];
+	++s_sm_seq;                                  // even: set is consistent
+	s_sm_state = SM_S_DARK;
+}
+
+// Copy the most recent complete set. Returns its sequence number, or 0 if the
+// sampler has not published one yet (caller should fall back to a blocking
+// read). Safe to call from thread context while the ISR is running.
+uint32_t Irs_Get_Latest(uint32_t out[5])
+{
+	for (;;) {
+		uint32_t s1 = s_sm_seq;
+		if (s1 & 1u) continue;                   // mid-publish, retry
+		for (int i = 0; i < 5; ++i) out[i] = s_sm_pub[i];
+		if (s_sm_seq == s1) return s1 >> 1;      // stable -> completed-set count
+	}
 }

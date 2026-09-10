@@ -50,9 +50,17 @@ class VirtualSensors {
 
   // Sample all four detectors (ambient-subtracted) into rd_*. Always reads the
   // real hardware regardless of use_real -- used by the IR monitor.
+  //
+  // Two sources, same numbers. When the background sampler is armed the values
+  // are simply latched from it (free, always <=5 ms old, safe to call while
+  // driving). Otherwise -- or before it has published its first complete set --
+  // this falls back to the blocking batched read, which is still the default
+  // until the sampler is bench-proven.
   void sample_raw() {
     uint32_t d[5] = {0};
-    Irs_Read_Diff_All(d);                 // batched: one dark phase, then per-emitter lit
+    if (!(Irs_SM_Enabled() && Irs_Get_Latest(d))) {
+      Irs_Read_Diff_All(d);               // batched: one dark phase, then per-emitter lit
+    }
     rd_left  = (int)d[IR_SIDE_LEFT];
     rd_fl    = (int)d[IR_FRONT_LEFT];
     rd_fr    = (int)d[IR_FRONT_RIGHT];
