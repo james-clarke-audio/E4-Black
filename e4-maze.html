@@ -8,10 +8,28 @@
   :root{
     --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#2a3340;
     --ink:#e6edf3; --dim:#8b98a8; --faint:#4b5563;
-    --accent:#4aa3ff; --accent2:#7ee787; --warn:#f0a04b; --bad:#ff6b6b;
+    --accent:#4aa3ff; --accent2:#7ee787; --warn:#f0a04b; --bad:#ff6b6b; --good:#54c98a;
     --mono:'SF Mono',ui-monospace,Menlo,Consolas,monospace;
     --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
   }
+  /* Light chrome. The header bar and the side panel are a light surface;
+     the stage, the live-sensor panel and the log stay dark, because the maze
+     floor is black and the canvas reads best against it.
+     Everything below is a token override scoped to those two elements, so no
+     other rule in the file has to change.
+     NOTE the explicit color: body resolves its colour from the GLOBAL --ink,
+     so text that merely inherits (the state value, the em-dash placeholders)
+     would stay near-white without this. */
+  header, aside{
+    --panel:#f3f6f9; --panel2:#e5ebf2; --line:#c9d3de;
+    --ink:#0f1822; --dim:#4a5a6e; --faint:#5f6e80;   /* 4.8:1 on the panel; #68788c was only 3.9 */
+    --accent:#1266c9; --accent2:#0d6b3d; --good:#0f7a48; --warn:#96550a; --bad:#bf2d2d;
+    color:var(--ink);
+  }
+  header button:hover, aside button:hover{color:var(--ink)}
+  header button.primary, aside button.primary{color:#fff}
+  header button.primary:hover, aside button.primary:hover{background:#0d55ab}
+
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
@@ -99,15 +117,15 @@
   /* battery gauge */
   .battwrap h2{display:flex;justify-content:space-between;align-items:center}
   .batt-status{font-size:10px;font-weight:600;letter-spacing:.06em;padding:2px 7px;border-radius:10px;color:var(--faint);background:var(--panel2);text-transform:uppercase}
-  .batt-status.ok{color:#7ee787;background:rgba(126,231,135,.12)}
-  .batt-status.low{color:#e6b34a;background:rgba(230,179,74,.14)}
-  .batt-status.crit{color:#ff6b6b;background:rgba(255,107,107,.16)}
+  .batt-status.ok{color:var(--good);background:rgba(126,231,135,.12)}
+  .batt-status.low{color:var(--warn);background:rgba(230,179,74,.14)}
+  .batt-status.crit{color:var(--bad);background:rgba(255,107,107,.16)}
   .battrow{display:flex;align-items:center;gap:14px}
   .battglyph{display:flex;align-items:center}
   .battcell{width:66px;height:30px;border:2px solid var(--line);border-radius:5px;padding:2px;overflow:hidden;background:var(--panel2)}
   .battcap{width:4px;height:14px;background:var(--line);border-radius:0 2px 2px 0;margin-left:1px}
   .battfill{height:100%;width:0;border-radius:2px;background:var(--accent);transition:width .3s,background .3s}
-  .battfill.ok{background:#54c98a}.battfill.low{background:#e6b34a}.battfill.crit{background:#ff6b6b}
+  .battfill.ok{background:var(--good)}.battfill.low{background:var(--warn)}.battfill.crit{background:var(--bad)}
   .battnums{display:flex;flex-direction:column;line-height:1.12}
   .battv{font-family:var(--mono);font-size:22px;font-weight:500}
   .battv small{font-size:11px;color:var(--dim)}
@@ -117,8 +135,23 @@
   .batt-reset{cursor:pointer;color:var(--faint);text-decoration:underline}
   .batt-reset:hover{color:var(--ink)}
   @keyframes battpulse{0%,100%{opacity:1}50%{opacity:.45}}
-  .battwrap.alarm .battcell{border-color:#ff6b6b;animation:battpulse 1s infinite}
-  .tabbar{display:flex;gap:4px;padding:8px 10px 0;background:var(--panel);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
+  .battwrap.alarm .battcell{border-color:var(--bad);animation:battpulse 1s infinite}
+  /* pinned strip: battery + menu nav stay reachable from every tab */
+  .asidetop{position:sticky;top:0;z-index:6;background:var(--panel)}
+  .pinned{padding:9px 12px 10px;border-bottom:1px solid var(--line)}
+  .battbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .battbar .battcell{width:44px;height:20px;border-radius:4px}
+  .battbar .battcap{height:9px}
+  .battbar .battnums{flex-direction:row;align-items:baseline;gap:7px}
+  .battbar .battv{font-size:17px}
+  .battbar .battv small{font-size:10px}
+  .battbar .battpct{font-size:11px}
+  .battmin{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim);white-space:nowrap}
+  .battmin b{color:var(--ink);font-weight:500}
+  .navrow{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-top:9px}
+  .navrow .cmd{padding:6px 2px;font-size:10.5px}
+  .runbtn{flex:1;padding:8px 4px;font-weight:600}
+  .tabbar{display:flex;gap:4px;padding:8px 10px 0;background:var(--panel);border-bottom:1px solid var(--line)}
   .tabbtn{flex:1;padding:7px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--dim);background:transparent;border:1px solid transparent;border-bottom:2px solid transparent;border-radius:6px 6px 0 0;cursor:pointer}
   .tabbtn:hover{color:var(--ink)}
   .tabbtn.active{color:var(--ink);background:var(--panel2);border-bottom-color:var(--accent)}
@@ -177,22 +210,27 @@
   </div>
 
   <aside>
+    <div class="asidetop">
+    <div class="pinned">
+      <div class="battwrap battbar">
+        <div class="battglyph"><div class="battcell"><div class="battfill" id="batt-fill"></div></div><div class="battcap"></div></div>
+        <div class="battnums"><div class="battv" id="batt-v">—<small> V</small></div><div class="battpct" id="batt-pct">—</div></div>
+        <span class="batt-status" id="batt-status">— no data</span>
+        <div class="battmin">min <b id="batt-min">—</b> · <span class="batt-reset" id="batt-reset" onclick="state.battMin=null;updateBattery(state.tel&&state.tel.batt)">reset</span></div>
+      </div>
+      <div class="navrow">
+        <button class="cmd" data-cmd="p">◀ Prev</button>
+        <button class="cmd primary" data-cmd="r">Enter ▶</button>
+        <button class="cmd" data-cmd="n">Next ▶</button>
+        <button class="cmd" data-cmd="<">▲ Back</button>
+      </div>
+    </div>
     <div class="tabbar">
       <button class="tabbtn active" data-tab="control">Control</button>
       <button class="tabbtn" data-tab="tuning">Tuning</button>
     </div>
+    </div><!-- /asidetop -->
     <div id="tab-control" class="tabpanel">
-    <div class="sec battwrap">
-      <h2>Battery <span class="batt-status" id="batt-status">— no data</span></h2>
-      <div class="battrow">
-        <div class="battglyph"><div class="battcell"><div class="battfill" id="batt-fill"></div></div><div class="battcap"></div></div>
-        <div class="battnums"><div class="battv" id="batt-v">—<small> V</small></div><div class="battpct" id="batt-pct">—</div></div>
-      </div>
-      <div class="battfoot">
-        <span>min under load <b id="batt-min">—</b></span>
-        <span class="batt-reset" id="batt-reset" onclick="state.battMin=null;updateBattery(state.tel&&state.tel.batt)">reset</span>
-      </div>
-    </div>
     <div class="sec">
       <h2>View</h2>
       <div class="row">
@@ -230,14 +268,8 @@
     </div>
 
     <div class="sec">
-      <h2>Launcher <span style="color:var(--faint);text-transform:none;letter-spacing:0">— remote</span></h2>
-      <div class="row" style="gap:6px">
-        <button class="cmd" data-cmd="p">◀ Prev</button>
-        <button class="cmd primary" data-cmd="r">Enter ▶</button>
-        <button class="cmd" data-cmd="n">Next ▶</button>
-        <button class="cmd" data-cmd="<">▲ Back</button>
-      </div>
-      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Move</div>
+      <h2>Actions <span style="color:var(--faint);text-transform:none;letter-spacing:0">— remote</span></h2>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:0 0 3px">Move</div>
       <div class="cmdgrid">
         <button class="cmd" data-cmd="f">Forward 180</button>
         <button class="cmd" data-cmd="d">Right 90</button>
@@ -253,19 +285,6 @@
         <button class="cmd" data-cmd="x">Sim explore</button>
         <button class="cmd" data-cmd="m">Recall maze</button>
       </div>
-      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Sensors</div>
-      <div class="cmdgrid">
-        <button class="cmd" data-cmd="i">IR monitor</button>
-        <button class="cmd" data-cmd="v">Sensor mode</button>
-      </div>
-      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Setup</div>
-      <div class="cmdgrid">
-        <button class="cmd" data-cmd="g">Recal gyro</button>
-        <button class="cmd" data-cmd="z">Reset pose</button>
-        <button class="cmd" data-cmd="k">Test mode</button>
-        <button class="cmd" data-cmd="t">EEPROM test</button>
-        <button class="cmd" data-cmd="b">BT →57600</button>
-      </div>
       <div style="color:var(--faint);font-size:11px;margin-top:8px">Sends over Bluetooth · only acts while she’s in the menu (not mid-move)</div>
     </div>
 
@@ -280,7 +299,7 @@
         <label class="chk"><input type="checkbox" id="mazeFlip"> Flip vertically</label>
       </div>
       <div id="mazeInfo" style="color:var(--faint);font-size:11px;margin-top:8px">Load a .txt or .maz maze (or drop one on the grid), then send it into the mouse.</div>
-      <div id="solveInfo" style="color:#e6b34a;font-size:12px;font-family:var(--mono);margin-top:6px"></div>
+      <div id="solveInfo" style="color:var(--warn);font-size:12px;font-family:var(--mono);margin-top:6px"></div>
     </div>
 
     <div class="sec">
@@ -311,20 +330,6 @@
       </div>
     </div>
 
-    <div class="sec">
-      <details><summary>Telemetry protocol</summary>
-        <div class="proto"><b>RST</b>                new run / clear
-<b>M</b>,x,y,h           cell x,y facing h (0N 1E 2S 3W)
-<b>POS</b>,xmm,ymm,deg   pose: mm from SW corner, 0°=N, CCW+
-<b>W</b>,x,y,mask        walls, bit 1N 2E 4S 8W
-<b>C</b>,x,y,cost        flood cost
-<b>GOAL</b>,x,y[,x,y...] goal cell(s)
-<b>STATE</b>,text       SEARCH/SOLVE/RETURN/IDLE
-<b>TEL</b>,t,v,ω,dist,ang,gyro,batt
-<b>IR</b>,sl,fl,fr,sr    wall-sensor raw
-unknown lines ignored (coexists w/ debug)</div>
-      </details>
-    </div>
     </div><!-- /tab-control -->
     <div id="tab-tuning" class="tabpanel" hidden>
       <div class="sec">
@@ -337,8 +342,8 @@ unknown lines ignored (coexists w/ debug)</div>
         <div class="thead">In-place spin</div>
         <div class="row"><span class="tl">Angle</span><input class="num" id="sp_a" type="number" value="90"><span class="tu">°</span>
              <span class="tl" style="margin-left:auto">ω</span><input class="num" id="sp_w" type="number" value="360"><span class="tu">°/s</span></div>
-        <div class="row"><span class="tl">α</span><input class="num" id="sp_al" type="number" value="3600"><span class="tu">°/s²</span>
-             <button id="runSpin" class="primary" style="margin-left:auto;flex:1">Run spin</button></div>
+        <div class="row"><span class="tl">α</span><input class="num" id="sp_al" type="number" value="3600"><span class="tu">°/s²</span></div>
+        <div class="row"><button id="runSpin" class="primary runbtn">Run spin</button></div>
         <div class="thead">Arc turn</div>
         <div class="row"><span class="tl">v</span><input class="num" id="ar_v" type="number" value="300"><span class="tu">mm/s</span>
              <span class="tl" style="margin-left:auto">Angle</span><input class="num" id="ar_a" type="number" value="-90"><span class="tu">°</span></div>
@@ -346,7 +351,7 @@ unknown lines ignored (coexists w/ debug)</div>
              <span class="tl" style="margin-left:auto">α</span><input class="num" id="ar_al" type="number" value="2500"><span class="tu">°/s²</span></div>
         <div class="row"><span class="tl">lead in</span><input class="num" id="ar_in" type="number" value="100"><span class="tu">mm</span>
              <span class="tl" style="margin-left:auto">out</span><input class="num" id="ar_out" type="number" value="30"><span class="tu">mm</span></div>
-        <div class="row"><button id="runArc" class="primary" style="flex:1">Run arc</button></div>
+        <div class="row"><button id="runArc" class="primary runbtn">Run arc</button></div>
         <div class="thead">Last result</div>
         <div class="grid2">
           <div class="stat"><span class="k">Kind</span><span class="v" id="tr_kind">—</span></div>
@@ -355,6 +360,43 @@ unknown lines ignored (coexists w/ debug)</div>
           <div class="stat"><span class="k">Dist</span><span class="v" id="tr_dist">—</span></div>
         </div>
         <div style="color:var(--faint);font-size:11px;margin-top:8px">Enter tune first, then give her room. On the mouse: RIGHT repeats, LEFT exits.</div>
+      </div>
+
+      <div class="sec">
+        <h2>Sensors <span style="color:var(--faint);text-transform:none;letter-spacing:0">— calibrate</span></h2>
+        <div class="cmdgrid" style="margin-top:0">
+          <button class="cmd" data-cmd="i">IR monitor</button>
+          <button class="cmd" data-cmd="v">Sensor mode</button>
+        </div>
+        <div style="color:var(--faint);font-size:11px;margin-top:8px">IR monitor streams the ambient-subtracted values; sensor mode flips virtual ↔ real.</div>
+      </div>
+
+      <div class="sec">
+        <details><summary>Bench setup</summary>
+          <div class="cmdgrid">
+            <button class="cmd" data-cmd="g">Recal gyro</button>
+            <button class="cmd" data-cmd="z">Reset pose</button>
+            <button class="cmd" data-cmd="k">Test mode</button>
+            <button class="cmd" data-cmd="t">EEPROM test</button>
+            <button class="cmd" data-cmd="b">BT →57600</button>
+          </div>
+          <div style="color:var(--faint);font-size:11px;margin-top:8px">One-shots. Hold her still for the gyro re-cal.</div>
+        </details>
+      </div>
+
+      <div class="sec">
+        <details><summary>Telemetry protocol</summary>
+          <div class="proto"><b>RST</b>                new run / clear
+  <b>M</b>,x,y,h           cell x,y facing h (0N 1E 2S 3W)
+  <b>POS</b>,xmm,ymm,deg   pose: mm from SW corner, 0°=N, CCW+
+  <b>W</b>,x,y,mask        walls, bit 1N 2E 4S 8W
+  <b>C</b>,x,y,cost        flood cost
+  <b>GOAL</b>,x,y[,x,y...] goal cell(s)
+  <b>STATE</b>,text       SEARCH/SOLVE/RETURN/IDLE
+  <b>TEL</b>,t,v,ω,dist,ang,gyro,batt
+  <b>IR</b>,sl,fl,fr,sr    wall-sensor raw
+  unknown lines ignored (coexists w/ debug)</div>
+        </details>
       </div>
     </div>
   </aside>

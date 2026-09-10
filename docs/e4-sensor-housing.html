@@ -14,6 +14,7 @@
     --emit:#e6b34a; --emit-soft:rgba(230,179,74,.14);
     --det:#5aa8ff;  --det-soft:rgba(90,168,255,.15);
     --wall:#6b7787; --band:#54cc72; --band-soft:rgba(84,204,114,.12);
+    --warn:#e5646d; --warn-soft:rgba(229,100,109,.13);
     --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
     --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
   }
@@ -26,7 +27,7 @@
   .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.2em;text-transform:uppercase;
     color:var(--emit);margin:0 0 10px;display:flex;align-items:center;gap:11px}
   .eyebrow::before{content:"";width:26px;height:2px;background:var(--emit)}
-  h1{font-family:var(--sans);font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin:0 0 10px;line-height:1.05}
+  h1{font-family:var(--sans);font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink);margin:0 0 10px;line-height:1.05;text-wrap:balance}
   .lede{color:var(--dim);font-size:16px;margin:0 0 26px;max-width:64ch}
   .lede b{color:var(--read);font-weight:500}
 
@@ -34,12 +35,13 @@
     border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-bottom:30px}
   @media(max-width:620px){.specs{grid-template-columns:repeat(2,1fr)}}
   .specs .s{background:var(--panel);padding:14px 15px}
-  .specs .v{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--ink)}
+  .specs .v{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--ink);font-variant-numeric:tabular-nums}
   .specs .l{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);margin-top:5px;line-height:1.35}
 
   figure{margin:0 0 30px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 20px 8px}
   figure h2{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 4px;font-weight:500}
-  svg{display:block;width:100%;height:auto}
+  .svgwrap{overflow-x:auto}
+  svg{display:block;width:100%;min-width:460px;height:auto;max-width:100%}
   figcaption{color:var(--dim);font-size:13.5px;margin:14px 2px 0;line-height:1.55}
   figcaption b{color:var(--read);font-weight:500}
   .legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin:12px 2px 2px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
@@ -50,16 +52,41 @@
   .note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--emit);
     border-radius:10px;padding:16px 18px;margin:0 0 20px;font-size:14.5px;color:var(--read)}
   .note b{color:var(--ink);font-weight:600}
+  .note.det{border-left-color:var(--det)}
+  .note.warn{border-left-color:var(--warn)}
+  .note.ok{border-left-color:var(--band)}
   h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);margin:34px 0 14px;font-weight:500;display:flex;align-items:center;gap:12px}
   h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
   p{margin:0 0 16px}
   strong{color:var(--ink);font-weight:600}
   code{font-family:var(--mono);font-size:.86em;color:var(--emit);background:var(--emit-soft);padding:.08em .38em;border-radius:4px}
 
+  /* measured / assumed / pending table */
+  table.dim{width:100%;border-collapse:collapse;margin:2px 0 22px;font-size:14px}
+  table.dim th,table.dim td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.dim th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:500}
+  table.dim td.v{font-family:var(--mono);color:var(--emit);white-space:nowrap;width:1%;font-variant-numeric:tabular-nums}
+  table.dim td.n{color:var(--dim);font-size:13.5px}
+  .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:20px;white-space:nowrap}
+  .tag.meas{color:var(--band);background:var(--band-soft)}
+  .tag.assume{color:var(--emit);background:var(--emit-soft)}
+  .tag.open{color:var(--warn);background:var(--warn-soft)}
+
+  ol.steps{margin:0 0 20px;padding-left:0;list-style:none;counter-reset:st}
+  ol.steps li{counter-increment:st;position:relative;padding-left:34px;margin:0 0 11px;color:var(--read);font-size:14.5px}
+  ol.steps li::before{content:counter(st);position:absolute;left:0;top:1px;width:22px;height:22px;
+    border-radius:6px;background:var(--panel2);border:1px solid var(--line2);color:var(--dim);
+    font-family:var(--mono);font-size:11px;display:grid;place-items:center}
+  ol.steps li b{color:var(--ink);font-weight:600}
+  ul.tight{margin:0 0 18px;padding-left:20px} ul.tight li{margin:0 0 8px;color:var(--dim)}
+  ul.tight li b{color:var(--read);font-weight:500}
+
   /* svg text classes */
   .t{font-family:var(--mono);fill:var(--dim);font-size:12px}
   .t.sm{font-size:10.5px;fill:var(--faint)}
   .t.em{fill:var(--emit)} .t.de{fill:var(--det)} .t.ink{fill:var(--read)}
+  .t.wn{fill:var(--warn)} .t.ok{fill:var(--band)}
   .dimln{stroke:var(--faint);stroke-width:1}
   footer{margin-top:38px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
 
@@ -82,138 +109,205 @@
 <div class="wrap">
   <p class="eyebrow">E4 Micromouse · IR wall sensing</p>
   <h1>Sensor Housing Geometry</h1>
-  <p class="lede">The printed housing measured from the STL, and the optics it sets up: a narrow <b>SFH 4550</b> emitter over an <b>OP505A</b> phototransistor, with the detector bore tilted <b>5° up</b> so its cone converges on the emitter's spot in the lower half of the wall. Black resin — no IR bleed through the septum.</p>
+  <p class="lede">The printed housing measured from the STL, and the optics it sets up: a <b>TSAL6100</b> emitter 13.5&nbsp;mm above the board over an <b>OP505A</b> phototransistor at 7&nbsp;mm. Four of these, one per sensor, in black resin. This chapter records what the part actually is, the two decisions taken about how to fit it, and what is still unverified.</p>
 
   <div class="specs">
-    <div class="s"><div class="v">Ø5.8 mm</div><div class="l">emitter bore · 5 mm SFH 4550</div></div>
-    <div class="s"><div class="v">Ø4.0 mm</div><div class="l">detector bore · 3 mm OP505A</div></div>
-    <div class="s"><div class="v">6.4 mm</div><div class="l">centre-to-centre · 1.5 mm septum</div></div>
-    <div class="s"><div class="v">8 mm</div><div class="l">bore depth (shroud)</div></div>
+    <div class="s"><div class="v">ø5.80 mm</div><div class="l">emitter bore · straight, 8.03 deep, no axial stop</div></div>
+    <div class="s"><div class="v">ø4.05 mm</div><div class="l">detector bore · 5.80 deep, flange stop</div></div>
+    <div class="s"><div class="v">6.47 mm</div><div class="l">centre-to-centre · 1.55 mm septum</div></div>
+    <div class="s"><div class="v">16.94 mm</div><div class="l">tall, on a 3.49 × 5.80 mm seat</div></div>
   </div>
 
-  <!-- FIGURE 1: elevation / aiming geometry -->
+  <div class="note"><b>Two things changed under this chapter.</b> The emitter is now the <b>TSAL6100</b> (940&nbsp;nm, ±10°), not the SFH&nbsp;4550 (850&nbsp;nm, ±3°) it was designed around — see <a style="color:var(--emit)" href="sensor-aim.html">Ch&nbsp;3</a>. And the housing in use is the <b>flat</b> variant, not the 5°/7° tilted ones. Those two facts turn out to be connected.</div>
+
+  <!-- FIGURE 1: elevation / parallax -->
   <figure>
-    <h2>Elevation — beams onto the wall (vertical to scale)</h2>
-    <svg viewBox="0 0 580 350" role="img" aria-label="Side elevation: the emitter fires level from 13 mm above the floor; the detector, 7 mm up, is tilted 5 degrees up so its cone converges on the emitter spot at about 13 mm on the wall, inside the lower half of the 50 mm wall.">
+    <h2>Elevation — why the flat bore works now (both axes to scale)</h2>
+    <div class="svgwrap">
+    <svg viewBox="0 0 580 352" role="img" aria-label="Side elevation to scale: the emitter fires level from 13.5 mm above the board and the detector sits level at 7.03 mm, 6.47 mm below it. The TSAL6100's plus or minus 10 degree cone drops onto the detector's axis at 37 mm, so both the 45 mm side wall and the 90 mm front wall are covered. The old SFH4550's plus or minus 3 degree cone stays above the detector axis for the whole range and would not have reached it until 124 mm.">
       <!-- height scale -->
-      <line class="dimln" x1="40" y1="50" x2="40" y2="300"/>
+      <line class="dimln" x1="44" y1="168" x2="44" y2="300"/>
       <g class="t sm" text-anchor="end">
-        <line class="dimln" x1="37" y1="300" x2="43" y2="300"/><text x="34" y="303">0</text>
-        <line class="dimln" x1="37" y1="175" x2="43" y2="175"/><text x="34" y="178">25</text>
-        <line class="dimln" x1="37" y1="50" x2="43" y2="50"/><text x="34" y="53">50 mm</text>
+        <line class="dimln" x1="41" y1="300" x2="47" y2="300"/><text x="38" y="303">0</text>
+        <line class="dimln" x1="41" y1="256" x2="47" y2="256"/><text x="38" y="259">10</text>
+        <line class="dimln" x1="41" y1="212" x2="47" y2="212"/><text x="38" y="215">20</text>
+        <line class="dimln" x1="41" y1="168" x2="47" y2="168"/><text x="38" y="171">30 mm</text>
       </g>
-      <!-- floor -->
-      <line x1="40" y1="300" x2="548" y2="300" stroke="var(--wall)" stroke-width="2.5"/>
-      <text class="t sm" x="46" y="314">floor</text>
-      <!-- wall + lower-half band -->
-      <rect x="435" y="50" width="60" height="250" fill="var(--panel2)" stroke="var(--wall)" stroke-width="1.5"/>
-      <rect x="435" y="175" width="60" height="125" fill="var(--band-soft)"/>
-      <line x1="435" y1="175" x2="495" y2="175" stroke="var(--band)" stroke-width="1" stroke-dasharray="4 4"/>
-      <text class="t sm" x="465" y="292" text-anchor="middle" fill="var(--band)">lower half</text>
-      <text class="t sm" x="465" y="47" text-anchor="middle">50 mm wall</text>
-      <!-- housing -->
-      <rect x="44" y="222" width="34" height="56" rx="4" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
-      <text class="t sm" x="61" y="214" text-anchor="middle">housing</text>
-      <!-- emitter beam (level, ±3°) -->
-      <polygon points="78,235 435,217 435,253" fill="var(--emit-soft)"/>
-      <line x1="78" y1="235" x2="435" y2="235" stroke="var(--emit)" stroke-width="2"/>
-      <circle cx="78" cy="235" r="4.5" fill="var(--emit)"/>
-      <!-- detector cone (tilted up 5°, ±10°) -->
-      <polygon points="78,265 435,172 435,298" fill="var(--det-soft)"/>
-      <line x1="78" y1="265" x2="435" y2="235" stroke="var(--det)" stroke-width="2"/>
-      <circle cx="78" cy="265" r="4.5" fill="var(--det)"/>
-      <!-- convergence -->
-      <circle cx="435" cy="235" r="6" fill="none" stroke="var(--ink)" stroke-width="1.6"/>
-      <circle cx="435" cy="235" r="2.4" fill="var(--ink)"/>
-      <!-- height leaders -->
-      <g class="t sm">
-        <text class="em" x="84" y="231">emitter · 13 mm</text>
-        <text class="de" x="84" y="277">detector · 7 mm</text>
-      </g>
-      <!-- labels -->
-      <text class="t em" x="250" y="212" text-anchor="middle">SFH 4550 emitter · level · ±3°</text>
-      <text class="t de" x="250" y="323" text-anchor="middle">OP505A detector · tilted 5° up · ±10° cone</text>
-      <text class="t ink" x="441" y="231">spot ≈13 mm</text>
-      <!-- 5deg arc near detector -->
-      <path d="M 118 265 A 40 40 0 0 0 116 261" fill="none" stroke="var(--det)" stroke-width="1.3"/>
-      <text class="t de sm" x="122" y="258">5°</text>
-      <!-- distance dim -->
-      <g>
-        <line class="dimln" x1="78" y1="335" x2="435" y2="335"/>
-        <line class="dimln" x1="78" y1="330" x2="78" y2="340"/>
-        <line class="dimln" x1="435" y1="330" x2="435" y2="340"/>
-        <text class="t sm" x="256" y="347" text-anchor="middle">design crossing ≈73 mm  ·  side walls ≈50 mm still sit inside the cone</text>
-      </g>
+
+      <!-- board -->
+      <line x1="44" y1="300" x2="545" y2="300" stroke="var(--wall)" stroke-width="2.5"/>
+      <text class="t sm" x="50" y="313">board / floor plane</text>
+
+      <!-- housing body -->
+      <rect x="55" y="225.5" width="35" height="74.5" rx="3" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
+
+      <!-- wall distance guides -->
+      <line x1="288" y1="76" x2="288" y2="300" stroke="var(--wall)" stroke-width="1.2" stroke-dasharray="5 5"/>
+      <line x1="486" y1="76" x2="486" y2="300" stroke="var(--wall)" stroke-width="1.2" stroke-dasharray="5 5"/>
+      <text class="t sm" x="288" y="68" text-anchor="middle">side wall ≈45 mm</text>
+      <text class="t sm" x="486" y="68" text-anchor="middle">front wall ≈90 mm</text>
+
+      <!-- SFH4550 +/-3 cone (the part it replaced) -->
+      <polygon points="90,240.6 510,218.6 510,262.6" fill="none" stroke="var(--faint)" stroke-width="1" stroke-dasharray="4 4"/>
+
+      <!-- TSAL6100 +/-10 cone -->
+      <polygon points="90,240.6 510,166.5 510,314.7" fill="var(--emit-soft)"/>
+      <line x1="90" y1="240.6" x2="510" y2="240.6" stroke="var(--emit)" stroke-width="1.8"/>
+      <circle cx="90" cy="240.6" r="4.5" fill="var(--emit)"/>
+
+      <!-- detector axis, level -->
+      <line x1="90" y1="269.1" x2="510" y2="269.1" stroke="var(--det)" stroke-width="1.8"/>
+      <circle cx="90" cy="269.1" r="4.5" fill="var(--det)"/>
+
+      <!-- crossing -->
+      <circle cx="252" cy="269.1" r="5.5" fill="none" stroke="var(--band)" stroke-width="1.6"/>
+      <line x1="252" y1="275" x2="252" y2="322" stroke="var(--band)" stroke-width="1" stroke-dasharray="3 3"/>
+      <text class="t ok sm" x="252" y="336" text-anchor="middle">37 mm — beyond here the detector's axis lands on lit wall</text>
+
+      <!-- device labels -->
+      <text class="t em sm" x="98" y="230">emitter 13.50</text>
+      <text class="t de sm" x="98" y="290">detector 7.03 · level</text>
+      <text class="t em" x="352" y="180" text-anchor="middle">TSAL6100 · level · ±10°</text>
+      <text class="t sm" x="352" y="212" text-anchor="middle">SFH 4550 ±3° — never reaches it inside 124 mm</text>
+
+      <!-- offset dim -->
+      <line class="dimln" x1="150" y1="240.6" x2="150" y2="269.1" stroke="var(--det)"/>
+      <line class="dimln" x1="146" y1="240.6" x2="154" y2="240.6" stroke="var(--det)"/>
+      <line class="dimln" x1="146" y1="269.1" x2="154" y2="269.1" stroke="var(--det)"/>
+      <text class="t de sm" x="158" y="258">6.47</text>
     </svg>
-    <div class="legend">
-      <span><i style="background:var(--emit)"></i> emitter beam (±3°)</span>
-      <span><i style="background:var(--det)"></i> detector cone (±10°)</span>
-      <span><i class="dot" style="background:var(--band)"></i> wall lower half (0–25 mm)</span>
     </div>
-    <figcaption><b>Vertical axis is to scale.</b> The emitter fires level and lands its tight spot at ~13 mm — comfortably in the lower half. The detector, 6.4 mm below, is tilted up 5° so its wider cone centres on that spot; note the cone practically fills the lower half of the wall, so the reflection is captured across the whole side-wall / front-wall distance range. Set the <b>height</b> by bending legs; the bore sets the <b>angle</b>.</figcaption>
+    <div class="legend">
+      <span><i style="background:var(--emit)"></i> TSAL6100 cone (±10°)</span>
+      <span><i style="background:var(--faint)"></i> SFH 4550 cone (±3°)</span>
+      <span><i style="background:var(--det)"></i> detector axis (level)</span>
+      <span><i class="dot" style="background:var(--band)"></i> coverage begins</span>
+    </div>
+    <figcaption><b>Both axes to scale.</b> Emitter and detector are parallel and 6.47&nbsp;mm apart vertically, so the lit patch always sits <em>above</em> the detector's axis — 9.2° above it at a 45&nbsp;mm side wall, 4.1° at a 90&nbsp;mm front wall. That is a real cost, but a survivable one at ±10°: the cone drops onto the axis at 37&nbsp;mm and every wall distance in the maze is beyond that. At ±3° it would not have arrived until 124&nbsp;mm, which is why the original design needed the tilt.</figcaption>
   </figure>
 
-  <!-- FIGURE 2: housing cross-section -->
+  <h2 class="sec">Why flat, and when the tilted bores come back</h2>
+  <p>The 5° and 7° variants exist to cancel that 6.47&nbsp;mm parallax: tilting the detector up converges the two axes at <strong>6.47 ÷ tan θ</strong> — <strong>74&nbsp;mm at 5°</strong> (front-wall range) and <strong>53&nbsp;mm at 7°</strong> (side-wall range). One part for the forward pair, one for the sides. They are a geometric correction, not a detector-aiming nicety.</p>
+  <p>With the ±3° SFH&nbsp;4550 that correction was close to mandatory. With the ±10° TSAL6100 it isn't: the cone covers the detector axis across the whole working range, so <strong>the flat housing is the right call for the competition build</strong> — one part number, no tilted overhang to print, nothing to get handed to the wrong sensor. The tilted STLs stay in reserve. If the bench numbers come back weak specifically on the forward pair at range, the 5° part is the first thing to try, because that is exactly the case it was cut for.</p>
+
+  <!-- FIGURE 2: which way round -->
   <figure>
-    <h2>Cross-section — the bores (side, aim → right)</h2>
-    <svg viewBox="0 0 540 300" role="img" aria-label="Housing side cross-section: a straight Ø5.8 emitter bore on top, a Ø4.0 detector bore below tilted 5 degrees up toward the front aperture, a 1.5 mm septum between them, 8 mm bore depth, and a recess at the back for the detector legs to bend down.">
-      <defs><marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><polygon points="0,0 9,4.5 0,9" fill="var(--emit)"/></marker></defs>
-      <!-- housing body: 8mm deep (x=190..350), 16.9mm tall (y=40..243), recess at back-left -->
-      <path d="M 190 40 L 350 40 L 350 243 L 210 243 L 210 200 L 170 200 L 170 150 L 190 150 Z"
-            fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.4"/>
-      <text class="t sm" x="164" y="112" text-anchor="end">back</text>
+    <h2>Which way round — the only optical difference</h2>
+    <div class="svgwrap">
+    <svg viewBox="0 0 580 336" role="img" aria-label="Two cross-sections of the same housing, wall to the right. With the flat face outward both apertures sit in one plane 1.55 mm apart. With the stepped face outward the emitter tube stands 2.22 mm proud of the detector's plane, forming a baffle step between them.">
+      <defs>
+        <marker id="wa" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <polygon points="0,0 9,4.5 0,9" fill="var(--wall)"/>
+        </marker>
+      </defs>
 
-      <!-- emitter bore (straight, top) -->
-      <rect x="188" y="46" width="168" height="70" rx="8" fill="var(--emit-soft)" stroke="var(--emit)" stroke-width="1.5"/>
-      <line x1="190" y1="81" x2="356" y2="81" stroke="var(--emit)" stroke-width="1.2" stroke-dasharray="5 5"/>
-      <text class="t em" x="192" y="34">EMITTER · Ø5.8 · straight</text>
+      <!-- ============ PANEL A ============ -->
+      <g transform="translate(6,0)">
+        <text class="t" x="30" y="34">A · flat face out</text>
+        <!-- board -->
+        <line x1="18" y1="250" x2="176" y2="250" stroke="var(--wall)" stroke-width="2.2"/>
+        <!-- body + tube (tube points away from the wall) -->
+        <rect x="54.4" y="64" width="63.9" height="186" rx="2" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
+        <rect x="30" y="63.6" width="24.4" height="75.8" rx="2" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
+        <!-- bores -->
+        <rect x="30" y="69.6" width="88.3" height="63.8" fill="var(--emit-soft)" stroke="var(--emit)" stroke-width="1.3"/>
+        <rect x="54.4" y="150.4" width="63.9" height="44.6" fill="var(--det-soft)" stroke="var(--det)" stroke-width="1.3"/>
+        <text class="t em sm" x="56" y="106" text-anchor="middle">emitter</text>
+        <text class="t de sm" x="86" y="177" text-anchor="middle">detector</text>
+        <!-- shared aperture plane -->
+        <line x1="118.3" y1="58" x2="118.3" y2="208" stroke="var(--warn)" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text class="t wn sm" x="124" y="50">one plane</text>
+        <!-- to wall -->
+        <line x1="132" y1="222" x2="168" y2="222" stroke="var(--wall)" stroke-width="1.6" marker-end="url(#wa)"/>
+        <text class="t sm" x="132" y="238">to wall</text>
+        <!-- verdict -->
+        <text class="t wn sm" x="18" y="282">apertures coplanar, 1.55 mm apart —</text>
+        <text class="t wn sm" x="18" y="298">emitter spill has a clear run across</text>
+      </g>
 
-      <!-- detector bore (tilted 5° up) -->
-      <polygon points="190,191 356,183 356,135 190,143" fill="var(--det-soft)" stroke="var(--det)" stroke-width="1.5"/>
-      <line x1="190" y1="167" x2="356" y2="159" stroke="var(--det)" stroke-width="1.2" stroke-dasharray="5 5"/>
-      <text class="t de" x="60" y="248">DETECTOR · Ø4.0 · tilted 5° up</text>
-
-      <!-- to-wall arrow (front) -->
-      <line x1="360" y1="150" x2="398" y2="150" stroke="var(--emit)" stroke-width="2" marker-end="url(#ah)"/>
-      <text class="t em sm" x="404" y="153">to wall</text>
-
-      <!-- septum callout (leader up-right to clear margin) -->
-      <line class="dimln" x1="330" y1="125" x2="366" y2="100"/>
-      <text class="t sm" x="370" y="97">1.5 mm septum</text>
-
-      <!-- leg recess -->
-      <text class="t sm" x="164" y="192" text-anchor="end">leg recess</text>
-      <line class="dimln" x1="166" y1="188" x2="188" y2="182"/>
-
-      <!-- depth dim -->
-      <line class="dimln" x1="190" y1="262" x2="350" y2="262"/>
-      <line class="dimln" x1="190" y1="257" x2="190" y2="267"/><line class="dimln" x1="350" y1="257" x2="350" y2="267"/>
-      <text class="t sm" x="270" y="276" text-anchor="middle">8 mm deep</text>
-
-      <!-- centre-to-centre dim (far right) -->
-      <line class="dimln" x1="470" y1="81" x2="470" y2="159"/>
-      <line class="dimln" x1="465" y1="81" x2="475" y2="81"/><line class="dimln" x1="465" y1="159" x2="475" y2="159"/>
-      <text class="t sm" x="478" y="124">6.4 mm</text>
-      <line class="dimln" x1="358" y1="81" x2="470" y2="81" stroke-dasharray="3 4"/>
-      <line class="dimln" x1="358" y1="159" x2="470" y2="159" stroke-dasharray="3 4"/>
-
-      <!-- 5deg marker -->
-      <path d="M 224 167 A 36 36 0 0 0 222 161" fill="none" stroke="var(--det)" stroke-width="1.3"/>
-      <text class="t de sm" x="230" y="160">5°</text>
+      <!-- ============ PANEL B ============ -->
+      <g transform="translate(306,0)">
+        <text class="t ok" x="30" y="34">B · stepped face out  ·  chosen</text>
+        <line x1="18" y1="250" x2="196" y2="250" stroke="var(--wall)" stroke-width="2.2"/>
+        <!-- body + tube (tube points at the wall) -->
+        <rect x="30" y="64" width="63.9" height="186" rx="2" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
+        <rect x="93.9" y="63.6" width="24.4" height="75.8" rx="2" fill="var(--panel2)" stroke="var(--line2)" stroke-width="1.2"/>
+        <!-- bores -->
+        <rect x="30" y="69.6" width="88.3" height="63.8" fill="var(--emit-soft)" stroke="var(--emit)" stroke-width="1.3"/>
+        <rect x="30" y="150.4" width="63.9" height="44.6" fill="var(--det-soft)" stroke="var(--det)" stroke-width="1.3"/>
+        <text class="t em sm" x="76" y="106" text-anchor="middle">emitter</text>
+        <text class="t de sm" x="62" y="177" text-anchor="middle">detector</text>
+        <!-- emitter flange -->
+        <rect x="30" y="69.6" width="11" height="63.8" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1"/>
+        <text class="t wn sm" x="24" y="52">flange grips</text>
+        <!-- two planes + step dim -->
+        <line x1="93.9" y1="140" x2="93.9" y2="216" stroke="var(--band)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <line x1="118.3" y1="56" x2="118.3" y2="216" stroke="var(--band)" stroke-width="1.4" stroke-dasharray="5 4"/>
+        <line class="dimln" x1="93.9" y1="210" x2="118.3" y2="210" stroke="var(--band)"/>
+        <text class="t ok sm" x="124" y="214">2.22 mm step</text>
+        <!-- to wall -->
+        <line x1="132" y1="222" x2="168" y2="222" stroke="var(--wall)" stroke-width="1.6" marker-end="url(#wa)"/>
+        <text class="t sm" x="132" y="238">to wall</text>
+        <!-- verdict -->
+        <text class="t ok sm" x="18" y="282">emitter aperture 2.22 mm proud —</text>
+        <text class="t ok sm" x="18" y="298">a real baffle step between the two</text>
+      </g>
     </svg>
-    <figcaption><b>Measured from your STL.</b> Both bores are straight through-holes 8 mm deep in the as-printed part; this version rotates only the detector bore up 5°, which swings its back — and the legs — down into the recess you added for exactly that clearance. Emitter, septum and emitter bore are untouched.</figcaption>
+    </div>
+    <figcaption><b>Same part, turned about its vertical axis.</b> The seat has to stay on the flat end face, so this is the only rotation available — heights, parallax and the emitter's flange journal are identical either way. What changes is the aperture planes. Flat-face-out puts them level with each other, 1.55&nbsp;mm apart across a septum that is only 1.55&nbsp;mm of resin; stepped-face-out stands the emitter tube 2.22&nbsp;mm ahead of the detector, so spill has to come back around a step to reach it. <b>Fit them stepped face outward.</b></figcaption>
   </figure>
 
-  <div class="note"><b>Height by legs, angle by bore.</b> Bending legs reliably sets how high the pair sits (to drop the beams into the wall's lower half), but it can't hold a stable tilt — in a snug bore the part follows the bore. So the 5° convergence lives in the print (identical on all four sensors), and you keep bending legs for height. Tilting the <b>detector</b> up rather than the emitter down keeps the bright, narrow emitter spot safely off the floor at this low ~7 mm mount.</div>
+  <h2 class="sec">What the STL actually is</h2>
+  <table class="dim">
+    <tr><th>Feature</th><th>Value</th><th>Note</th><th></th></tr>
+    <tr><td>Overall</td><td class="v">6.89 × 8.03 × 16.94</td><td class="n">width × depth (beam axis) × height. Stands on the flat end face; the STL ships lying on its side for printing.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>Seat</td><td class="v">3.49 × 5.80</td><td class="n">20.2 mm² flat pad. The 3.49 is the side-to-side direction — the azimuth axis. Corners are rounded away; the part itself is 6.89 wide.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>Emitter bore</td><td class="v">ø5.80 × 8.03</td><td class="n">Straight through, one diameter, <strong>no axial stop</strong>. Sized to the LED's flange, so the barrel above it is free.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>Detector bore</td><td class="v">ø4.05 × 5.80</td><td class="n">Flange stops on the rear face — a positive axial datum the emitter doesn't have.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>Septum</td><td class="v">1.55 mm</td><td class="n">Web of resin between the two bores. Constant on the flat variant.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>Tube wall</td><td class="v">0.55 mm</td><td class="n">Around the emitter bore, on three sides. Thin enough that near-IR leakage is a live question.</td><td><span class="tag meas">measured</span></td></tr>
+    <tr><td>LED barrel</td><td class="v">ø5.0 / flange ø5.8</td><td class="n">Assumed from the package family, not measured. Everything about the journal below hangs on this.</td><td><span class="tag assume">assumed</span></td></tr>
+    <tr><td>ø4.05 fit</td><td class="v">body or flange?</td><td class="n">If 4.05 clears the OP505A <em>body</em> the detector is well located. If it only catches the <em>flange</em>, it is as loose as the emitter.</td><td><span class="tag open">to check</span></td></tr>
+  </table>
 
-  <div class="note" style="border-left-color:var(--det)"><b>Seat flush, never proud.</b> The 8&nbsp;mm bore only shrouds a device that sits <em>inside</em> it. If an <b>emitter</b> pokes proud of the front face, its dome side‑spill escapes the barrel and skims straight into the detector — a bright, wall‑like reading in open air (covering the emitter drops it to zero). Push each dome <b>flush with, or a few tenths recessed behind, the front face</b>, and seat all four to the same depth so one threshold fits. The emitter is forgiving of depth — the Ø5.8 bore and ±3° beam clear the aperture even a couple of mm back, so err recessed. A proud <b>detector</b> defeats the shroud the same way (a wider field that drinks in stray light and crosstalk), but don't over‑recess it either: past ~2&nbsp;mm the Ø4 bore begins to vignette its ±10° acceptance and you lose reflected signal. Flush to a hair recessed is its sweet spot.</div>
+  <div class="note warn"><b>The emitter is located on its flange, not its barrel.</b> A straight ø5.80 bore grips a ø5.8 flange over roughly a millimetre and leaves the ø5.0 barrel floating for the other seven. At 0.1&nbsp;mm of clearance that is <b>±4–6° of free tilt</b>, and it is at the wrong end: in the chosen orientation the flange sits at the back and the dome emits at the front, so the whole 8&nbsp;mm acts as a lever. This is the single largest source of aim scatter in the assembly, and it can't be fixed by pressing harder — only by a two-diameter bore on the next print.</div>
 
-  <h2 class="sec">If you want to tune it</h2>
-  <p>The 5° bore crosses the two axes at about <strong>73 mm</strong> (6.4 mm ÷ tan 5°). That centres the response on the mid‑to‑far range; a side wall at ~50 mm sits just inside the crossing, and the detector's ±10° cone still catches the spot there. If you'd rather centre exactly on the ~50 mm side‑wall distance, <strong>~7°</strong> does it (crossing ≈ 52 mm) — say the word and I'll regenerate the STL at whatever angle you want.</p>
+  <h2 class="sec">How it mounts</h2>
+  <p>The housing seats flush on that 3.49 × 5.80&nbsp;mm pad, which fully constrains tilt and elevation — those two angles come from the geometry and no adhesive can drift them. What the pad does <em>not</em> do is hold the part down. Right now the only thing resisting a 16.94&nbsp;mm tall part rotating on a 20&nbsp;mm² footprint is <strong>four component leads soldered into the board</strong>, and thin leads bend plastically: knock it and it moves, and it stays moved.</p>
+
+  <div class="note ok"><b>Bond before you calibrate, not after.</b> The instinct is to glue once the readings look right — but the readings can't be trusted until it's bonded, because the handling that calibration <em>requires</em> (lifting the mouse, squaring it in the cell, doing it again for the next wall configuration) is exactly the loading that shifts an unbonded mount. Every number would come from a slightly different mouse to the one before. Bond first. <b>Hot melt</b> while the aim is still being iterated — rigid enough, releases with heat. <b>Not cyanoacrylate:</b> it blooms a white haze on IR optics as it cures.</div>
+
+  <h2 class="sec">Setting the depth</h2>
+  <p>The emitter bore has no stop, so its depth is set entirely by how hard it was pressed. Four housings pressed to four different depths read differently, and that difference then gets written down as four different thresholds — assembly variation wearing a calibration costume. Give it the datum the part lacks:</p>
+  <ol class="steps">
+    <li><b>Press the emitter to flush.</b> Stand the housing tube-tip-down on a sheet of glass or a steel rule and push the LED in from the back until the dome touches. Dome exactly flush with the tube tip, identical on all four to about ±0.1&nbsp;mm. Press on the flange or barrel — <b>never the dome</b>, which can craze the lens or shift the die.</li>
+    <li><b>Let the detector set itself.</b> Its flange stops on the rear face, so depth is fixed for you. Just confirm the flange is fully home.</li>
+    <li><b>Index any moulded flat the same way</b> on all four, so package asymmetry is at least consistent between sensors rather than four different aims.</li>
+    <li><b>Opaque epoxy at the rear of each bore.</b> Locks the package to the housing, well behind the optics. Note that ordinary clear or amber epoxy is IR-transparent — it holds but does not block. Don't pigment it yourself with graphite or carbon black; both are conductive and the leads are right there.</li>
+    <li><b>Aim, then tack.</b> Light one emitter with <code>Emitter hold</code> (BT key <code>E</code>), find the spot with a phone camera, aim at the flat wall face inboard of the slotted post, then fillet the base.</li>
+  </ol>
+
+  <div class="note det"><b>Flush, not recessed.</b> This supersedes the earlier advice to err recessed, which assumed the flat face pointed at the wall. In the stepped-out orientation the 2.22&nbsp;mm step <em>is</em> the crosstalk defence, and every millimetre the emitter is pushed back spends it. Recessing costs nothing optically — a 10° ray from the dome apex only reaches 0.18&nbsp;mm off-axis in a millimetre, nowhere near the ø5.80 wall — so this is purely about keeping the step.</div>
+
+  <h2 class="sec">Next print</h2>
+  <p>Neither of these is competition-critical — bonded mounts on the existing housings should be enough for trustworthy thresholds — but both are cheap when the part is next cut. Resin holds ±0.05&nbsp;mm on features this size and prints bores genuinely round, so a press fit is a realistic thing to ask for here in a way it would not be in FDM. Expect a little light-bleed undersize at the bore wall and spec accordingly.</p>
+  <ul class="tight">
+    <li><b>Two-diameter bores.</b> Barrel&nbsp;+0.05 for the upper length, with the existing diameter kept as a short relief at the flange end. Takes the emitter journal from ~1&nbsp;mm to ~4.8&nbsp;mm and the free tilt from ±4–6° to about ±1°. It also lifts the tube wall from 0.55 to 0.90&nbsp;mm and the septum from 1.55 to 1.90 — the same change buys the IR path too. Apply it to the detector bore as well if the check above says that one is flange-located.</li>
+    <li><b>Square the base corners.</b> The seat is 3.49&nbsp;mm wide only because the corners are rounded off; the part is 6.89. Squaring them doubles the seat area and halves the lean sensitivity, in the azimuth direction, which is the aim axis that matters.</li>
+  </ul>
+
+  <h2 class="sec">Not yet verified</h2>
+  <p>The housings were printed by an online service in a black resin whose spec isn't known, so <strong>IR opacity at 940&nbsp;nm is an open question</strong> — and counterintuitively, black SLA resins are often less near-IR-opaque than they look, because pigment loading is capped by the need to let 405&nbsp;nm through far enough to cure a layer. Visually jet black and blocking 940&nbsp;nm through half a millimetre are only loosely related.</p>
+  <p>Two measurements settle where the bleed actually comes from, and they partition it cleanly. Emitters running, no walls anywhere, and <strong>aluminium tape, not black tape</strong> — you need something known to be opaque at 940&nbsp;nm, which is the whole question mark:</p>
+  <ul class="tight">
+    <li><b>Foil over the detector's front aperture.</b> Anything still reading is arriving by a route that isn't the front — through the septum, through the tube wall, or around the back.</li>
+    <li><b>Then foil over the emitter's rear flange too.</b> The drop between the two readings is the rear path specifically. It's a real one: in this orientation both flanges sit on the same rear face, 6.47&nbsp;mm apart with clear line of sight, and the flange is a disc of clear epoxy that pipes light sideways. The 2.22&nbsp;mm step fixes the front; it does nothing for the back.</li>
+  </ul>
+  <p>If the first reading comes back near zero, the housing is tight, all the bleed is front-side scatter, and the rear shrouding can be skipped entirely.</p>
 
   <footer>
-    <span>E4 · SFH 4550 + OP505A · black resin housing</span>
-    <span>companion to E4 Sensor Aim</span>
+    <span>E4 · TSAL6100 + OP505A · black resin housing</span>
+    <span>companion to Ch 3 Sensor Aim · Ch 4 Sensor Geometry</span>
   </footer>
 </div>
 </body>

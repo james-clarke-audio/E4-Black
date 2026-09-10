@@ -141,13 +141,13 @@
 
   <div class="prog">
     <div class="track">
-      <div class="bar" role="img" aria-label="21 built, 4 stubbed of 25 menu actions">
-        <i class="b" style="width:84%"></i><i class="s" style="width:16%"></i>
+      <div class="bar" role="img" aria-label="23 built, 4 stubbed of 27 menu actions">
+        <i class="b" style="width:85%"></i><i class="s" style="width:15%"></i>
       </div>
-      <div class="cap"><span>menu actions</span><span>21 built · 4 stubbed of 25</span></div>
+      <div class="cap"><span>menu actions</span><span>23 built · 4 stubbed of 27</span></div>
     </div>
     <div class="counts">
-      <div class="c"><span class="n built">21</span><span class="k">Built</span></div>
+      <div class="c"><span class="n built">23</span><span class="k">Built</span></div>
       <div class="c"><span class="n stub">4</span><span class="k">Stub</span></div>
       <div class="c"><span class="n plan">4</span><span class="k">Planned</span></div>
     </div>
@@ -199,6 +199,7 @@
         <h3>Diagnostics</h3>
         <div class="item"><span class="name">EEPROM test</span><span class="rt"><span class="keycap">t</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Sensor mode</span><span class="note">virtual ↔ real IR</span><span class="rt"><span class="keycap">v</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">IR sampler</span><span class="note">arm the tick-driven wall read — full ambient-subtracted set every 5 ms from the 1 kHz ISR, no busy-wait · off = blocking read</span><span class="rt"><span class="keycap">S</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Reset pose</span><span class="rt"><span class="keycap">z</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Test mode</span><span class="rt"><span class="keycap">k</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">BT →57600</span><span class="rt"><span class="keycap">b</span><span class="chip built">Built</span></span></div>
@@ -256,7 +257,7 @@
     <li><div><div class="ot">Sensor threshold calibration</div><div class="od">firmware <code style="color:var(--dim);font-family:var(--mono)">THR</code> command + EEPROM config slot (magic + version + checksum, own region) · standalone guided calibration app</div></div><span class="step-chip">Next</span></li>
     <li class="done"><div><div class="ot">Turn tuning</div><div class="od">live tuner shipped · gyro scale calibrated (720° spin) · arc tuning in progress</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Integrated-turn primitive + toggles</div><div class="od">wire the arc into search &amp; the wall follower</div></div><span class="step-chip">Then</span></li>
-    <li><div><div class="ot">Non-blocking sensor read</div><div class="od">IR read as a state machine ticked from the 1 kHz ISR — settle waits become "next tick" instead of a ~218 µs CPU spin; needed once sensors are sampled every control cycle. Superseded by the G431 timer+DMA front end later</div></div><span class="step-chip">Then</span></li>
+    <li class="done"><div><div class="ot">Non-blocking sensor read</div><div class="od">shipped as a five-state sampler ticked from the 1 kHz ISR — DARK (four ambients) → SL → FL → FR → SR, one state per tick, so a full ambient-subtracted set lands every 5 ms and the ~218 µs of settle busy-wait becomes "next tick". Emitters are switched at the end of a tick and sampled at the start of the next, giving a ~1 ms settle for free (20× the old count). Thread context always wins the ADC — taking the lock parks the sampler — so the main-loop battery read that feeds the low-battery cutoff can never be stalled by it. Opt-in (<code style="color:var(--dim);font-family:var(--mono)">S</code>); the blocking read stays the default until bench-proven. Superseded by the G431 timer+DMA front end later</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Dead-end re-square</div><div class="od">after the 180, reverse into the dead-end wall to re-zero heading + longitudinal — free drift correction each dead end, reuses the start reverse move</div></div><span class="step-chip">Then</span></li>
     <li><div><div class="ot">Diagonal navigation</div><div class="od">biggest rock — planner + 45° motion, last</div></div><span class="step-chip">Later</span></li>
     <li><div><div class="ot">Native iPad companion app</div><div class="od">SwiftUI + Core Bluetooth · polished, shareable build — the web app is its prototype &amp; protocol spec (Apple account in hand)</div></div><span class="step-chip">Nice-to-have</span></li>
@@ -270,11 +271,19 @@
     </a>
     <a class="doc" href="e4-sensor-housing.html">
       <span class="ic">🔦</span>
-      <span><span class="dt">Sensor Housing</span><span class="dd">labelled cross-section — 5° detector-bore tilt, seat-flush notes</span></span>
+      <span><span class="dt">Sensor Housing<span class="new">new</span></span><span class="dd">measured from the STL — which way round to fit it, and how it mounts</span></span>
     </a>
     <a class="doc" href="sensor-aim.html">
       <span class="ic">🛞</span>
       <span><span class="dt">Sensor Aim</span><span class="dd">which detector watches which wall — SL/SR sides, FL/FR forward</span></span>
+    </a>
+    <a class="doc" href="e4-position.html">
+      <span class="ic">📍</span>
+      <span><span class="dt">Staying Located<span class="new">new</span></span><span class="dd">position integrity — the start reference &amp; how the walls re-anchor her</span></span>
+    </a>
+    <a class="doc" href="e4-g431.html">
+      <span class="ic">🔌</span>
+      <span><span class="dt">Next Board (G431)<span class="new">new</span></span><span class="dd">design note — the STM32G431 sensor front end, and what it replaces</span></span>
     </a>
     <a class="doc" href="e4-rebuild.html">
       <span class="ic">🐭</span>

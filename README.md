@@ -18,9 +18,13 @@ control and calibration. Built for the October 2026 micromouse competition.
   position and wall presence.
 - **On-board UI** — SSD1306 OLED with a two-button menu; the whole menu is also
   drivable over Bluetooth.
-- **Bluetooth telemetry & control** via the companion app — live IR monitor, an
-  emitter-hold camera aid for aiming, live turn tuning (gyro-closed spins &
-  arcs), and firmware-version reporting.
+- **Bluetooth telemetry & control** via the companion app — a Control tab for
+  watching and driving her, and a Tuning tab for setting her up: live IR
+  monitor, an emitter-hold camera aid for aiming, live turn tuning (gyro-closed
+  spins & arcs), and firmware-version reporting.
+- **Non-blocking wall sampling** (opt-in) — a five-state sampler ticked from the
+  control ISR returns a full ambient-subtracted set every 5 ms with no
+  busy-wait, so the wall flags stay live while she's moving.
 - **Maze persistence** to on-board EEPROM.
 - **Flood-fill search / speed run** from mazerunner-core, with a virtual/real
   sensor switch so the brain can be exercised in simulation.
@@ -50,8 +54,9 @@ Full pin map, sensor geometry and housing detail are in the reference manual
 ## Documentation
 
 The **E4 Reference Manual** lives in [`docs/`](docs/index.html) — open
-`docs/index.html`. Six chapters: overview, architecture & pin map, sensor aim,
-sensor geometry, sensor housing, and the firmware/menu map.
+`docs/index.html`. Eight chapters: overview, architecture & pin map, sensor aim,
+sensor geometry, sensor housing, the firmware/menu map, position integrity
+("Staying Located"), and a design note for the next board (STM32G431).
 
 ## Repository layout
 
@@ -67,9 +72,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the fuller layout and workflow.
 
 ## Contributing
 
-It's a small private repo — commit small changes straight to `main`, branch and
-open a PR for anything larger. Details, commit style and the firmware-version
-convention are in [CONTRIBUTING.md](CONTRIBUTING.md).
+`main` is protected: collaborators work on a branch and open a pull request.
+Details, commit style and the firmware-version convention are in
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Credits
 

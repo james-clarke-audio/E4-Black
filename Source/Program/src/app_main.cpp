@@ -217,9 +217,10 @@ static void act_ir_monitor(void) {
 		sensors.sample_raw();
 		int fsum = sensors.rd_fl + sensors.rd_fr;
 		report_printf("IR,%d,%d,%d,%d\r\n", sensors.rd_left, sensors.rd_fl, sensors.rd_fr, sensors.rd_right);
-		report_printf("SENS,L%d FL%d FR%d R%d front%d thr(s%d f%d) %s\r\n",
+		report_printf("SENS,L%d FL%d FR%d R%d front%d thr(s%d f%d) %s %s\r\n",
 		              sensors.rd_left, sensors.rd_fl, sensors.rd_fr, sensors.rd_right, fsum,
-		              sensors.thresh_side, sensors.thresh_front, sensors.use_real ? "REAL" : "virt");
+		              sensors.thresh_side, sensors.thresh_front, sensors.use_real ? "REAL" : "virt",
+		              Irs_SM_Enabled() ? "sm" : "blk");
 		if (s_haveOled) {
 			char l[24];
 			SSD1306_Fill(SSD1306_COLOR_BLACK);
@@ -247,6 +248,29 @@ static void act_sensor_mode(void) {
 		SSD1306_GotoXY(0, 22); SSD1306_Puts(sensors.use_real ? "REAL (IR)" : "VIRTUAL", &Font_7x10, SSD1306_COLOR_WHITE);
 		SSD1306_UpdateScreen();
 		HAL_Delay(1200);
+	}
+}
+
+// Arm/disarm the background wall sampler: the five-state, one-per-tick read
+// driven from the 1 kHz control ISR (see IRS.h). Armed, a full ambient-
+// subtracted set lands every 5 ms with no busy-wait, so the wall flags stay
+// live while the mouse is moving. Disarmed (the default) the sensor layer
+// falls back to the blocking batched read.
+//
+// Numbers shift slightly between the two: the sampler holds each emitter on
+// for a whole tick, so the lit sample is taken ~1 ms after switch-on instead
+// of ~50 us, and reads a little higher. Re-check the thresholds after arming.
+static void act_ir_sampler(void) {
+	uint8_t on = !Irs_SM_Enabled();
+	Irs_SM_Enable(on);
+	report_printf("IR sampler: %s\r\n", on ? "ON (200 Hz, tick-driven)" : "OFF (blocking read)");
+	if (s_haveOled) {
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y); SSD1306_Puts("IR sampler", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, 20); SSD1306_Puts(on ? "ON  200Hz" : "OFF blocking", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, 34); SSD1306_Puts(on ? "tick-driven" : "busy-wait", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+		HAL_Delay(1400);
 	}
 }
 
@@ -416,6 +440,11 @@ static void act_ir_emitter_hold(void) {
 	int sel = 0, run = 1, redraw = 1;
 	uint8_t rp = 1, lp = 1; uint32_t note = 0;
 	report_write("Emitter hold (camera aid): ~50% PWM, safe DC. RIGHT/E=next, LEFT/<=exit.\r\n");
+	// This action pokes the emitter GPIOs directly, so the background sampler
+	// has to stand down or the two fight over the same four pins. Restored on
+	// exit so arming it is not silently undone by a visit here.
+	uint8_t sm_was = Irs_SM_Enabled();
+	if (sm_was) Irs_SM_Enable(0);
 	while (run) {
 		for (int i = 0; i < 300; i++) {                       // ~50% PWM burst
 			if (sel == 4) { for (int k = 0; k < 4; k++) Irs_Emitter_Set(ids[k], 1); }
@@ -447,6 +476,7 @@ static void act_ir_emitter_hold(void) {
 		}
 	}
 	for (int k = 0; k < 4; k++) Irs_Emitter_Set(ids[k], 0);
+	if (sm_was) Irs_SM_Enable(1);          // restore the sampler if it was armed
 	report_write("Emitter hold: off\r\n");
 }
 
@@ -502,6 +532,7 @@ static const MenuItem MENU[] = {
 	/*23*/ { "Run options",  'O', act_run_options   },
 	/*24*/ { "Emitter hold", 'E', act_ir_emitter_hold },
 	/*25*/ { "Firmware ver", 'V', act_fw_version },
+	/*26*/ { "IR sampler",   'S', act_ir_sampler },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -513,7 +544,7 @@ static const uint8_t CAT_CAL[]    = { 12, 10, 19, 4 };      // Recal gyro, IR mo
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
-static const uint8_t CAT_DIAG[]   = { 15, 11, 13, 14, 16, 24, 25 }; // EEPROM test, Sensor mode, Reset pose, Test mode, BT57600, Emitter hold, Firmware ver
+static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, Emitter hold, Firmware ver
 static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
@@ -522,7 +553,7 @@ static const Category CAT[] = {
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
-	/*4*/ { "Diagnostics", CAT_DIAG,   7 },
+	/*4*/ { "Diagnostics", CAT_DIAG,   8 },
 	/*5*/ { "Wall follow", CAT_WALL,   1 },
 	/*6*/ { "Maze solver", CAT_SOLVE,  3 },
 	/*7*/ { "Run options", CAT_RUNOPT, 1 },
