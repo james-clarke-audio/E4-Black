@@ -96,7 +96,11 @@ extern const int ENCODER_RIGHT_POLARITY;
 extern const int MOTOR_LEFT_POLARITY;
 extern const int MOTOR_RIGHT_POLARITY;
 extern const int GYRO_POLARITY;   // yaw-gyro sign for CCW-positive (verify on bench)
-extern const float GYRO_SCALE;    // yaw-gyro scale trim (calibrate)
+// Yaw-gyro scale trim. NOT const: it is a property of the individual MPU-9250
+// die (sensitivity tolerance is a few percent) and shifts with temperature, so
+// it is calibrated at runtime and persisted in the EEPROM config block. The
+// value here is only the fallback when no saved block is found.
+extern float GYRO_SCALE;
 
 //*** CONTROL LOOP TIMING **************************************************//
 // The main control loop runs at 1 kHz. Rate-dependent maths across the

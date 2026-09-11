@@ -399,6 +399,28 @@
       </div>
 
       <div class="sec">
+        <h2>Gyro scale <span style="color:var(--faint);text-transform:none;letter-spacing:0">— 8 × 90° on the floor</span></h2>
+        <div class="row" style="gap:6px">
+          <button class="cmd primary" data-cmd="G">Enter cal</button>
+          <button id="gcRun" class="cmd">Run 8×90</button>
+          <button class="cmd" data-cmd="&lt;">Exit</button>
+        </div>
+        <div class="thead">Measured error</div>
+        <div class="row"><span class="tl">Short by</span><input class="num" id="gc_err" type="number" step="0.5" value="0"><span class="tu">°</span>
+             <button id="gcApply" class="primary" style="margin-left:auto;flex:1">Apply</button></div>
+        <div class="thead">Or set directly</div>
+        <div class="row"><span class="tl">Scale</span><input class="num" id="gc_val" type="number" step="0.001" value="1.003">
+             <button id="gcSet" style="margin-left:auto;flex:1">Set</button></div>
+        <div class="row"><button id="gcSave" class="primary runbtn">Save to EEPROM</button></div>
+        <div class="thead">Current</div>
+        <div class="grid2">
+          <div class="stat"><span class="k">Gyro scale</span><span class="v" id="gc_now">—</span></div>
+          <div class="stat"><span class="k">Last result</span><span class="v" id="gc_msg" style="font-size:12px">—</span></div>
+        </div>
+        <div style="color:var(--faint);font-size:11px;margin-top:8px">Square her against a straight edge, run the spins, then read how far <b>short</b> of her start she finished (negative if she over-shot). She can&rsquo;t measure this herself — the spin closes the loop on the gyro, so the gyro always reports the angle it was asked for.</div>
+      </div>
+
+      <div class="sec">
         <details><summary>Bench setup</summary>
           <div class="cmdgrid">
             <button class="cmd" data-cmd="g">Recal gyro</button>
@@ -529,6 +551,21 @@ function parseLine(line){
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
       { const el=document.getElementById('solveInfo');
         if(el) el.textContent='Solved in '+(state.solveMs/1000).toFixed(1)+'s · '+state.solveSteps+' cells'; } break;
+    case 'GCAL':{
+      // GCAL,old=..,short=..,new=..  |  GCAL,set=..  |  GCAL,done cmd=.. gyro=..
+      const body=line.slice(5).trim();
+      const kv={}; body.split(/[,\s]+/).forEach(t=>{const q=t.split('='); if(q.length===2) kv[q[0]]=q[1];});
+      const now=document.getElementById('gc_now'), msg=document.getElementById('gc_msg');
+      const val = kv['new'] || kv['set'];
+      if(val && now){ now.textContent=val; const f=document.getElementById('gc_val'); if(f) f.value=val; }
+      if(msg) msg.textContent = body.length>34 ? body.slice(0,34)+'…' : body;
+      break; }
+    case 'CFG':{
+      const m=line.match(/gyro_scale=([0-9.]+)/);
+      if(m){ const now=document.getElementById('gc_now'); if(now) now.textContent=m[1];
+             const f=document.getElementById('gc_val'); if(f) f.value=m[1]; }
+      const msg=document.getElementById('gc_msg'); if(msg) msg.textContent=line.slice(4).trim();
+      break; }
     case 'TURNRES':{
       const kv={}; for(let i=2;i<p.length;i++){ const q=p[i].split('='); if(q.length===2) kv[q[0].trim()]=q[1].trim(); }
       const set=(id,v,suf)=>{ const el=document.getElementById(id); if(el) el.innerHTML=(v!==undefined&&v!==''?v:'—')+(suf||''); };
@@ -809,6 +846,14 @@ async function sendCmd(s){
   }catch(err){ logLine('send failed: '+err.message,'unk'); }
 }
 document.querySelectorAll('.cmd').forEach(b=>{ b.onclick=()=>sendCmd(b.dataset.cmd); });
+
+// Gyro-scale calibration. Everything except "Enter cal" only does anything once
+// she is inside the action - 'S' at the menu level toggles the IR sampler.
+const gcNum=id=>{ const e=document.getElementById(id); const v=parseFloat(e&&e.value); return isFinite(v)?v:null; };
+{ const b=document.getElementById('gcRun');   if(b) b.onclick=()=>sendCmd('G'); }
+{ const b=document.getElementById('gcSave');  if(b) b.onclick=()=>sendCmd('S'); }
+{ const b=document.getElementById('gcApply'); if(b) b.onclick=()=>{ const v=gcNum('gc_err'); if(v!==null) sendCmd('ERR,'+v); }; }
+{ const b=document.getElementById('gcSet');   if(b) b.onclick=()=>{ const v=gcNum('gc_val'); if(v!==null) sendCmd('GS,'+v); }; }
 // --- Tuning tab: switching + turn-run buttons ---
 document.querySelectorAll('.tabbtn').forEach(b=>{ b.onclick=()=>{
   document.querySelectorAll('.tabbtn').forEach(x=>x.classList.toggle('active',x===b));

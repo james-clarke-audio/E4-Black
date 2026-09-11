@@ -19,6 +19,7 @@
 #include "mouse.h"       // Phase: search/solve brain (+ world stubs)
 #include "bt_rx.h"       // interrupt-driven UART1 receive ring buffer
 #include "eeprom.h"      // 24LC256 persistence driver (diagnostic)
+#include "config_store.h" // versioned settings block (gyro scale, later thresholds)
 #include <string.h>
 #include <stdlib.h>
 
@@ -337,6 +338,155 @@ static int tt_parse_floats(const char *s, float *out, int max) {
 	return n;
 }
 
+// Calibration: GYRO SCALE, measured on the floor and saved to EEPROM.
+//
+// Why this needs a human in the loop. The spin is gyro-CLOSED-LOOP: the
+// controller turns until the gyro says it has reached the target, so
+// gyro.angle() comes back at ~the commanded angle every time, by construction.
+// The mouse cannot see its own scale error - only that she did not physically
+// end up where the gyro thinks she did. So she does the spinning and the
+// arithmetic; you supply the one thing she cannot measure, the physical error.
+//
+// Method: line her up against a straight edge, run 8 x 90 deg = 720 deg (a
+// whole number of turns, so she should finish on her starting heading), then
+// read off how far SHORT she stopped. Amplifying the error over 720 deg makes a
+// fraction of a percent visible to the eye.
+//
+//   new_scale = old_scale * (commanded - short) / commanded
+//
+// e.g. 1.02 short by 12 deg over 720 -> 1.02 * 708/720 = 1.003.
+//
+// BT line commands:
+//   G            run the 8 x 90 sequence
+//   ERR,<deg>    physical shortfall; positive = stopped short, negative = over
+//   GS,<value>   set the scale directly
+//   S            save to EEPROM
+//   < or q       exit
+// Buttons: RIGHT = run the sequence, LEFT = exit.
+#define GCAL_SPINS 8
+static void act_gyro_scale_cal(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	uint8_t junk; while (bt_rx_pop(&junk)) { }
+
+	const float commanded = 90.0f * (float)GCAL_SPINS;
+
+	report_printf("Gyro scale cal: current %d.%03d %s\r\n",
+	              (int)(GYRO_SCALE * 1000) / 1000, (int)(GYRO_SCALE * 1000) % 1000,
+	              config_store_present() ? "(EEPROM present)" : "(NO EEPROM - cannot save)");
+	report_printf("Line her against a straight edge. RIGHT/G = run %dx90=%d deg,\r\n",
+	              GCAL_SPINS, (int)commanded);
+	report_write("then ERR,<deg short> | GS,<value> sets directly | S saves | < exits\r\n");
+	if (s_haveOled) {
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Gyro scale",     &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts("square her up",  &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("R=run  L=exit",  &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+	}
+
+	char line[48]; int len = 0;
+	uint8_t lp = 1, rp = 1;
+	int run = 1;
+
+	while (run) {
+		int do_spin = 0;
+
+		uint8_t l = SWITCH_LEFT(), r = SWITCH_RIGHT();
+		if (l && !lp) run = 0;
+		if (r && !rp) do_spin = 1;
+		lp = l; rp = r;
+
+		uint8_t ch;
+		while (bt_rx_pop(&ch)) {
+			if (ch == '\r' || ch == '\n') {
+				if (len > 0) {
+					line[len] = '\0';
+					if (strncmp(line, "ERR,", 4) == 0) {
+						float e[1] = { 0.0f };
+						if (tt_parse_floats(line + 4, e, 1) == 1) {
+							float proposed = GYRO_SCALE * (commanded - e[0]) / commanded;
+							if (proposed > 0.85f && proposed < 1.15f) {
+								int o = (int)(GYRO_SCALE * 1000), n = (int)(proposed * 1000);
+								GYRO_SCALE = proposed;
+								report_printf("GCAL,old=%d.%03d,short=%d,new=%d.%03d - S to save\r\n",
+								              o / 1000, o % 1000, (int)e[0], n / 1000, n % 1000);
+							} else {
+								// A number this far out is a mis-read or a bad run, not a
+								// calibration. Refusing it beats silently wrecking every turn.
+								report_printf("GCAL,rejected (would give %d.%03d, expect 0.85-1.15)\r\n",
+								              (int)(proposed * 1000) / 1000, (int)(proposed * 1000) % 1000);
+							}
+						}
+					}
+					else if (strncmp(line, "GS,", 3) == 0) {
+						float v[1] = { 0.0f };
+						if (tt_parse_floats(line + 3, v, 1) == 1 && v[0] > 0.85f && v[0] < 1.15f) {
+							GYRO_SCALE = v[0];
+							report_printf("GCAL,set=%d.%03d - S to save\r\n",
+							              (int)(v[0] * 1000) / 1000, (int)(v[0] * 1000) % 1000);
+						} else {
+							report_write("GCAL,rejected (expect 0.85-1.15)\r\n");
+						}
+					}
+					else if (line[0] == 'S' || line[0] == 's') {
+						int ok = config_store_save();
+						report_printf("GCAL,saved=%d%s\r\n", ok, ok ? "" : " (no EEPROM or write failed)");
+					}
+					else if (line[0] == 'G' || line[0] == 'g') { do_spin = 1; }
+					else if (line[0] == '<' || line[0] == 'q' || line[0] == 'X') { run = 0; }
+					len = 0;
+				}
+			} else if (len < (int)sizeof(line) - 1) {
+				line[len++] = (char)ch;
+			} else { len = 0; }
+		}
+
+		if (run && do_spin) {
+			report_printf("GCAL,run %d spins of 90...\r\n", GCAL_SPINS);
+			HAL_Delay(300);
+			float measured = 0.0f;
+			int aborted = 0;
+			for (int i = 0; i < GCAL_SPINS; i++) {
+				control_spin(90.0f, OMEGA_SPIN_TURN, 0.0f, ALPHA_SPIN_TURN);
+				float a = gyro.angle();
+				measured += a;
+				// control_spin bails out on a button press or a low battery; a spin
+				// that fell well short of 90 means the run is void, not that the
+				// gyro is badly scaled.
+				if (a < 70.0f || a > 110.0f) { aborted = 1; break; }
+				if (s_haveOled) {
+					char b[24];
+					SSD1306_Fill(SSD1306_COLOR_BLACK);
+					SSD1306_GotoXY(0, OLED_TITLE_Y); SSD1306_Puts("Gyro scale", &Font_7x10, SSD1306_COLOR_WHITE);
+					snprintf(b, sizeof(b), "spin %d/%d", i + 1, GCAL_SPINS);
+					SSD1306_GotoXY(0, OLED_LIST_Y0); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
+					SSD1306_UpdateScreen();
+				}
+			}
+			if (aborted) {
+				report_write("GCAL,aborted - run void, nothing changed\r\n");
+			} else {
+				// gyro total is a sanity check only: it should land on the commanded
+				// figure because the loop closes on the gyro. It is the PHYSICAL
+				// angle that carries the information, and only you can read that.
+				report_printf("GCAL,done cmd=%d gyro=%d - now send ERR,<deg she is short>\r\n",
+				              (int)commanded, (int)measured);
+			}
+			if (s_haveOled) {
+				SSD1306_Fill(SSD1306_COLOR_BLACK);
+				SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Gyro scale", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(aborted ? "ABORTED" : "measure error", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("send ERR,<deg>", &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+			}
+			while (bt_rx_pop(&junk)) { }
+			lp = SWITCH_LEFT(); rp = SWITCH_RIGHT();
+		}
+		HAL_Delay(4);
+	}
+	report_write("Gyro scale cal: exit\r\n");
+}
+
 // Diagnostics: LIVE TURN TUNING, driven over Bluetooth (default) or by hand.
 // Runs parametric in-place spins and arc turns on command and streams the
 // achieved gyro angle + forward distance, so turn dynamics can be tuned to the
@@ -533,6 +683,7 @@ static const MenuItem MENU[] = {
 	/*24*/ { "Emitter hold", 'E', act_ir_emitter_hold },
 	/*25*/ { "Firmware ver", 'V', act_fw_version },
 	/*26*/ { "IR sampler",   'S', act_ir_sampler },
+	/*27*/ { "Gyro scale cal",'G', act_gyro_scale_cal },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -540,7 +691,7 @@ static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 // MODE -> CATEGORY -> ITEM. Wheels scroll, RIGHT enters/runs, LEFT backs out.
 // BT keys above bypass all of this.  (*) marks a stub, not built yet.
 typedef struct { const char *name; const uint8_t *items; uint8_t n; } Category;
-static const uint8_t CAT_CAL[]    = { 12, 10, 19, 4 };      // Recal gyro, IR monitor, Turn tuning*, Motion test
+static const uint8_t CAT_CAL[]    = { 12, 27, 10, 19, 4 };  // Recal gyro, Gyro scale cal, IR monitor, Turn tuning, Motion test
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
@@ -549,7 +700,7 @@ static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
-	/*0*/ { "Calibration", CAT_CAL,    4 },
+	/*0*/ { "Calibration", CAT_CAL,    5 },
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
@@ -628,6 +779,11 @@ void app_main()
 
 	report_write("E4 boot\r\n");
 	report_printf("VER,%s,%s\r\n", FW_VERSION, FW_BUILD);
+
+	// Settings block: gyro scale (and later the wall thresholds) come from the
+	// EEPROM if one is fitted and holds a valid block. No chip is not an error -
+	// the compiled defaults stand and nothing persists.
+	config_store_begin();
 
 	{
 		char vln[24];
