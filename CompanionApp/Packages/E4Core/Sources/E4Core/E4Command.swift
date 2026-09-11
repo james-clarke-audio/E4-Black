@@ -114,6 +114,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case firmwareVersion = 25
     case irSampler = 26
     case gyroScaleCal = 27
+    case btProvision = 28
 
     public var id: Int { rawValue }
 
@@ -147,6 +148,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .firmwareVersion: return "V"
         case .irSampler:       return "S"
         case .gyroScaleCal:    return "G"
+        case .btProvision:     return "B"
         }
     }
 
@@ -180,6 +182,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .firmwareVersion: return "Firmware version"
         case .irSampler:       return "IR sampler"
         case .gyroScaleCal:    return "Gyro scale cal"
+        case .btProvision:     return "BT provision"
         }
     }
 

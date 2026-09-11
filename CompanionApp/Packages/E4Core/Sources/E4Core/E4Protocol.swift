@@ -28,11 +28,15 @@ public enum E4Protocol {
     /// it silently drops any line that overruns. Keep commands well under this.
     public static let maxInboundLineLength = 79
 
-    /// The UART bridge behind the BLE link runs at 9600 baud out of reset and
-    /// 57600 after the `b` command. BLE can hand over data far faster than the
-    /// bridge can clock it out, so writes must be paced — see `E4BluetoothTransport`.
-    public static let defaultBaud = 9600
-    public static let fastBaud = 57600
+    /// The link runs at **57600** — that is what `usart.c` configures and what
+    /// the `.ioc` says, so it is the rate in normal use. A module fresh out of
+    /// its bag ships at 9600, which is why the firmware's baud sweep tries that
+    /// first and why `BT provision` exists to move it.
+    ///
+    /// Either way BLE can hand over data far faster than the bridge can clock
+    /// it out, so writes must be paced — see `E4BluetoothTransport`.
+    public static let linkBaud = 57600
+    public static let factoryBaud = 9600
 }
 
 /// Pack health, judged against the firmware's own cutoff.

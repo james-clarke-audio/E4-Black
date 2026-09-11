@@ -217,3 +217,96 @@ uint32_t bt_ensure_baud(uint32_t target) {
   SSD1306_UpdateScreen();
   return ok ? target : 0;
 }
+
+// Show two lines on the OLED and hold them. Every AT path here is slow and
+// blocking anyway, so the cost of a readable progress screen is nothing.
+static void bt_say(const char *l1, const char *l2, uint32_t hold_ms) {
+  SSD1306_Clear();
+  SSD1306_GotoXY(0, 0);  SSD1306_Puts((char *)l1, &Font_7x10, SSD1306_COLOR_WHITE);
+  if (l2) {
+    SSD1306_GotoXY(0, 16); SSD1306_Puts((char *)l2, &Font_7x10, SSD1306_COLOR_WHITE);
+  }
+  SSD1306_UpdateScreen();
+  if (hold_ms) HAL_Delay(hold_ms);
+}
+
+bool bt_set_name(const char *name) {
+  char cmd[32];
+  char resp[48];
+
+  // Genuine HM-10 takes a bare command; the clones want CRLF. Same dance as
+  // everywhere else in this file -- try bare, fall back to CRLF.
+  snprintf(cmd, sizeof(cmd), "AT+NAME%s", name);
+  resp[0] = 0;
+  int n = bt_send_at(huart1.Init.BaudRate, cmd, false, resp, sizeof(resp));
+  if (n <= 0 || !(strstr(resp, "OK") || strstr(resp, "Set"))) {
+    bt_send_at(huart1.Init.BaudRate, cmd, true, resp, sizeof(resp));
+  }
+  HAL_Delay(120);
+
+  // Read it back rather than trusting the ack: a clone that does not know the
+  // command still answers "OK" to plenty of things it ignored.
+  char back[48];
+  back[0] = 0;
+  if (bt_send_at(huart1.Init.BaudRate, "AT+NAME?", false, back, sizeof(back)) <= 0) {
+    bt_send_at(huart1.Init.BaudRate, "AT+NAME?", true, back, sizeof(back));
+  }
+  return strstr(back, name) != NULL;
+}
+
+uint32_t bt_provision(void) {
+  char line[24];
+
+  bt_say("BT provision", "no phone!", 1200);
+
+  // 1) Find it and settle the link. ensure_baud drives its own OLED progress
+  //    and handles the sweep, the AT+BAUD index and the reset-to-apply.
+  uint32_t baud = bt_ensure_baud(57600);
+  if (baud == 0) {
+    bt_say("BT provision", "module silent", 2200);
+    return 0;
+  }
+  HAL_Delay(900);   // let ensure_baud's own result screen be read
+
+  // 2) Name it. Fixed constant, no choice to make.
+  bt_say("BT name ->", BT_MODULE_NAME, 500);
+  bool named = bt_set_name(BT_MODULE_NAME);
+
+  // 3) Reset so the new name is what it actually advertises. The module keeps
+  //    the name in NVM immediately, but carries on broadcasting the old one
+  //    until it reboots -- which looks exactly like the command having failed.
+  char rst[48];
+  rst[0] = 0;
+  if (bt_send_at(baud, "AT+RESET", false, rst, sizeof(rst)) <= 0 ||
+      !(strstr(rst, "RESET") || strstr(rst, "OK"))) {
+    bt_send_at(baud, "AT+RESET", true, rst, sizeof(rst));
+  }
+  HAL_Delay(1200);                 // reboot
+  bt_set_baud(baud);               // the stored baud survives the reset
+
+  // 4) Confirm the link still answers after the reboot.
+  char resp[48];
+  int ok = 0;
+  for (int t = 0; t < 4 && !ok; t++) {
+    if ((bt_send_at(baud, "AT", false, resp, sizeof(resp)) > 0 && strstr(resp, "OK")) ||
+        (bt_send_at(baud, "AT", true,  resp, sizeof(resp)) > 0 && strstr(resp, "OK"))) ok = 1;
+    else HAL_Delay(80);
+  }
+  bt_set_baud(baud);               // leave the UART at target regardless
+
+  SSD1306_Clear();
+  SSD1306_GotoXY(0, 0);
+  SSD1306_Puts(ok ? (char *)"BT ready" : (char *)"BT no reply", &Font_7x10, SSD1306_COLOR_WHITE);
+  SSD1306_GotoXY(0, 16);
+  sprintf(line, "baud %lu", (unsigned long)baud);
+  SSD1306_Puts(line, &Font_7x10, SSD1306_COLOR_WHITE);
+  SSD1306_GotoXY(0, 32);
+  SSD1306_Puts(named ? (char *)("name " BT_MODULE_NAME) : (char *)"name FAILED",
+               &Font_7x10, SSD1306_COLOR_WHITE);
+  SSD1306_GotoXY(0, 48);
+  SSD1306_Puts(named && ok ? (char *)"power-cycle her" : (char *)"check wiring",
+               &Font_7x10, SSD1306_COLOR_WHITE);
+  SSD1306_UpdateScreen();
+
+  return (named && ok) ? baud : 0;
+}

@@ -94,6 +94,19 @@ static void act_set_bt_57k(void) {
 	HAL_Delay(1800);   // hold the OLED result so it can be read
 }
 
+static void act_bt_provision(void) {
+	// Bring-up for a NEW or replacement module, straight out of its bag: find
+	// it at whatever baud it ships on, move it to 57600, name it MMOUSE, reset
+	// so that name is what it advertises. Takes no input -- the name is fixed.
+	//
+	// Run with NO phone connected. The module only accepts AT commands while
+	// no central is attached, so there is nothing listening over BT either:
+	// the OLED is the whole interface for this one.
+	bt_provision();
+	bt_rx_init();      // re-baud cleared the RXNE interrupt
+	HAL_Delay(2600);   // hold the result -- there are four lines to read
+}
+
 // Substrate self-test: prove the persistent-run + concurrent forward/rotation
 // model makes a coordinated curve. Scripts fwd -> smooth right -> fwd via the
 // Motion facade. (Temporary home on menu item 8 until the brain port lands.)
@@ -684,6 +697,7 @@ static const MenuItem MENU[] = {
 	/*25*/ { "Firmware ver", 'V', act_fw_version },
 	/*26*/ { "IR sampler",   'S', act_ir_sampler },
 	/*27*/ { "Gyro scale cal",'G', act_gyro_scale_cal },
+	/*28*/ { "BT provision", 'B', act_bt_provision },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -695,7 +709,7 @@ static const uint8_t CAT_CAL[]    = { 12, 27, 10, 19, 4 };  // Recal gyro, Gyro 
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
-static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, Emitter hold, Firmware ver
+static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 28, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, BT provision, Emitter hold, Firmware ver
 static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
@@ -704,7 +718,7 @@ static const Category CAT[] = {
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
-	/*4*/ { "Diagnostics", CAT_DIAG,   8 },
+	/*4*/ { "Diagnostics", CAT_DIAG,   9 },
 	/*5*/ { "Wall follow", CAT_WALL,   1 },
 	/*6*/ { "Maze solver", CAT_SOLVE,  3 },
 	/*7*/ { "Run options", CAT_RUNOPT, 1 },
