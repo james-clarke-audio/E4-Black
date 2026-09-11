@@ -52,6 +52,22 @@ public final class E4Session {
     /// Which emitter the hold routine has lit, for the aiming workflow.
     public private(set) var litEmitter: Int?
 
+    /// The menu action the mouse is currently inside, as SHE reports it.
+    ///
+    /// Driven by the firmware's own `RUN,<idx>,<name>` and `DONE,<idx>` lines
+    /// rather than guessed from what we sent, so it stays right when an action
+    /// is started from the on-board buttons instead of from here.
+    ///
+    /// This matters because several actions are modal: `SPIN` and `ARC` are
+    /// only read inside the turn tuner, and `ERR`/`GS` only inside gyro
+    /// calibration. Outside them the firmware silently ignores the line, which
+    /// looks exactly like a dead button.
+    public private(set) var runningAction: E4MenuAction?
+
+    /// The action's name as the firmware reported it — which may be an action
+    /// this app's table does not know, if the firmware is ahead of it.
+    public private(set) var runningActionName: String?
+
     // MARK: Log
 
     /// Bounded ring of recent lines. The raw log stays in the thin slice
@@ -169,6 +185,14 @@ public final class E4Session {
         case .turnResult(let result):
             lastTurnResult = result
 
+        case .runStarted(let index, let name):
+            runningAction = E4MenuAction(rawValue: index)
+            runningActionName = name.isEmpty ? nil : name
+
+        case .runFinished:
+            runningAction = nil
+            runningActionName = nil
+
         case .text(let t) where t.contains("Emitter hold: off"):
             litEmitter = nil
 
@@ -182,6 +206,8 @@ public final class E4Session {
         litEmitter = nil
         stateLabel = nil
         sensorPeak = 0
+        runningAction = nil
+        runningActionName = nil
     }
 
     // MARK: - Log plumbing

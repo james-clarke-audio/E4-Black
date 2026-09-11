@@ -186,6 +186,20 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         }
     }
 
+    /// True for actions that cannot work while this app is connected.
+    ///
+    /// Both BT actions drive the module with AT commands, and an HM-10/HM-18
+    /// only accepts those while **no central is attached** — which this app is.
+    /// Started over the link, the firmware's AT text goes out through a UART
+    /// that is in transparent mode, so it arrives in the log as garbage and the
+    /// sweep reports the module silent. They belong to the on-board menu.
+    public var requiresNoCentral: Bool {
+        switch self {
+        case .setBT57k, .btProvision: return true
+        default:                      return false
+        }
+    }
+
     /// True for actions that drive the wheels — worth confirming before firing
     /// one by accident from a phone in your pocket.
     public var movesTheMouse: Bool {
