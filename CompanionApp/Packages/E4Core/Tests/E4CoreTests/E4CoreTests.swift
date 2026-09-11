@@ -311,3 +311,100 @@ final class E4CommandTests: XCTestCase {
         XCTAssertEqual(E4Command.gyroScale(1.003).line, "GS,1.003\n")
     }
 }
+
+// MARK: - Session logs
+//
+// The format's whole promise is that a log written today can be re-read by a
+// better decoder later, so what these check is the round trip and the survival
+// of lines the decoder does not understand.
+
+final class E4SessionLogTests: XCTestCase {
+
+    private func tempDirectory() throws -> URL {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("E4LogTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    func testRoundTrip() throws {
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let started = Date()
+        let header = E4SessionLog.Header(started: started, device: "MMOUSE",
+                                         firmware: "0.10", build: "Sep 11 2026")
+        let writer = try E4SessionWriter(directory: dir, header: header)
+        writer.record("IR,725,3896,955,369", at: started.addingTimeInterval(1))
+        writer.record("G", tx: true, at: started.addingTimeInterval(2))
+        writer.record("GCAL,old=1.003,short=4,new=0.997", at: started.addingTimeInterval(3))
+        writer.close()
+
+        let summary = try XCTUnwrap(E4SessionReader.summary(of: writer.url))
+        XCTAssertEqual(summary.header.device, "MMOUSE")
+        XCTAssertEqual(summary.header.firmware, "0.10")
+
+        let entries = try E4SessionReader.entries(of: writer.url)
+        XCTAssertEqual(entries.count, 3)
+        XCTAssertEqual(entries[0].line, "IR,725,3896,955,369")
+        XCTAssertEqual(entries[0].t, 1, accuracy: 0.01)
+        XCTAssertEqual(entries[1].tx, true)
+        XCTAssertNil(entries[0].tx, "lines she sent carry no tx flag")
+    }
+
+    func testStatsReplayTheDecoder() throws {
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let started = Date()
+        let writer = try E4SessionWriter(directory: dir,
+                                         header: .init(started: started, device: "MMOUSE"))
+        for value in [100, 300, 200] {
+            writer.record("IR,\(value),10,10,10", at: started)
+        }
+        writer.record("TEL,1000,0,0,0,0,0,3.70", at: started)
+        writer.record("TEL,2000,0,0,0,0,0,3.55", at: started)
+        writer.record("TURNRES,spin,cmd=90,gyro=90,dist=3", at: started)
+        writer.record("EE scan: 1 device(s)", at: started)   // not a known shape
+        writer.record("h", tx: true, at: started)            // ours, must not count
+        writer.close()
+
+        let stats = try E4SessionReader.stats(of: writer.url)
+        let left = try XCTUnwrap(stats.sensors[.left])
+        XCTAssertEqual(left.count, 3)
+        XCTAssertEqual(left.min, 100)
+        XCTAssertEqual(left.max, 300)
+        XCTAssertEqual(left.median, 200)
+
+        XCTAssertEqual(stats.batteryMin!, 3.55, accuracy: 0.001)
+        XCTAssertEqual(stats.batteryMax!, 3.70, accuracy: 0.001)
+        XCTAssertEqual(stats.turnResults.count, 1)
+        XCTAssertEqual(stats.unrecognisedCount, 1, "free-text lines are counted, not dropped")
+    }
+
+    func testTruncatedFinalLineCostsOnlyThatLine() throws {
+        // What a power cut mid-flush leaves behind.
+        let dir = try tempDirectory()
+        defer { try? FileManager.default.removeItem(at: dir) }
+
+        let started = Date()
+        let writer = try E4SessionWriter(directory: dir, header: .init(started: started))
+        writer.record("IR,1,2,3,4", at: started)
+        writer.close()
+
+        let handle = try FileHandle(forWritingTo: writer.url)
+        try handle.seekToEnd()
+        try handle.write(contentsOf: Data(#"{"t":9.0,"line":"IR,5,6"#.utf8))
+        try handle.close()
+
+        let entries = try E4SessionReader.entries(of: writer.url)
+        XCTAssertEqual(entries.count, 1, "the good line survives, the torn one is skipped")
+        XCTAssertEqual(entries[0].line, "IR,1,2,3,4")
+    }
+
+    func testFilenamesSortChronologically() {
+        let earlier = E4SessionLog.filename(for: Date(timeIntervalSince1970: 1_757_000_000))
+        let later = E4SessionLog.filename(for: Date(timeIntervalSince1970: 1_758_000_000))
+        XCTAssertLessThan(earlier, later, "plain string order must match time order")
+    }
+}

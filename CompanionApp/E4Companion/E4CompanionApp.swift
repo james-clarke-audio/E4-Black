@@ -4,21 +4,35 @@ import E4Core
 @main
 struct E4CompanionApp: App {
 
+    @Environment(\.scenePhase) private var scenePhase
+
     /// One session and one map for the whole app. `@State` on an `@Observable`
     /// class is the current idiom — no StateObject, no ObservableObject.
     @State private var session = E4Session()
     @State private var maze = E4Maze()
+    @State private var store = SessionStore()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(session)
                 .environment(maze)
+                .environment(store)
                 .task {
-                    // The maze claims the session's single message tap. If
-                    // anything else ever needs one, this becomes a fan-out.
                     maze.attach(to: session)
+                    store.attach(to: session)
                 }
+                // A session is one connection, so recording follows the link
+                // rather than the app's lifetime.
+                .onChange(of: session.connection) {
+                    store.connectionChanged(session.connection, session: session)
+                }
+                #if os(iOS)
+                .onChange(of: scenePhase) {
+                    // Backgrounding may be the last chance to write.
+                    if scenePhase != .active { store.flush() }
+                }
+                #endif
         }
         #if os(macOS)
         // The size the layout was designed at — an iPad Pro 11" in landscape,

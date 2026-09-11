@@ -242,13 +242,3 @@ struct MazeCanvas: View {
         .drawingGroup()
     }
 }
-
-struct HistoryScreen: View {
-    var body: some View {
-        NotBuiltYet(
-            title: "Bench history",
-            blurb: "Every session written to disk, so a baseline can be compared against last week's rather than against a memory of it. Sensor floors over time, turn results, what changed between runs.",
-            waitingOn: "Needs session logging first: a tap on session.onMessage writing decoded messages to a file, and somewhere to keep them. This is the one thing the web app structurally cannot do."
-        )
-    }
-}

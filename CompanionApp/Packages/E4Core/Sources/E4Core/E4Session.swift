@@ -6,7 +6,7 @@ import Observation
 ///
 /// Holds *current state*, not history. Logging runs to disk and plotting
 /// tuning runs over time are deliberately out of scope for the thin slice —
-/// but the `onMessage` hook is the seam they will attach to.
+/// but `observe(_:)` and `recorder` are the seams they attach to.
 @MainActor
 @Observable
 public final class E4Session {
@@ -76,7 +76,21 @@ public final class E4Session {
     public var logLimit = 500
 
     /// Called for every decoded message, after the session has folded it in.
-    public var onMessage: ((E4Message) -> Void)?
+    ///
+    /// A list, not a single slot: the maze wants messages and so does anything
+    /// added later. One closure meant whoever attached last silently replaced
+    /// whoever attached first.
+    private var observers: [(E4Message) -> Void] = []
+
+    /// Receives every line, raw, in both directions. This is the seam session
+    /// logging hangs off, and it takes raw text rather than decoded messages on
+    /// purpose: a log of raw lines can be re-read by a better decoder later, a
+    /// log of decoded structs is frozen at the decoder that wrote it.
+    public var recorder: (any E4LineRecorder)?
+
+    public func observe(_ handler: @escaping (E4Message) -> Void) {
+        observers.append(handler)
+    }
 
     private let transport: any E4Transport
 
@@ -124,9 +138,10 @@ public final class E4Session {
     }
 
     public func send(_ command: E4Command) {
+        let text = command.line.trimmingCharacters(in: .whitespacesAndNewlines)
         transport.send(command.line)
-        append(.init(text: "→ " + command.line.trimmingCharacters(in: .whitespacesAndNewlines),
-                     kind: .sent))
+        recorder?.record(text, tx: true)
+        append(.init(text: "→ " + text, kind: .sent))
     }
 
     /// Send a raw line typed by the user. Useful for firmware commands the app
@@ -135,16 +150,18 @@ public final class E4Session {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         transport.send(trimmed + "\n")
+        recorder?.record(trimmed, tx: true)
         append(.init(text: "→ " + trimmed, kind: .sent))
     }
 
     // MARK: - Receiving
 
     private func ingest(_ line: String) {
+        recorder?.record(line, tx: false)
         let message = E4MessageDecoder.decode(line)
         apply(message)
         append(.init(text: line, kind: kind(for: message)))
-        onMessage?(message)
+        for observer in observers { observer(message) }
     }
 
     private func apply(_ message: E4Message) {
@@ -245,4 +262,14 @@ public struct E4LogEntry: Sendable, Identifiable, Equatable {
         self.text = text
         self.kind = kind
     }
+}
+
+
+/// Anything that wants every line as it arrives or leaves.
+///
+/// A protocol so `E4Session` need not know about files, and so a test can
+/// record into memory.
+@MainActor
+public protocol E4LineRecorder: AnyObject {
+    func record(_ line: String, tx: Bool)
 }

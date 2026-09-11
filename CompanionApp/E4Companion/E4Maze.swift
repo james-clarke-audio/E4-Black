@@ -49,10 +49,10 @@ final class E4Maze {
 
     // MARK: - Wiring
 
-    /// Subscribe to a session. `onMessage` is a single slot, so whoever calls
-    /// this owns it — fine while the maze is the only thing that wants a tap.
+    /// Subscribe to a session. Observers are a list, so this composes with
+    /// anything else that wants messages.
     func attach(to session: E4Session) {
-        session.onMessage = { [weak self] message in
+        session.observe { [weak self] message in
             self?.apply(message)
         }
     }
