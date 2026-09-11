@@ -24,3 +24,19 @@ Claude outputs/
 
 # Upstream reference (mazerunner-core, kept locally only)
 Arduino Reference/
+
+# Xcode / Swift (CompanionApp)
+# Per-user state Xcode rewrites constantly - keeping it out means a diff only
+# ever shows real changes, not which file you last had open.
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad/
+DerivedData/
+build/
+.build/
+*.xcarchive
+*.ipa
+*.dSYM
+*.dSYM.zip
+.swiftpm/
+Package.resolved
