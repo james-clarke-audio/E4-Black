@@ -90,6 +90,7 @@
     <li><code>FRONT_REFERENCE = 850</code> (the front-sum when centred on a wall ahead) is defined but unused.</li>
   </ul>
   <p>So between references her belief accumulates wheel error — slip, and the <b>skid-steer scrub of the tetra chassis</b> — with nothing correcting it mid-run. Left unchecked that's what makes a mouse turn a few millimetres early, clip a post, or mis-map a cell.</p>
+  <p><b>The scrub is now measured.</b> Eight in-place 90° spins during a gyro-scale run moved the dead-reckoned pose from (90, 209) to (72, 192) — about <b>25 mm of translation, ~3 mm per 90° turn</b>. Two wheels a side off one pinion cannot pivot cleanly about the axle cross, so every stop-and-turn ends a few millimetres off where the brain thinks she is. That is not a fault to fix in firmware; it is the budget the side-sensor centring has to absorb, and it is the strongest argument for a positional re-anchor <em>every</em> cell rather than only where a front wall offers one.</p>
 
   <h2 class="sec">Three re-anchors</h2>
   <p class="dimc">The plan to fill <code>adjustPosition()</code> — three ways the walls hand back a known position:</p>

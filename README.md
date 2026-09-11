@@ -15,7 +15,10 @@ control and calibration. Built for the October 2026 micromouse competition.
   batched dark-then-lit read. Two forward sensors (front wall) and two diagonal
   sensors (side walls / centring).
 - **Gyro heading** — the gyro holds heading; the side sensors handle lateral
-  position and wall presence.
+  position and wall presence. Gyro scale is **calibrated on the floor and
+  persisted to EEPROM**, not compiled in — it is a property of the individual
+  MPU-9250 and shifts with temperature, so it can be re-measured at a venue
+  with nothing but the companion app.
 - **On-board UI** — SSD1306 OLED with a two-button menu; the whole menu is also
   drivable over Bluetooth.
 - **Bluetooth telemetry & control** via the companion app — a Control tab for
@@ -50,6 +53,12 @@ Full pin map, sensor geometry and housing detail are in the reference manual
   Edge on desktop, or an iPad via a WebBLE browser such as Bluefy (iOS Safari
   has no Web Bluetooth). Pair over BLE to monitor the sensors, drive the menu,
   and read the running firmware version.
+- **Hosted copy:** the repo publishes to GitHub Pages, so the current app is
+  always live at
+  [`/E4-Black/e4-maze.html`](https://james-clarke-audio.github.io/E4-Black/e4-maze.html)
+  and the manual at [`/E4-Black/docs/`](https://james-clarke-audio.github.io/E4-Black/docs/).
+  Web Bluetooth needs a secure context, so on a tablet this is the route to use
+  rather than copying the file across.
 
 ## Documentation
 
