@@ -141,13 +141,13 @@
 
   <div class="prog">
     <div class="track">
-      <div class="bar" role="img" aria-label="23 built, 4 stubbed of 27 menu actions">
-        <i class="b" style="width:85%"></i><i class="s" style="width:15%"></i>
+      <div class="bar" role="img" aria-label="24 built, 4 stubbed of 28 menu actions">
+        <i class="b" style="width:86%"></i><i class="s" style="width:14%"></i>
       </div>
-      <div class="cap"><span>menu actions</span><span>23 built · 4 stubbed of 27</span></div>
+      <div class="cap"><span>menu actions</span><span>24 built · 4 stubbed of 28</span></div>
     </div>
     <div class="counts">
-      <div class="c"><span class="n built">23</span><span class="k">Built</span></div>
+      <div class="c"><span class="n built">24</span><span class="k">Built</span></div>
       <div class="c"><span class="n stub">4</span><span class="k">Stub</span></div>
       <div class="c"><span class="n plan">4</span><span class="k">Planned</span></div>
     </div>
@@ -169,6 +169,7 @@
         <div class="item"><span class="name">Recal gyro</span><span class="rt"><span class="keycap">g</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">IR monitor</span><span class="rt"><span class="keycap">i</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Threshold calibration</span><span class="note">guided side/front thresholds via companion app · <code style="color:var(--dim);font-family:var(--mono)">THR,s,f</code> &rarr; saved to EEPROM, read on boot</span><span class="rt"><span class="chip plan">Planned</span></span></div>
+        <div class="item"><span class="name">Gyro scale cal</span><span class="note">8 × 90° on the floor, then you read the physical shortfall — the spin closes the loop on the gyro, so she cannot measure her own scale error. Applies <code style="color:var(--dim);font-family:var(--mono)">new = old × (cmd − short) ÷ cmd</code> and saves to the EEPROM config block</span><span class="rt"><span class="keycap">G</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Turn tuning</span><span class="note">live BT tuner — parametric spins &amp; arcs, gyro-closed; commanded-vs-achieved readout in the app’s Tuning tab</span><span class="rt"><span class="keycap">j</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Motion test</span><span class="rt"><span class="keycap">o</span><span class="chip built">Built</span></span></div>
       </div>
@@ -254,7 +255,7 @@
   <ol class="order">
     <li class="done"><div><div class="ot">Two-mode menu skeleton</div><div class="od">Mode → Category → Item, existing actions rebucketed, new ones stubbed</div></div><span class="step-chip">Shipped</span></li>
     <li class="done"><div><div class="ot">Set size + set goal (bench)</div><div class="od">runtime arena bounds + goal presets + BT commands · arena framed in the app</div></div><span class="step-chip">Shipped</span></li>
-    <li><div><div class="ot">Sensor threshold calibration</div><div class="od">firmware <code style="color:var(--dim);font-family:var(--mono)">THR</code> command + EEPROM config slot (magic + version + checksum, own region) · standalone guided calibration app</div></div><span class="step-chip">Next</span></li>
+    <li><div><div class="ot">Sensor threshold calibration</div><div class="od">the <b>EEPROM config slot is now built</b> — magic/version/length/checksum at address 512, written then read back, landed with the gyro-scale work. Thresholds become fields in the same block: bump the version and an older block still loads with the new field defaulted. What remains is the <code style="color:var(--dim);font-family:var(--mono)">THR</code> command and the guided calibration flow in the app</div></div><span class="step-chip">Next</span></li>
     <li class="done"><div><div class="ot">Turn tuning</div><div class="od">live tuner shipped · gyro scale calibrated (720° spin) · arc tuning in progress</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Integrated-turn primitive + toggles</div><div class="od">wire the arc into search &amp; the wall follower</div></div><span class="step-chip">Then</span></li>
     <li class="done"><div><div class="ot">Non-blocking sensor read</div><div class="od">shipped as a five-state sampler ticked from the 1 kHz ISR — DARK (four ambients) → SL → FL → FR → SR, one state per tick, so a full ambient-subtracted set lands every 5 ms and the ~218 µs of settle busy-wait becomes "next tick". Emitters are switched at the end of a tick and sampled at the start of the next, giving a ~1 ms settle for free (20× the old count). Thread context always wins the ADC — taking the lock parks the sampler — so the main-loop battery read that feeds the low-battery cutoff can never be stalled by it. Opt-in (<code style="color:var(--dim);font-family:var(--mono)">S</code>); the blocking read stays the default until bench-proven. Superseded by the G431 timer+DMA front end later</div></div><span class="step-chip">Shipped</span></li>

@@ -76,6 +76,13 @@ build date/time stamp is automatic.
 - Mixed C/C++ on STM32 HAL, with a **1 kHz** SysTick control loop.
 - Menu actions live in a flat `MENU[]` registry in `Program/src/app_main.cpp`,
   grouped by `CAT[]` / `MODE[]`. Add an action there and wire it into a category.
+- **Calibrated values live in the mouse, not in the source.** `config_store`
+  owns a versioned block in the EEPROM (address 512, clear of the maze store):
+  magic, version, length, payload, checksum, written then read back. Gyro scale
+  is there now and the wall thresholds are next. To add a field, widen the
+  payload and bump `CONFIG_VERSION` — an older block still loads and the new
+  field takes its compiled default. A board with no EEPROM is not an error: the
+  defaults stand and saving reports failure.
 - Wall sensing is in `Modules` (IRS) + `Program/inc/robot_sensors.h`. Keep pin
   assignments in sync with `Source/E4-Black.ioc` (CubeMX) — the `.ioc` is the
   source of truth for pins, and regenerating from it must not clobber
