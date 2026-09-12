@@ -19,7 +19,7 @@
 #include "mouse.h"       // Phase: search/solve brain (+ world stubs)
 #include "bt_rx.h"       // interrupt-driven UART1 receive ring buffer
 #include "eeprom.h"      // 24LC256 persistence driver (diagnostic)
-#include "config_store.h" // versioned settings block (gyro scale, later thresholds)
+#include "config_store.h" // versioned settings block (gyro scale + wall thresholds)
 #include <string.h>
 #include <stdlib.h>
 
@@ -193,16 +193,21 @@ static void act_eeprom_test(void) {
 	int match = 0;
 	if (present) {
 		const uint16_t A = (0x50u << 1);
+		// Scratch page, well clear of both tenants: the maze store owns 0..262
+		// and the config block sits at 512. This test used to hammer 0x0000,
+		// which is the maze store's 'E4M1' magic - so every run of a DIAGNOSTIC
+		// silently destroyed the saved maze. Nothing at 1024 belongs to anyone.
+		const uint16_t EE_SCRATCH = 1024;
 		uint8_t d0[16] = {0};
-		HAL_StatusTypeDef sr0 = HAL_I2C_Mem_Read(&hi2c1, A, 0x0000, I2C_MEMADD_SIZE_16BIT, d0, 16, 300);
+		HAL_StatusTypeDef sr0 = HAL_I2C_Mem_Read(&hi2c1, A, EE_SCRATCH, I2C_MEMADD_SIZE_16BIT, d0, 16, 300);
 		report_printf("EE pre  st=%d: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n",
 		              (int)sr0, d0[0],d0[1],d0[2],d0[3],d0[4],d0[5],d0[6],d0[7],d0[8],d0[9],d0[10],d0[11],d0[12],d0[13],d0[14],d0[15]);
 		uint8_t w[16]; for (int i = 0; i < 16; i++) w[i] = (uint8_t)(0x10 + i);
-		HAL_StatusTypeDef sw = HAL_I2C_Mem_Write(&hi2c1, A, 0x0000, I2C_MEMADD_SIZE_16BIT, w, 16, 300);
+		HAL_StatusTypeDef sw = HAL_I2C_Mem_Write(&hi2c1, A, EE_SCRATCH, I2C_MEMADD_SIZE_16BIT, w, 16, 300);
 		uint32_t t0 = HAL_GetTick(); int busy = -1;
 		for (int i = 0; i < 50; i++) { if (HAL_I2C_IsDeviceReady(&hi2c1, A, 1, 2) == HAL_OK) { busy = (int)(HAL_GetTick()-t0); break; } HAL_Delay(1); }
 		uint8_t d1[16] = {0};
-		HAL_StatusTypeDef sr1 = HAL_I2C_Mem_Read(&hi2c1, A, 0x0000, I2C_MEMADD_SIZE_16BIT, d1, 16, 300);
+		HAL_StatusTypeDef sr1 = HAL_I2C_Mem_Read(&hi2c1, A, EE_SCRATCH, I2C_MEMADD_SIZE_16BIT, d1, 16, 300);
 		report_printf("EE post wr=%d busy=%d rd=%d: %02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X\r\n",
 		              (int)sw, busy, (int)sr1, d1[0],d1[1],d1[2],d1[3],d1[4],d1[5],d1[6],d1[7],d1[8],d1[9],d1[10],d1[11],d1[12],d1[13],d1[14],d1[15]);
 		match = (sr1 == HAL_OK && d1[0] == 0x10 && d1[15] == 0x1F);
@@ -231,9 +236,10 @@ static void act_ir_monitor(void) {
 		sensors.sample_raw();
 		int fsum = sensors.rd_fl + sensors.rd_fr;
 		report_printf("IR,%d,%d,%d,%d\r\n", sensors.rd_left, sensors.rd_fl, sensors.rd_fr, sensors.rd_right);
-		report_printf("SENS,L%d FL%d FR%d R%d front%d thr(s%d f%d) %s %s\r\n",
+		report_printf("SENS,L%d FL%d FR%d R%d front%d thr(l%d r%d f%d) %s %s\r\n",
 		              sensors.rd_left, sensors.rd_fl, sensors.rd_fr, sensors.rd_right, fsum,
-		              sensors.thresh_side, sensors.thresh_front, sensors.use_real ? "REAL" : "virt",
+		              WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
+		              sensors.use_real ? "REAL" : "virt",
 		              Irs_SM_Enabled() ? "sm" : "blk");
 		if (s_haveOled) {
 			char l[24];
@@ -585,6 +591,217 @@ static void act_turn_tune(void) {
 	}
 	report_write("Turn tune: exit\r\n");
 }
+// ---------------------------------------------------------------------------
+// Guided wall-threshold calibration.
+//
+// Two captures, not six. Put her somewhere all three walls are present (a dead
+// end), capture; put her on open floor with nothing in range, capture. All three
+// thresholds fall out of the two sets at once. Asking for six separate captures
+// would be more precise in principle and a worse procedure in practice - by the
+// fourth repositioning the mouse has been nudged, and the earlier samples no
+// longer describe the same geometry.
+//
+// Each capture is a burst reduced by MEDIAN, not mean. One IR sample can be
+// spoiled by a stray reflection or a motor transient; a mean quietly absorbs
+// that and hands back a number wrong by an amount you cannot see. A median
+// throws it away.
+//
+// The threshold is the least interesting output. What decides whether any of
+// this works is the SEPARATION between the two states. A threshold sitting in a
+// wide gap tolerates battery sag, a different floor and a warm emitter; one in a
+// narrow gap flips on all three, and no tuning fixes a sensor that cannot tell
+// the two states apart. So the margin is reported per channel, and a poor one is
+// named as poor.
+// ---------------------------------------------------------------------------
+#define THR_SAMPLES 15
+
+static int thr_median(int *v, int n) {
+	// insertion sort; n is 15 and anything cleverer is harder to read for no gain
+	for (int i = 1; i < n; i++) {
+		int k = v[i], j = i - 1;
+		while (j >= 0 && v[j] > k) { v[j + 1] = v[j]; j--; }
+		v[j + 1] = k;
+	}
+	return v[n / 2];
+}
+
+static void thr_capture(int *out_l, int *out_r, int *out_f) {
+	int L[THR_SAMPLES], R[THR_SAMPLES], F[THR_SAMPLES];
+	for (int i = 0; i < THR_SAMPLES; i++) {
+		sensors.sample_raw();
+		L[i] = sensors.rd_left;
+		R[i] = sensors.rd_right;
+		F[i] = sensors.rd_fl + sensors.rd_fr;
+		HAL_Delay(20);
+	}
+	*out_l = thr_median(L, THR_SAMPLES);
+	*out_r = thr_median(R, THR_SAMPLES);
+	*out_f = thr_median(F, THR_SAMPLES);
+}
+
+// Judged relative to the present-state reading, not in absolute counts: 40
+// counts of separation is comfortable on a channel reading 120 and meaningless
+// on one reading 900.
+static const char *thr_verdict(int present, int absent) {
+	if (present <= absent) return "DEAD";
+	int span = present - absent;
+	int pct  = (span * 100) / (present > 0 ? present : 1);
+	if (pct >= 60) return "good";
+	if (pct >= 30) return "ok";
+	return "POOR";
+}
+
+//   RIGHT / P : capture WALLS PRESENT   (first press)
+//   RIGHT / A : capture WALLS ABSENT    (second press)
+//   THR,l,r,f : set all three directly
+//   S         : save to EEPROM
+//   LEFT / <  : exit
+static void act_threshold_cal(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	uint8_t junk; while (bt_rx_pop(&junk)) { }
+
+	if (!sensors.use_real) {
+		report_write("THR,VIRTUAL sensors - switch to REAL first (Sensor mode)\r\n");
+	}
+	report_printf("Threshold cal: now l=%d r=%d f=%d %s\r\n",
+	              WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
+	              config_store_present() ? "(EEPROM present)" : "(NO EEPROM - cannot save)");
+	report_write("1: walls BOTH SIDES + FRONT (a dead end). RIGHT/P captures\r\n");
+	report_write("2: open floor, NO walls in range.         RIGHT/A captures\r\n");
+	report_write("THR,<l>,<r>,<f> sets directly | S saves | < exits\r\n");
+
+	if (s_haveOled) {
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Threshold cal",  &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts("1 walls: R=cap", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("L=exit",         &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+	}
+
+	int pl = 0, pr = 0, pf = 0;      // present-state medians
+	int al = 0, ar = 0, af = 0;      // absent-state medians
+	int have_present = 0, have_absent = 0;
+
+	char line[48]; int len = 0;
+	uint8_t lp = 1, rp = 1;
+	int run = 1;
+	uint32_t next_show = 0;
+
+	while (run) {
+		int do_capture = 0;
+
+		uint8_t l = SWITCH_LEFT(), r = SWITCH_RIGHT();
+		if (l && !lp) run = 0;
+		if (r && !rp) do_capture = 1;
+		lp = l; rp = r;
+
+		uint8_t ch;
+		while (bt_rx_pop(&ch)) {
+			if (ch == '\r' || ch == '\n') {
+				if (len > 0) {
+					line[len] = '\0';
+					if (strncmp(line, "THR,", 4) == 0) {
+						float v[3] = { 0.0f, 0.0f, 0.0f };
+						if (tt_parse_floats(line + 4, v, 3) == 3) {
+							int nl = (int)v[0], nr = (int)v[1], nf = (int)v[2];
+							if (nl > 0 && nl < 4096 && nr > 0 && nr < 4096 && nf > 0 && nf < 8192) {
+								WALL_THRESH_LEFT = nl; WALL_THRESH_RIGHT = nr; WALL_THRESH_FRONT = nf;
+								report_printf("THR,set l=%d r=%d f=%d - S to save\r\n", nl, nr, nf);
+							} else {
+								report_write("THR,rejected (expect 1..4095, front 1..8191)\r\n");
+							}
+						}
+					}
+					else if (line[0] == 'S' || line[0] == 's') {
+						int ok = config_store_save();
+						report_printf("THR,saved=%d%s\r\n", ok, ok ? "" : " (no EEPROM or write failed)");
+					}
+					else if (line[0] == 'P' || line[0] == 'p') { do_capture = 1; have_present = 0; have_absent = 0; }
+					else if (line[0] == 'A' || line[0] == 'a') { do_capture = 2; }
+					else if (line[0] == '<' || line[0] == 'q' || line[0] == 'X') { run = 0; }
+					len = 0;
+				}
+			} else if (len < (int)sizeof(line) - 1) {
+				line[len++] = (char)ch;
+			} else { len = 0; }
+		}
+
+		if (run && do_capture) {
+			// A button press fills whichever state is still outstanding, so the
+			// bench flow is press - reposition - press. P/A force a specific one.
+			int want_present = (do_capture == 1) ? !have_present : 0;
+
+			report_write(want_present ? "THR,capturing PRESENT...\r\n" : "THR,capturing ABSENT...\r\n");
+			HAL_Delay(250);              // let go of the button before sampling
+
+			if (want_present) {
+				thr_capture(&pl, &pr, &pf);
+				have_present = 1;
+				report_printf("THR,present l=%d r=%d f=%d\r\n", pl, pr, pf);
+			} else {
+				thr_capture(&al, &ar, &af);
+				have_absent = 1;
+				report_printf("THR,absent l=%d r=%d f=%d\r\n", al, ar, af);
+			}
+
+			if (have_present && have_absent) {
+				// Midpoint, unweighted. A missed wall drives her into one she cannot
+				// pass; a phantom wall boxes her in. There is no principled reason
+				// here to prefer one failure over the other.
+				int nl = (pl + al) / 2, nr = (pr + ar) / 2, nf = (pf + af) / 2;
+				if (nl > 0 && nr > 0 && nf > 0) {
+					WALL_THRESH_LEFT = nl; WALL_THRESH_RIGHT = nr; WALL_THRESH_FRONT = nf;
+					report_printf("THR,new l=%d r=%d f=%d - S to save\r\n", nl, nr, nf);
+				} else {
+					report_write("THR,rejected (a midpoint came out <= 0)\r\n");
+				}
+				report_printf("THR,margin L %d-%d %s | R %d-%d %s | F %d-%d %s\r\n",
+				              al, pl, thr_verdict(pl, al),
+				              ar, pr, thr_verdict(pr, ar),
+				              af, pf, thr_verdict(pf, af));
+				// Left and right should be close. If they are not, the fault is in
+				// the mounts and no threshold will hide it.
+				int bal = pl > pr ? pl - pr : pr - pl;
+				int big = pl > pr ? pl : pr;
+				if (big > 0 && (bal * 100) / big > 25) {
+					report_printf("THR,WARN sides differ %d%% - check mount depth/aim\r\n",
+					              (bal * 100) / big);
+				}
+			}
+			while (bt_rx_pop(&junk)) { }
+			lp = SWITCH_LEFT(); rp = SWITCH_RIGHT();
+			next_show = 0;
+		}
+
+		// Live readout at ~5 Hz, so a new threshold can be sanity-checked by
+		// moving her about without leaving the routine. The flags are derived
+		// here rather than by calling sensors.update(), which would re-sample.
+		if (run && HAL_GetTick() >= next_show) {
+			next_show = HAL_GetTick() + 200;
+			sensors.sample_raw();
+			int fs = sensors.rd_fl + sensors.rd_fr;
+			report_printf("THR,live l=%d r=%d f=%d -> %c%c%c\r\n",
+			              sensors.rd_left, sensors.rd_right, fs,
+			              sensors.rd_left  > WALL_THRESH_LEFT  ? 'L' : '-',
+			              fs               > WALL_THRESH_FRONT ? 'F' : '-',
+			              sensors.rd_right > WALL_THRESH_RIGHT ? 'R' : '-');
+			if (s_haveOled) {
+				char b[24];
+				SSD1306_Fill(SSD1306_COLOR_BLACK);
+				SSD1306_GotoXY(0, OLED_TITLE_Y); SSD1306_Puts("Threshold cal", &Font_7x10, SSD1306_COLOR_WHITE);
+				snprintf(b, sizeof(b), "L%d R%d F%d", sensors.rd_left, sensors.rd_right, fs);
+				SSD1306_GotoXY(0, 18); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
+				snprintf(b, sizeof(b), "cap %s%s", have_present ? "P" : "-", have_absent ? "A" : "-");
+				SSD1306_GotoXY(0, 30); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+			}
+		}
+
+		HAL_Delay(4);
+	}
+	report_write("Threshold cal: exit\r\n");
+}
+
 static void act_wall_follow(void)   { act_todo("Wall follower"); }
 static void act_speed_run(void)     { act_todo("Speed run"); }
 static void act_resume_saved(void)  { act_todo("Resume saved"); }
@@ -698,6 +915,7 @@ static const MenuItem MENU[] = {
 	/*26*/ { "IR sampler",   'S', act_ir_sampler },
 	/*27*/ { "Gyro scale cal",'G', act_gyro_scale_cal },
 	/*28*/ { "BT provision", 'B', act_bt_provision },
+	/*29*/ { "Threshold cal",'T', act_threshold_cal },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -705,7 +923,7 @@ static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 // MODE -> CATEGORY -> ITEM. Wheels scroll, RIGHT enters/runs, LEFT backs out.
 // BT keys above bypass all of this.  (*) marks a stub, not built yet.
 typedef struct { const char *name; const uint8_t *items; uint8_t n; } Category;
-static const uint8_t CAT_CAL[]    = { 12, 27, 10, 19, 4 };  // Recal gyro, Gyro scale cal, IR monitor, Turn tuning, Motion test
+static const uint8_t CAT_CAL[]    = { 12, 27, 29, 10, 19, 4 };  // Recal gyro, Gyro scale cal, Threshold cal, IR monitor, Turn tuning, Motion test
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
@@ -714,7 +932,7 @@ static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
-	/*0*/ { "Calibration", CAT_CAL,    5 },
+	/*0*/ { "Calibration", CAT_CAL,    6 },
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
@@ -894,6 +1112,25 @@ void app_main()
 						const char *cc = strchr(bt_line + 5, ',');
 						int nh = cc ? atoi(cc + 1) : nw;
 						if (nw > 0 && nh > 0) { maze.set_bounds((uint8_t)nw, (uint8_t)nh); mouse.show_arena(); }
+					}
+					else if (strncmp(bt_line, "THR?", 4) == 0) {
+						report_printf("THR,now l=%d r=%d f=%d\r\n",
+						              WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT);
+					}
+					else if (strncmp(bt_line, "THR,", 4) == 0) {
+						// Also accepted inside "Threshold cal"; here so the app can set
+						// and save thresholds without driving the menu into a routine.
+						float v[3] = { 0.0f, 0.0f, 0.0f };
+						if (tt_parse_floats(bt_line + 4, v, 3) == 3) {
+							int nl = (int)v[0], nr = (int)v[1], nf = (int)v[2];
+							if (nl > 0 && nl < 4096 && nr > 0 && nr < 4096 && nf > 0 && nf < 8192) {
+								WALL_THRESH_LEFT = nl; WALL_THRESH_RIGHT = nr; WALL_THRESH_FRONT = nf;
+								int ok = config_store_save();
+								report_printf("THR,set l=%d r=%d f=%d saved=%d\r\n", nl, nr, nf, ok);
+							} else {
+								report_write("THR,rejected (expect 1..4095, front 1..8191)\r\n");
+							}
+						}
 					}
 					else if (strncmp(bt_line, "GOAL,", 5) == 0) {
 						const char *a = bt_line + 5; const char *cc = strchr(a, ',');

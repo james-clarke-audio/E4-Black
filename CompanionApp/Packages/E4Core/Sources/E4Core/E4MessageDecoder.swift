@@ -157,31 +157,49 @@ public enum E4MessageDecoder {
     private static func decodeSensorStatus(_ raw: String) -> E4SensorStatus? {
         let body = raw.dropFirst(min(5, raw.count))          // past "SENS,"
         var left = 0, fl = 0, fr = 0, right = 0, front = 0
-        var sideThreshold: Int?
+        var leftThreshold: Int?
+        var rightThreshold: Int?
         var frontThreshold: Int?
 
+        // Two wire formats. v0.11 and later send three thresholds,
+        //   thr(l60 r62 f80)
+        // earlier firmware sent one shared side figure,
+        //   thr(s60 f80)
+        // Both are decoded, because the logs keep RAW lines: an old session
+        // recorded months ago still has to come back through today's decoder.
         for token in body.split(separator: " ") {
-            // Strip the bracketing of the `thr(s60 f80)` pair as we go.
             let t = token.trimmingCharacters(in: CharacterSet(charactersIn: "()"))
 
-            if let v = value(t, after: "thr(s") ?? value(t, after: "thrs") { sideThreshold = v }
+            if let v = value(t, after: "thr(l") ?? value(t, after: "thrl") {
+                leftThreshold = v
+            } else if let v = value(t, after: "thr(s") ?? value(t, after: "thrs") {
+                leftThreshold = v                 // legacy: one figure, both sides
+                rightThreshold = v
+            }
+            // Order matters and the case carries meaning: `R270` is the right
+            // sensor READING, `r62` is the right THRESHOLD. Uppercase is checked
+            // first, so a lowercase token can only fall through to the
+            // threshold arms.
             else if let v = value(t, after: "FL")    { fl = v }
             else if let v = value(t, after: "FR")    { fr = v }
             else if let v = value(t, after: "front") { front = v }
             else if let v = value(t, after: "L")     { left = v }
             else if let v = value(t, after: "R")     { right = v }
+            else if let v = value(t, after: "r")     { rightThreshold = v }
             else if let v = value(t, after: "f")     { frontThreshold = v }
         }
 
-        // Without the threshold pair this isn't a SENS status line at all.
-        guard let side = sideThreshold, let frontThr = frontThreshold else { return nil }
+        // Without thresholds this isn't a SENS status line at all.
+        guard let leftThr = leftThreshold,
+              let frontThr = frontThreshold else { return nil }
 
         return E4SensorStatus(left: left,
                               frontLeft: fl,
                               frontRight: fr,
                               right: right,
                               frontSum: front == 0 ? fl + fr : front,
-                              sideThreshold: side,
+                              leftThreshold: leftThr,
+                              rightThreshold: rightThreshold ?? leftThr,
                               frontThreshold: frontThr,
                               usingRealIR: raw.contains("REAL"),
                               raw: raw)

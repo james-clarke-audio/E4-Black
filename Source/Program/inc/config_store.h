@@ -12,10 +12,16 @@
  *   [6..]   payload
  *   [6+len] checksum = 8-bit sum of [4 .. 6+len-1]
  *
- * v1 payload: float gyro_scale.
- * Adding a field means bumping the version and widening the payload; an older
- * block still loads, the new field just takes its default. Wall thresholds are
- * the next tenants.
+ * v1 payload: float gyro_scale.                                    (4 bytes)
+ * v2 payload: + int16 thresh_left, thresh_right, thresh_front,
+ *               int16 reserved (explicit, so sizeof has no implicit
+ *               padding the checksum would cover but nothing sets)  (12 bytes)
+ *
+ * Adding a field means bumping the version and widening the payload. The load
+ * path is length-driven, not version-driven: a short (v1) block still loads its
+ * gyro scale and the thresholds simply keep their compiled defaults, and a block
+ * written by a FUTURE build is truncated to what this one understands. So an
+ * older mouse and a newer one can share a chip without either corrupting it.
  *
  * No EEPROM fitted is NOT an error: everything runs from the compiled defaults
  * and save reports failure, so the mouse is fully usable on a board without a
@@ -27,7 +33,7 @@
 #include <stdint.h>
 
 #define CONFIG_ADDR      512u   /* clear of the maze store, 64-byte page aligned */
-#define CONFIG_VERSION   1u
+#define CONFIG_VERSION   2u
 
 #ifdef __cplusplus
 extern "C" {

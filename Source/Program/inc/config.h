@@ -102,6 +102,20 @@ extern const int GYRO_POLARITY;   // yaw-gyro sign for CCW-positive (verify on b
 // value here is only the fallback when no saved block is found.
 extern float GYRO_SCALE;
 
+// Wall-present thresholds on the ambient-subtracted IR reading. NOT const, for
+// the same reason as GYRO_SCALE: they are properties of THESE emitters in THESE
+// housings on THIS surface, not of the code. Calibrated at runtime (menu ->
+// "Threshold cal") and persisted in the EEPROM config block; the values here are
+// only the fallback when no saved block is found.
+//
+// Left and right are separate figures. Two hand-built sensor mounts never match
+// closely enough to share one number, and the side-to-side DIFFERENCE is what
+// the centring will eventually steer on - so a shared threshold would bake a
+// permanent bias into exactly the measurement that has to be unbiased.
+extern int WALL_THRESH_LEFT;
+extern int WALL_THRESH_RIGHT;
+extern int WALL_THRESH_FRONT;   // tested against the FL+FR sum, not one detector
+
 //*** CONTROL LOOP TIMING **************************************************//
 // The main control loop runs at 1 kHz. Rate-dependent maths across the
 // ported mazerunner logic references these two constants.

@@ -13,8 +13,14 @@ static int s_loaded  = 0;
 // Payload mirrors what is live in RAM. Kept as a struct so the length byte in
 // the header and the bytes actually written can never disagree.
 typedef struct {
-  float gyro_scale;
-} ConfigV1;
+  float   gyro_scale;      /* 4 */
+  int16_t thresh_left;     /* 2 */
+  int16_t thresh_right;    /* 2 */
+  int16_t thresh_front;    /* 2 */
+  int16_t reserved;        /* 2  -- explicit: without it the compiler pads to a
+                                    4-byte multiple anyway, and the checksum
+                                    would then cover bytes nothing ever sets. */
+} ConfigV2;                /* 12 */
 
 static uint8_t sum8(const uint8_t *p, uint16_t n) {
   uint8_t s = 0;
@@ -55,7 +61,7 @@ void config_store_begin(void) {
 
   // Load what this build understands; a shorter (older) payload leaves the
   // remaining fields at their defaults, a longer (newer) one is truncated.
-  ConfigV1 c;
+  ConfigV2 c;
   memset(&c, 0, sizeof(c));
   memcpy(&c, buf, len < sizeof(c) ? len : sizeof(c));
 
@@ -69,22 +75,48 @@ void config_store_begin(void) {
     }
   }
 
+  // Thresholds only if the block is actually long enough to contain them.
+  // Testing the LENGTH rather than the version is what lets a v1 block load
+  // cleanly here instead of reading four bytes of somebody else's data.
+  int thr_loaded = 0;
+  if (len >= 10) {
+    // 0 is not a threshold, it is an uncalibrated field; a negative one is
+    // corruption. Either way the compiled default is the safer answer.
+    if (c.thresh_left  > 0 && c.thresh_left  < 4096 &&
+        c.thresh_right > 0 && c.thresh_right < 4096 &&
+        c.thresh_front > 0 && c.thresh_front < 8192) {
+      WALL_THRESH_LEFT  = c.thresh_left;
+      WALL_THRESH_RIGHT = c.thresh_right;
+      WALL_THRESH_FRONT = c.thresh_front;
+      thr_loaded = 1;
+    } else {
+      report_write("CFG,thresholds out of range, ignored\r\n");
+    }
+  }
+
   s_loaded = 1;
   int w = (int)(GYRO_SCALE * 1000.0f);
   report_printf("CFG,loaded v%u gyro_scale=%d.%03d\r\n", ver, w / 1000, w % 1000);
+  report_printf("CFG,thr l=%d r=%d f=%d %s\r\n",
+                WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
+                thr_loaded ? "(eeprom)" : "(defaults)");
 }
 
 int config_store_save(void) {
   if (!s_present) return 0;
 
-  ConfigV1 c;
+  ConfigV2 c;
   memset(&c, 0, sizeof(c));
-  c.gyro_scale = GYRO_SCALE;
+  c.gyro_scale   = GYRO_SCALE;
+  c.thresh_left  = (int16_t)WALL_THRESH_LEFT;
+  c.thresh_right = (int16_t)WALL_THRESH_RIGHT;
+  c.thresh_front = (int16_t)WALL_THRESH_FRONT;
+  c.reserved     = 0;
 
-  uint8_t blk[6 + sizeof(ConfigV1) + 1];
+  uint8_t blk[6 + sizeof(ConfigV2) + 1];
   blk[0] = 'E'; blk[1] = '4'; blk[2] = 'C'; blk[3] = '1';
   blk[4] = (uint8_t)CONFIG_VERSION;
-  blk[5] = (uint8_t)sizeof(ConfigV1);
+  blk[5] = (uint8_t)sizeof(ConfigV2);
   memcpy(&blk[6], &c, sizeof(c));
   blk[6 + sizeof(c)] = (uint8_t)(blk[4] + blk[5] + sum8(&blk[6], sizeof(c)));
 

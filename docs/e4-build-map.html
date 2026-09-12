@@ -141,13 +141,13 @@
 
   <div class="prog">
     <div class="track">
-      <div class="bar" role="img" aria-label="25 built, 4 stubbed of 29 menu actions">
-        <i class="b" style="width:86%"></i><i class="s" style="width:14%"></i>
+      <div class="bar" role="img" aria-label="26 built, 4 stubbed of 30 menu actions">
+        <i class="b" style="width:87%"></i><i class="s" style="width:13%"></i>
       </div>
-      <div class="cap"><span>menu actions</span><span>25 built · 4 stubbed of 29</span></div>
+      <div class="cap"><span>menu actions</span><span>26 built · 4 stubbed of 30</span></div>
     </div>
     <div class="counts">
-      <div class="c"><span class="n built">25</span><span class="k">Built</span></div>
+      <div class="c"><span class="n built">26</span><span class="k">Built</span></div>
       <div class="c"><span class="n stub">4</span><span class="k">Stub</span></div>
       <div class="c"><span class="n plan">4</span><span class="k">Planned</span></div>
     </div>
@@ -256,7 +256,7 @@
   <ol class="order">
     <li class="done"><div><div class="ot">Two-mode menu skeleton</div><div class="od">Mode → Category → Item, existing actions rebucketed, new ones stubbed</div></div><span class="step-chip">Shipped</span></li>
     <li class="done"><div><div class="ot">Set size + set goal (bench)</div><div class="od">runtime arena bounds + goal presets + BT commands · arena framed in the app</div></div><span class="step-chip">Shipped</span></li>
-    <li><div><div class="ot">Sensor threshold calibration</div><div class="od">the <b>EEPROM config slot is now built</b> — magic/version/length/checksum at address 512, written then read back, landed with the gyro-scale work. Thresholds become fields in the same block: bump the version and an older block still loads with the new field defaulted. What remains is the <code style="color:var(--dim);font-family:var(--mono)">THR</code> command and the guided calibration flow in the app</div></div><span class="step-chip">Next</span></li>
+    <li class="done"><div><div class="ot">Sensor threshold calibration</div><div class="od">shipped in 0.11. <b>Per-sensor</b> thresholds — left and right are separate figures, because two hand-built mounts never match and it is the left&ndash;right difference the centring will steer on. Config block went to v2 (<code style="color:var(--dim);font-family:var(--mono)">gyro_scale</code> + three int16 thresholds); the load path is length-driven, so a v1 block still loads and the thresholds simply default. Calibration is <b>two captures</b>, not six: walls both sides and in front, then open floor, and the midpoints fall out — each a burst reduced by median, so one stray reflection cannot move the answer. The margin per channel is reported, because a threshold in a narrow gap will flip on battery sag and no tuning fixes a sensor that cannot separate the two states. <code style="color:var(--dim);font-family:var(--mono)">THR</code> reads and sets them from the app</div></div><span class="step-chip">Shipped</span></li>
     <li class="done"><div><div class="ot">Turn tuning</div><div class="od">live tuner shipped · gyro scale calibrated (720° spin) · arc tuning in progress</div></div><span class="step-chip">Shipped</span></li>
     <li><div><div class="ot">Integrated-turn primitive + toggles</div><div class="od">wire the arc into search &amp; the wall follower</div></div><span class="step-chip">Then</span></li>
     <li class="done"><div><div class="ot">Non-blocking sensor read</div><div class="od">shipped as a five-state sampler ticked from the 1 kHz ISR — DARK (four ambients) → SL → FL → FR → SR, one state per tick, so a full ambient-subtracted set lands every 5 ms and the ~218 µs of settle busy-wait becomes "next tick". Emitters are switched at the end of a tick and sampled at the start of the next, giving a ~1 ms settle for free (20× the old count). Thread context always wins the ADC — taking the lock parks the sampler — so the main-loop battery read that feeds the low-battery cutoff can never be stalled by it. Opt-in (<code style="color:var(--dim);font-family:var(--mono)">S</code>); the blocking read stays the default until bench-proven. Superseded by the G431 timer+DMA front end later</div></div><span class="step-chip">Shipped</span></li>

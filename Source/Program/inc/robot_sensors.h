@@ -12,7 +12,12 @@
  *   changes - it calls the same update()/see_*_wall/get_front_sum() either way.
  *
  * Toggle at runtime from the menu (Sensors > Mode). The IR monitor streams the
- * raw ambient-subtracted values so the thresholds can be calibrated on a maze.
+ * raw ambient-subtracted values so the thresholds can be read off by eye, and
+ * "Threshold cal" sets them from two captures and saves them to the EEPROM.
+ *
+ * The thresholds themselves are WALL_THRESH_LEFT/RIGHT/FRONT in config.c. Left
+ * and right are deliberately separate: no two hand-built mounts match, and it is
+ * the left-right difference the centring steers on.
  */
 #ifndef ROBOT_SENSORS_H
 #define ROBOT_SENSORS_H
@@ -35,10 +40,12 @@ class VirtualSensors {
   // false = virtual (read the ground-truth maze); true = real IR detectors.
   bool use_real = false;
 
-  // Tunable wall-present thresholds on the ambient-subtracted reading. Set from
-  // the IR monitor / calibration; sensible placeholders until the sensors exist.
-  int thresh_side  = 60;   // side wall present when its diff exceeds this (SR right wall reads ~79)
-  int thresh_front = 80;   // front wall present when (FL + FR) exceeds this
+  // Wall-present thresholds live in config.c as WALL_THRESH_*, not here, so the
+  // EEPROM config store can persist them the same way it persists GYRO_SCALE.
+  // These accessors keep the call sites readable.
+  static int thresh_left()  { return WALL_THRESH_LEFT;  }
+  static int thresh_right() { return WALL_THRESH_RIGHT; }
+  static int thresh_front() { return WALL_THRESH_FRONT; }
 
   // Last raw ambient-subtracted reads (for the monitor / calibration).
   int rd_left = 0, rd_fl = 0, rd_fr = 0, rd_right = 0;
@@ -85,9 +92,9 @@ class VirtualSensors {
     // (The earlier SL/SR=front guess, from a verbal description, was backwards -
     // the hardware disagreed on a left-wall-only test. This is the original map.)
     m_front_sum    = rd_fl + rd_fr;           // FL + FR (inner, forward) = FRONT
-    see_left_wall  = rd_left  > thresh_side;  // SL (outer) = LEFT wall
-    see_right_wall = rd_right > thresh_side;  // SR (outer) = RIGHT wall
-    see_front_wall = m_front_sum > thresh_front;
+    see_left_wall  = rd_left  > WALL_THRESH_LEFT;   // SL (outer) = LEFT wall
+    see_right_wall = rd_right > WALL_THRESH_RIGHT;  // SR (outer) = RIGHT wall
+    see_front_wall = m_front_sum > WALL_THRESH_FRONT;
   }
 
   // Stand-in for the hand-over-sensor start: wait for (and release) a button.

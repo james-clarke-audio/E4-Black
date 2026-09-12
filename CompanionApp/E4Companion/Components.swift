@@ -31,8 +31,11 @@ struct SensorDisplay {
         let lit: Bool
         switch sensor {
         case .left, .right:
-            thr = status?.sideThreshold
-            if let status { lit = reading >= status.sideThreshold } else { lit = false }
+            // Per-sensor since fw 0.11. SL and SR are hand-built mounts and do
+            // not share a figure; an old log reports the same number twice,
+            // which is what it meant.
+            thr = status?.threshold(for: sensor)
+            if let t = status?.threshold(for: sensor) { lit = reading >= t } else { lit = false }
         case .frontLeft, .frontRight:
             thr = nil
             if let status { lit = status.frontSum >= status.frontThreshold } else { lit = false }

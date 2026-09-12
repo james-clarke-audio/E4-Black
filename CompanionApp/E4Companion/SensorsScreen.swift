@@ -60,7 +60,7 @@ struct SensorsScreen: View {
                     // shown against a threshold.
                     Text("front \(status.frontSum)/\(status.frontThreshold)")
                         .foregroundStyle(status.frontSum >= status.frontThreshold ? Palette.good : Palette.dim)
-                    Text("side thr \(status.sideThreshold)")
+                    Text("thr L\(status.leftThreshold) R\(status.rightThreshold)")
                         .foregroundStyle(.secondary)
                     Spacer()
                 }
@@ -133,27 +133,61 @@ struct SensorsScreen: View {
     // MARK: thresholds
 
     private var thresholds: some View {
-        Card {
+        let running = session.runningAction == .thresholdCal
+        return Card {
             HStack(spacing: 9) {
                 Text("THRESHOLDS")
                     .font(.caption2.monospaced())
                     .tracking(1.2)
                     .foregroundStyle(.secondary)
-                NeedsFirmwareChip()
                 Spacer()
+                if running {
+                    Button("Exit") { session.send(.back) }
+                        .buttonStyle(.bordered)
+                        .touchTarget()
+                } else {
+                    Button("Calibrate") { session.send(.action(.thresholdCal)) }
+                        .buttonStyle(.borderedProminent)
+                        .touchTarget()
+                }
             }
 
-            Text("Per-sensor thresholds land once the THR command exists. The EEPROM config block they save into is already built — they become fields in the same versioned payload as the gyro scale.")
+            Text("Two captures: once with walls both sides and in front — a dead end — and once on open floor with nothing in range. The midpoints fall out of the pair. Saved into the same versioned EEPROM block as the gyro scale.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
             if let status = session.sensorStatus {
                 VStack(spacing: 6) {
-                    FieldRow(key: "left (SL)", value: "\(status.sideThreshold)")
-                    FieldRow(key: "right (SR)", value: "\(status.sideThreshold)")
+                    FieldRow(key: "left (SL)", value: "\(status.leftThreshold)")
+                    FieldRow(key: "right (SR)", value: "\(status.rightThreshold)")
                     FieldRow(key: "front sum", value: "\(status.frontThreshold)")
+                    if status.sidesShareOneThreshold {
+                        // Either a pre-0.11 log, or both sides genuinely landed
+                        // on the same number. Worth flagging rather than hiding:
+                        // identical side thresholds on a hand-built pair is a
+                        // coincidence, and coincidences are worth checking.
+                        FieldRow(key: "note", value: "sides equal", tint: Palette.dim)
+                    }
                 }
-                .opacity(0.5)
+            }
+
+            if running {
+                Divider()
+                HStack(spacing: 8) {
+                    Button("Capture walls") { session.send(.key("P")) }
+                        .buttonStyle(.bordered)
+                        .touchTarget()
+                    Button("Capture open") { session.send(.key("A")) }
+                        .buttonStyle(.bordered)
+                        .touchTarget()
+                    Button("Save") { session.send(.key("S")) }
+                        .buttonStyle(.borderedProminent)
+                        .touchTarget()
+                    Spacer()
+                }
+                Text("She reports a margin per channel after the second capture. That figure, not the threshold, is what says whether the sensor can tell the two states apart at all.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.faint)
             }
         }
     }

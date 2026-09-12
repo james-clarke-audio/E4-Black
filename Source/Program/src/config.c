@@ -55,6 +55,12 @@ const int GYRO_POLARITY = (1);
 float GYRO_SCALE = 1.003;         // fallback; calibrated at runtime, saved to EEPROM
                                   // (trim so a commanded 360 = a true physical 360)
 
+// Wall thresholds: fallbacks only. These date from the OLD emitters and are
+// certainly wrong for the TSAL6100 build - run "Threshold cal" and save.
+int WALL_THRESH_LEFT  = 60;
+int WALL_THRESH_RIGHT = 60;
+int WALL_THRESH_FRONT = 80;   // against FL + FR summed
+
 // Control-loop timing (1 kHz).
 const float LOOP_FREQUENCY = 1000.0f;
 const float LOOP_INTERVAL  = 0.001f;   // 1 / LOOP_FREQUENCY

@@ -120,10 +120,30 @@ public struct E4SensorStatus: Sendable, Equatable {
     public let frontRight: Int
     public let right: Int
     public let frontSum: Int
-    public let sideThreshold: Int
+    public let leftThreshold: Int
+    public let rightThreshold: Int
     public let frontThreshold: Int
     public let usingRealIR: Bool
     public let raw: String
+
+    /// The threshold the firmware actually tests this sensor against.
+    ///
+    /// `nil` for the front pair on purpose: the front decision is made on the
+    /// FL+FR **sum**, never on either detector alone, so there is no per-sensor
+    /// figure to show. Returning `frontThreshold` here would invite a caller to
+    /// compare it against one detector and draw a conclusion the firmware never
+    /// makes.
+    public func threshold(for sensor: E4Sensor) -> Int? {
+        switch sensor {
+        case .left:  return leftThreshold
+        case .right: return rightThreshold
+        case .frontLeft, .frontRight: return nil
+        }
+    }
+
+    /// Firmware before v0.11 reported one shared side threshold. A log from
+    /// then decodes with left == right, which is exactly what it meant.
+    public var sidesShareOneThreshold: Bool { leftThreshold == rightThreshold }
 }
 
 /// Decoded form of the `CFG` line.

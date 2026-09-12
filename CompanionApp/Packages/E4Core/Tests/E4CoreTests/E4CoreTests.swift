@@ -123,7 +123,8 @@ final class E4MessageDecoderTests: XCTestCase {
     }
 
     func testSensorStatusScrapesThresholdsAndMode() {
-        let line = "SENS,L265 FL199 FR142 R270 front341 thr(s60 f80) REAL"
+        // fw 0.11 and later: three separate thresholds.
+        let line = "SENS,L265 FL199 FR142 R270 front341 thr(l60 r62 f80) REAL"
         guard case .sensorStatus(let s) = E4MessageDecoder.decode(line) else {
             return XCTFail("not sensor status")
         }
@@ -132,9 +133,49 @@ final class E4MessageDecoderTests: XCTestCase {
         XCTAssertEqual(s.frontRight, 142)
         XCTAssertEqual(s.right, 270)
         XCTAssertEqual(s.frontSum, 341)
-        XCTAssertEqual(s.sideThreshold, 60)
+        XCTAssertEqual(s.leftThreshold, 60)
+        XCTAssertEqual(s.rightThreshold, 62)
         XCTAssertEqual(s.frontThreshold, 80)
+        XCTAssertFalse(s.sidesShareOneThreshold)
         XCTAssertTrue(s.usingRealIR)
+    }
+
+    /// `R270` is a reading and `r62` a threshold. They differ only by case, and
+    /// a parser that stopped caring would silently swap a sensor value for a
+    /// threshold — which would look like a plausible number, not like a bug.
+    func testSensorStatusDistinguishesReadingFromThresholdByCase() {
+        let line = "SENS,L1 FL2 FR3 R270 front5 thr(l10 r62 f80) REAL"
+        guard case .sensorStatus(let s) = E4MessageDecoder.decode(line) else {
+            return XCTFail("not sensor status")
+        }
+        XCTAssertEqual(s.right, 270)
+        XCTAssertEqual(s.rightThreshold, 62)
+    }
+
+    /// Logs keep raw lines, so a session recorded before 0.11 still has to
+    /// decode today. One shared side figure means both sides, not a failure.
+    func testSensorStatusAcceptsLegacySharedSideThreshold() {
+        let line = "SENS,L265 FL199 FR142 R270 front341 thr(s60 f80) REAL"
+        guard case .sensorStatus(let s) = E4MessageDecoder.decode(line) else {
+            return XCTFail("not sensor status")
+        }
+        XCTAssertEqual(s.leftThreshold, 60)
+        XCTAssertEqual(s.rightThreshold, 60)
+        XCTAssertEqual(s.frontThreshold, 80)
+        XCTAssertTrue(s.sidesShareOneThreshold)
+    }
+
+    func testThresholdCommandWireFormat() {
+        XCTAssertEqual(E4Command.thresholds(left: 60, right: 62, front: 80).line,
+                       "THR,60,62,80\n")
+        XCTAssertEqual(E4Command.readThresholds.line, "THR?\n")
+    }
+
+    func testThresholdCalMenuActionMatchesFirmware() {
+        XCTAssertEqual(E4MenuAction.thresholdCal.rawValue, 29)
+        XCTAssertEqual(E4MenuAction.thresholdCal.key, "T")
+        XCTAssertFalse(E4MenuAction.thresholdCal.movesTheMouse)
+        XCTAssertFalse(E4MenuAction.thresholdCal.requiresNoCentral)
     }
 
     func testSensorStatusVirtualMode() {

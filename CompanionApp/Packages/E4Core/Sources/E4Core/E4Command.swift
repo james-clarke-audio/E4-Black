@@ -46,6 +46,15 @@ public enum E4Command: Sendable, Equatable {
     /// `GS,<value>` — set gyro scale directly, during gyro cal.
     case gyroScale(Double)
 
+    /// Set all three wall thresholds. Sent at top level the firmware applies
+    /// AND saves them in one step, reporting `saved=`; sent inside "Threshold
+    /// cal" it only applies them and waits for an explicit save, so the margins
+    /// can be read first.
+    case thresholds(left: Int, right: Int, front: Int)
+
+    /// Ask for the live thresholds without changing anything.
+    case readThresholds
+
     /// The exact bytes to put on the wire, terminator included.
     public var line: String {
         switch self {
@@ -68,6 +77,10 @@ public enum E4Command: Sendable, Equatable {
             return "ERR,\(n(deg))\n"
         case .gyroScale(let value):
             return "GS,\(String(format: "%.3f", value))\n"
+        case .thresholds(let l, let r, let f):
+            return "THR,\(l),\(r),\(f)\n"
+        case .readThresholds:
+            return "THR?\n"
         }
     }
 
@@ -115,6 +128,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case irSampler = 26
     case gyroScaleCal = 27
     case btProvision = 28
+    case thresholdCal = 29
 
     public var id: Int { rawValue }
 
@@ -149,6 +163,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .irSampler:       return "S"
         case .gyroScaleCal:    return "G"
         case .btProvision:     return "B"
+        case .thresholdCal:    return "T"
         }
     }
 
@@ -183,6 +198,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .irSampler:       return "IR sampler"
         case .gyroScaleCal:    return "Gyro scale cal"
         case .btProvision:     return "BT provision"
+        case .thresholdCal:    return "Threshold cal"
         }
     }
 
