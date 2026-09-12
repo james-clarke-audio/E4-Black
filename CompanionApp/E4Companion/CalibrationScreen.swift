@@ -17,6 +17,7 @@ struct CalibrationScreen: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                GyroCard()
                 gate
                 steps
                 manual
@@ -72,7 +73,7 @@ struct CalibrationScreen: View {
                          .disabled(!active)
                  })
             step(3, "Measure the shortfall",
-                 "How many degrees short of the straight edge did she finish? This is the number she cannot know herself.",
+                 "How many degrees short of the straight edge did she finish? Positive if she stopped before the line, negative if she went past it. This is the number she cannot know herself \u{2014} and the sign is the easiest thing in the whole procedure to get backwards.",
                  trailing: {
                      HStack(spacing: 6) {
                          NumberField("short", value: $shortfall, unit: "deg")
@@ -83,6 +84,18 @@ struct CalibrationScreen: View {
                              .disabled(!active)
                      }
                  })
+
+            if shortfall != 0 {
+                // Spelled out before it is sent, because the sign error is
+                // silent: a backwards entry is accepted, saved, and doubles
+                // the error instead of removing it.
+                Text(shortfall > 0
+                     ? "Sending +\(fmt(shortfall)): she under-rotated \u{2014} scale goes down, she will turn further."
+                     : "Sending \(fmt(shortfall)): she over-rotated \u{2014} scale goes up, she will turn less.")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Palette.warn)
+            }
+
             step(4, "Save",
                  "new = old × (cmd − short) ÷ cmd, guarded to 0.85–1.15, then written to the EEPROM block.",
                  trailing: {
@@ -131,7 +144,7 @@ struct CalibrationScreen: View {
                 FieldRow(key: "loaded", value: String(format: "%.3f", scale))
             }
             Divider()
-            Text("A board with no EEPROM is not an error: the compiled defaults stand and saving reports failure. The fitted display board has none — only 0x3C answers — so nothing persists until the newer board is in.")
+            Text("A board with no EEPROM is not an error: the compiled defaults stand and saving reports failure rather than pretending. The board now fitted has one — 0x3C and 0x50 both answer — so a saved scale survives a power cycle.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Button("EEPROM test") { session.send(.action(.eepromTest)) }
@@ -151,6 +164,10 @@ struct CalibrationScreen: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func fmt(_ v: Double) -> String {
+        String(format: "%g", v)
     }
 
     @ViewBuilder

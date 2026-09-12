@@ -26,6 +26,19 @@ public final class E4Session {
     public private(set) var firmwareBuild: String?
     public private(set) var battery: Double?
     public private(set) var telemetry: E4Telemetry?
+
+    /// A bounded run of recent telemetry frames.
+    ///
+    /// Kept because some questions are about a trend rather than a value — gyro
+    /// drift above all. `report_tel` casts every field to int, so a bias of a
+    /// tenth of a degree per second prints as a flat `0` in the rate field; the
+    /// heading, though, accumulates, and a line fitted to it over half a minute
+    /// recovers the rate the rate field cannot show.
+    ///
+    /// Telemetry arrives about once a second at rest and far faster while she
+    /// is moving, so this is a few minutes at rest and rather less under way.
+    public private(set) var telemetryHistory: [E4Telemetry] = []
+    private let telemetryLimit = 900
     public private(set) var sensors: [Int] = [0, 0, 0, 0]
     public private(set) var sensorStatus: E4SensorStatus?
 
@@ -173,6 +186,10 @@ public final class E4Session {
         case .telemetry(let t):
             telemetry = t
             battery = t.battery
+            telemetryHistory.append(t)
+            if telemetryHistory.count > telemetryLimit {
+                telemetryHistory.removeFirst(telemetryHistory.count - telemetryLimit)
+            }
 
         case .ir(let l, let fl, let fr, let r):
             sensors = [l, fl, fr, r]
@@ -220,6 +237,7 @@ public final class E4Session {
 
     private func clearLiveValues() {
         telemetry = nil
+        telemetryHistory = []
         litEmitter = nil
         stateLabel = nil
         sensorPeak = 0
