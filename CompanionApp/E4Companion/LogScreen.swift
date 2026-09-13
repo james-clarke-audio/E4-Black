@@ -1,10 +1,16 @@
 import SwiftUI
 import E4Core
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 struct LogScreen: View {
     @Environment(E4Session.self) private var session
     @State private var filter: Filter = .all
     @State private var command = ""
+    @State private var copied = false
 
     enum Filter: String, CaseIterable, Identifiable {
         case all, sent, unknown
@@ -49,6 +55,15 @@ struct LogScreen: View {
             Text("\(session.log.count) lines")
                 .font(.caption.monospaced())
                 .foregroundStyle(Palette.faint)
+
+            // Per-line textSelection only ever gives you ONE line: SwiftUI
+            // cannot drag a selection across separate Text views, and on iPad
+            // there is no Finder to fall back to. So the transcript needs an
+            // explicit copy, and it copies what the filter is SHOWING — if you
+            // filtered to Unrecognised, those lines are what you wanted.
+            Button(copied ? "Copied" : "Copy") { copyTranscript() }
+                .buttonStyle(.bordered)
+                .disabled(lines.isEmpty)
 
             Button("Clear") { session.clearLog() }
                 .buttonStyle(.bordered)
@@ -106,6 +121,25 @@ struct LogScreen: View {
     private func send() {
         session.sendRaw(command)
         command = ""
+    }
+
+    /// The whole filtered transcript, tab-free and newline separated, so it
+    /// pastes into a message or an editor as the lines she actually sent.
+    private func copyTranscript() {
+        let text = lines.map(\.text).joined(separator: "\n")
+        #if os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        #else
+        UIPasteboard.general.string = text
+        #endif
+        // The label reverts on its own; a copy with no acknowledgement leaves
+        // you pressing it twice and wondering which press actually took.
+        copied = true
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(1.6))
+            copied = false
+        }
     }
 
     /// Unrecognised lines are kept and shown, not dropped. EEPROM scan output
