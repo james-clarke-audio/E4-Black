@@ -13,6 +13,17 @@ struct MazeScreen: View {
     @State private var flipped = false
     @State private var loadError: String?
 
+    /// She prints RUN before the action runs, and the action's first act is to
+    /// wait for a button — so between those two the app knows she is armed. Once
+    /// she is actually going she reports a STATE, which is what clears this:
+    /// leaving "press a button" up while she is already running is worse than
+    /// never showing it, because then the message means nothing.
+    private var isArmedWaiting: Bool {
+        guard let running = session.runningAction, running.waitsForButtonPress else { return false }
+        let state = session.stateLabel?.uppercased()
+        return state == nil || state == "IDLE"
+    }
+
     /// What would actually be sent — the file, turned over if the orientation
     /// switch is on. Nothing in a maze file records which way up it was written.
     private var outgoing: E4MazeFile? {
@@ -68,6 +79,18 @@ struct MazeScreen: View {
                 importCard
 
                 Card("Run") {
+                    if isArmedWaiting {
+                        HStack(spacing: 8) {
+                            Image(systemName: "hand.tap")
+                            Text("**\(session.runningAction?.title ?? "It")** is armed — press a button on the mouse to start it.")
+                        }
+                        .font(.callout)
+                        .foregroundStyle(Palette.warn)
+                        .padding(9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Palette.warn.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+                    }
+
                     Button("Search") { confirm = .search }
                         .buttonStyle(.borderedProminent)
                         .frame(maxWidth: .infinity)

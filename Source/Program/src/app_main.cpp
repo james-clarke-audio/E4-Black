@@ -1007,6 +1007,25 @@ static int cat_pos_in_mode(int m, int c) {
 	return 0;
 }
 
+// Where an item sits in the MODE -> CATEGORY -> ITEM tree.
+//
+// A BT key runs an action directly, without walking the menu, so without this
+// the OLED carries on showing whichever page it was left on while she does
+// something else entirely. That matters because the display is the ONLY thing
+// you can read when the app is not in your hand - at a competition it is what
+// tells you she is doing what you meant.
+static int menu_locate(int item, int *m_out, int *c_out, int *s_out) {
+	for (int m = 0; m < NUM_MODE; m++) {
+		for (int i = 0; i < (int)MODE[m].n; i++) {
+			int c = MODE[m].cats[i];
+			for (int k = 0; k < (int)CAT[c].n; k++) {
+				if (CAT[c].items[k] == item) { *m_out = m; *c_out = c; *s_out = k; return 1; }
+			}
+		}
+	}
+	return 0;   // an item no category lists: leave the menu where it was
+}
+
 static const int MENU_VIS  = 3;    // visible list rows in the blue band (y=18,30,42)
 static const int MENU_JOG_COUNTS = 800;  // wheel counts (both wheels summed) per cursor step
 static const int MENU_JOG_DIR    = -1;    // flip to -1 if scrolling feels inverted
@@ -1213,6 +1232,23 @@ void app_main()
 
 		// --- run the chosen action (blocking; moves abort on a button press) ---
 		if (run_idx >= 0 && run_idx < MENU_N) {
+			// Point the menu at whatever is about to run, so the OLED and the app
+			// agree regardless of which one started it. On exit the normal redraw
+			// then leaves the cursor sitting on the item you just ran.
+			{
+				int m2, c2, s2;
+				if (menu_locate(run_idx, &m2, &c2, &s2)) {
+					mode = m2; cat = c2; sel = s2; level = 2; top = 0;
+				}
+			}
+			if (s_haveOled) {
+				// Actions with their own display overwrite this immediately; the
+				// ones without it leave the name up, which is what you want.
+				SSD1306_Fill(SSD1306_COLOR_BLACK);
+				SSD1306_GotoXY(0, OLED_TITLE_Y); SSD1306_Puts("Running",            &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_GotoXY(0, OLED_LIST_Y0); SSD1306_Puts(MENU[run_idx].name,   &Font_7x10, SSD1306_COLOR_WHITE);
+				SSD1306_UpdateScreen();
+			}
 			LED_RIGHT_ON();
 			report_printf("RUN,%d,%s\r\n", run_idx, MENU[run_idx].name);
 			MENU[run_idx].run();

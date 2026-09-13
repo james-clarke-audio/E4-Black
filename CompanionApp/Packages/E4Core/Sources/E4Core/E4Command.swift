@@ -240,6 +240,20 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         }
     }
 
+    /// True for actions that ARM and then wait for a button press ON THE MOUSE
+    /// before anything happens.
+    ///
+    /// She calls `wait_for_user_start()` first, so sending one of these over the
+    /// link looks exactly like nothing happening — which is indistinguishable
+    /// from a command that never arrived, and sends you looking for a fault in
+    /// the wrong place.
+    public var waitsForButtonPress: Bool {
+        switch self {
+        case .search, .explore, .simulate, .simExplore: return true
+        default:                                        return false
+        }
+    }
+
     /// True for actions that drive the wheels — worth confirming before firing
     /// one by accident from a phone in your pocket.
     public var movesTheMouse: Bool {
