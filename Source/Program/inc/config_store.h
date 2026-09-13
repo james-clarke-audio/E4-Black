@@ -19,11 +19,13 @@
  * v3 payload: + int16 turn[4][5] = entry, exit, lead_out, omega,
  *               alpha for each of the four turns                    (52 bytes)
  *
- * SIZE CEILING: the whole block must fit ONE 24LC256 page. A page write that
- * crosses a boundary WRAPS to the start of the same page rather than running
- * on, so a 65th byte would silently overwrite the magic. At CONFIG_ADDR 512
- * (page-aligned) that caps the payload at 57 bytes: 6 header + 57 + 1 = 64.
- * v3 uses 52. Anything larger needs a second block, not a bigger one.
+ * v4 payload: turn[] widened to all 16 turn types                  (172 bytes)
+ *
+ * CORRECTION (I had this wrong in v3): there is NO one-page ceiling here.
+ * eeprom_write already splits its writes at page boundaries, so a block may
+ * span as many 64-byte pages as it likes. The real limits are the length byte
+ * (255) and the read buffer below. The v3 comment claiming a 57-byte cap was
+ * describing a constraint the driver had already solved.
  *
  * Adding a field means bumping the version and widening the payload. The load
  * path is length-driven, not version-driven: a short (v1) block still loads its
@@ -41,7 +43,7 @@
 #include <stdint.h>
 
 #define CONFIG_ADDR      512u   /* clear of the maze store, 64-byte page aligned */
-#define CONFIG_VERSION   3u
+#define CONFIG_VERSION   4u
 
 #ifdef __cplusplus
 extern "C" {

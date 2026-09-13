@@ -34,7 +34,8 @@ extern Mouse mouse;
 class Mouse {
  public:
   enum State { FRESH_START, SEARCHING, INPLACE_RUN, SMOOTH_RUN, FINISHED };
-  enum TurnType { SS90EL = 0, SS90ER = 1, SS90L = 2, SS90R = 3 };
+  // TurnType now lives in mouse_config.h beside the table it indexes, so the
+  // two cannot drift apart. The unqualified names still resolve here.
 
   Mouse() { init(); }
 

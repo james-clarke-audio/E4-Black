@@ -534,7 +534,8 @@ static void act_turn_tune(void) {
 	// A tuner that edited a copy could only ever tell you what a turn would
 	// have been like - you then transcribed numbers by hand into two other
 	// places and hoped. What you tune here is what she searches with.
-	report_write("Turn tune: SPIN,a,w,al | ARC,v,a,w,al,in,out | SEL,0-3 | S=save | R=repeat | <=exit\r\n");
+	report_printf("Turn tune: SPIN,a,w,al | ARC,v,a,w,al,in,out | SEL,0-%d | OUT,mm | S=save | R=repeat | <=exit\r\n",
+	              TURN_COUNT - 1);
 	report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",
 	              sel, turn_names[sel], turn_params[sel].speed, turn_params[sel].entry_offset,
 	              turn_params[sel].lead_out, (int)turn_params[sel].omega, (int)turn_params[sel].alpha);
@@ -591,7 +592,7 @@ static void act_turn_tune(void) {
 					}
 					else if (strncmp(line, "SEL,", 4) == 0) {
 						float v[1] = { (float)sel };
-						if (tt_parse_floats(line + 4, v, 1) == 1 && v[0] >= 0 && v[0] <= 3) {
+						if (tt_parse_floats(line + 4, v, 1) == 1 && v[0] >= 0 && v[0] < TURN_COUNT) {
 							sel = (int)v[0];
 							const TurnParameters &p = turn_params[sel];
 							report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",

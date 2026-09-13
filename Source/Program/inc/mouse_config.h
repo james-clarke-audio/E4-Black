@@ -81,9 +81,44 @@ struct TurnParameters {
 //
 // Persisted in the EEPROM config block, so a tune done at a venue survives a
 // power cycle. Values here are the fallback when no saved block is found.
-extern TurnParameters turn_params[4];
+// Turn identities. Lives here rather than inside Mouse so the enum and the
+// table it indexes cannot drift apart.
+//
+// WHY 45 AND 135 APPEAR TWICE. A 45 degree turn is not one turn. SD45 goes
+// STRAIGHT ONTO the diagonal: it starts on a cell centreline and finishes on a
+// diagonal. DS45 does the reverse. Same angle, mirrored geometry, different
+// entry and exit offsets - one set of numbers cannot serve both, and using it
+// for both is how a mouse ends up half a cell out only on alternate corners.
+// DD90 turns a corner WITHOUT dropping off the diagonal, where the cell pitch
+// is 180/sqrt2 = 127 mm rather than 180, so it is a much tighter turn.
+enum TurnType {
+  SS90EL   =  0,   // search 90, the only turns she makes today
+  SS90ER   =  1,
+  SS90L    =  2,   // fast straight-to-straight 90
+  SS90R    =  3,
+  SS180L   =  4,   // about-turn without stopping; R=90 lands one cell over
+  SS180R   =  5,
+  SD45L    =  6,   // straight ONTO the diagonal - gentle, so a large R
+  SD45R    =  7,
+  DS45L    =  8,   // diagonal back to straight - same angle, different geometry
+  DS45R    =  9,
+  SD135L   = 10,   // straight onto the diagonal, the long way round
+  SD135R   = 11,
+  DS135L   = 12,   // diagonal back to straight
+  DS135R   = 13,
+  DD90L    = 14,   // corner WITHOUT leaving the diagonal; pitch is 127mm, so tight
+  DD90R    = 15,
+  TURN_COUNT
+};
+
+// NOTHING DRIVES ANYTHING PAST SS90R YET. The solver is four-connected -
+// Heading has four values and the flood only walks N/E/S/W - so there is no
+// diagonal navigation to call these from. They are slots with correct angles
+// and reasoned starting geometry, waiting for the path generator in Ch9 and an
+// expanded heading set. Do not read their presence as a working feature.
+extern TurnParameters turn_params[TURN_COUNT];
 
 // Names for reports, indexed the same way.
-extern const char *const turn_names[4];
+extern const char *const turn_names[TURN_COUNT];
 
 #endif // MOUSE_CONFIG_H
