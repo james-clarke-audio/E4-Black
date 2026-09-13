@@ -8,8 +8,11 @@ import XCTest
 /// against lines I made up only proves the decoder agrees with me.
 final class E4ThresholdCalTests: XCTestCase {
 
+    /// decode(_:) returns a non-optional E4Message — an unrecognised line comes
+    /// back as .text rather than nil, which is the whole point of a total
+    /// decoder. So no optional pattern here.
     private func decode(_ line: String) -> E4ThresholdReport? {
-        guard case .threshold(let report)? = E4MessageDecoder.decode(line) else { return nil }
+        guard case .threshold(let report) = E4MessageDecoder.decode(line) else { return nil }
         return report
     }
 
@@ -105,7 +108,7 @@ final class E4ThresholdCalTests: XCTestCase {
     /// vanishing — the unparsed lines are exactly the ones worth reading when
     /// something is wrong.
     func testUnknownThrLineFallsBackToText() {
-        guard case .text(let raw)? = E4MessageDecoder.decode("THR,something new I have not written yet") else {
+        guard case .text(let raw) = E4MessageDecoder.decode("THR,something new I have not written yet") else {
             return XCTFail("an unknown THR line should survive as text")
         }
         XCTAssertTrue(raw.contains("something new"))
