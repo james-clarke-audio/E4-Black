@@ -127,12 +127,19 @@ final class E4ConfigDumpTests: XCTestCase {
     @MainActor
     func testConnectingSendsAQueryNotAMenuAction() {
         let transport = RecordingTransport()
-        _ = E4Session(transport: transport)
-        transport.onStateChange?(.connected("MMOUSE"))
+        let session = E4Session(transport: transport)
 
-        XCTAssertEqual(transport.sent, ["VER?\n"])
-        XCTAssertFalse(transport.sent.contains("V\n"),
-                       "a bare V runs the blocking menu action")
+        // The session has to be held across the callback. wire() captures
+        // [weak self], so a discarded session is deallocated and the handler
+        // bails out before sending anything — which is a test measuring ARC
+        // rather than the greeting.
+        withExtendedLifetime(session) {
+            transport.onStateChange?(.connected("MMOUSE"))
+
+            XCTAssertEqual(transport.sent, ["VER?\n"])
+            XCTAssertFalse(transport.sent.contains("V\n"),
+                           "a bare V runs the blocking menu action")
+        }
     }
 }
 
