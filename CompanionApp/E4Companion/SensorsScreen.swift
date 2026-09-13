@@ -152,7 +152,7 @@ struct SensorsScreen: View {
                 }
             }
 
-            Text("Two captures: once with walls both sides and in front — a dead end — and once on open floor with nothing in range. The midpoints fall out of the pair. Saved into the same versioned EEPROM block as the gyro scale.")
+            Text("Three captures: a dead end (walls both sides and in front), open floor with nothing in range, and a corridor (side walls, no front wall). The corridor is the one that matters most — the forward pair clips the side walls through its splay, so without it the front threshold can land below what a corridor reads and she reports a front wall in every one.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
 
@@ -173,11 +173,18 @@ struct SensorsScreen: View {
 
             if running {
                 Divider()
+                // Each button forces its own state, so any one can be redone
+                // without starting over — which matters, because repositioning
+                // her for the third capture is exactly when the first one gets
+                // knocked.
                 HStack(spacing: 8) {
-                    Button("Capture walls") { session.send(.key("P")) }
+                    Button("Dead end") { session.send(.key("P")) }
                         .buttonStyle(.bordered)
                         .touchTarget()
-                    Button("Capture open") { session.send(.key("A")) }
+                    Button("Open floor") { session.send(.key("A")) }
+                        .buttonStyle(.bordered)
+                        .touchTarget()
+                    Button("Corridor") { session.send(.key("C")) }
                         .buttonStyle(.bordered)
                         .touchTarget()
                     Button("Save") { session.send(.key("S")) }
@@ -185,7 +192,7 @@ struct SensorsScreen: View {
                         .touchTarget()
                     Spacer()
                 }
-                Text("She reports a margin per channel after the second capture. That figure, not the threshold, is what says whether the sensor can tell the two states apart at all.")
+                Text("She reports a margin per channel — the gap between the weakest reading with the wall there and the strongest without it. That figure, not the threshold, is what says whether the sensor can separate the two states at all.")
                     .font(.caption)
                     .foregroundStyle(Palette.faint)
             }

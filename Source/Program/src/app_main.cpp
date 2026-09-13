@@ -594,12 +594,18 @@ static void act_turn_tune(void) {
 // ---------------------------------------------------------------------------
 // Guided wall-threshold calibration.
 //
-// Two captures, not six. Put her somewhere all three walls are present (a dead
-// end), capture; put her on open floor with nothing in range, capture. All three
-// thresholds fall out of the two sets at once. Asking for six separate captures
-// would be more precise in principle and a worse procedure in practice - by the
-// fourth repositioning the mouse has been nudged, and the earlier samples no
-// longer describe the same geometry.
+// Three captures: a DEAD END (both sides + front), OPEN FLOOR (nothing), and a
+// CORRIDOR (sides, no front). Not six - one per sensor per state would be more
+// precise in principle and a worse procedure in practice, because by the sixth
+// repositioning the mouse has been nudged and the earlier samples no longer
+// describe the same geometry.
+//
+// The corridor is the one that is easy to leave out and expensive to leave out.
+// The forward pair clips the SIDE walls through its splay, so in a corridor the
+// front channel reads far above its open-floor figure with no front wall there
+// at all. Set the front threshold from dead-end vs open-floor and it can land
+// below that - and she then reports a front wall in every corridor she enters,
+// which looks like a maze-solving fault and is not one.
 //
 // Each capture is a burst reduced by MEDIAN, not mean. One IR sample can be
 // spoiled by a stray reflection or a motor transient; a mean quietly absorbs
@@ -666,21 +672,28 @@ static void act_threshold_cal(void) {
 	report_printf("Threshold cal: now l=%d r=%d f=%d %s\r\n",
 	              WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
 	              config_store_present() ? "(EEPROM present)" : "(NO EEPROM - cannot save)");
-	report_write("1: walls BOTH SIDES + FRONT (a dead end). RIGHT/P captures\r\n");
-	report_write("2: open floor, NO walls in range.         RIGHT/A captures\r\n");
+	report_write("1: walls BOTH SIDES + FRONT (a dead end).  RIGHT/P captures\r\n");
+	report_write("2: open floor, NO walls in range.          RIGHT/A captures\r\n");
+	report_write("3: a CORRIDOR - side walls, NO front wall. RIGHT/C captures\r\n");
 	report_write("THR,<l>,<r>,<f> sets directly | S saves | < exits\r\n");
 
 	if (s_haveOled) {
 		SSD1306_Fill(SSD1306_COLOR_BLACK);
 		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Threshold cal",  &Font_7x10, SSD1306_COLOR_WHITE);
-		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts("1 walls: R=cap", &Font_7x10, SSD1306_COLOR_WHITE);
-		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("L=exit",         &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts("P dead A open", &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts("C corr  L=exit", &Font_7x10, SSD1306_COLOR_WHITE);
 		SSD1306_UpdateScreen();
 	}
 
-	int pl = 0, pr = 0, pf = 0;      // present-state medians
-	int al = 0, ar = 0, af = 0;      // absent-state medians
-	int have_present = 0, have_absent = 0;
+	// Three states, because the two obvious ones do not constrain the front.
+	// In a corridor the forward pair clips the SIDE walls through its splay, so
+	// the front channel reads well above its open-floor figure with no front
+	// wall there at all. A threshold set from dead-end vs open-floor can land
+	// BELOW that, and she then sees a phantom front wall in every corridor.
+	int pl = 0, pr = 0, pf = 0;      // dead end   : sides present, front present
+	int al = 0, ar = 0, af = 0;      // open floor : nothing present
+	int cl = 0, cr = 0, cf = 0;      // corridor   : sides present, front ABSENT
+	int have_present = 0, have_absent = 0, have_corridor = 0;
 
 	char line[48]; int len = 0;
 	uint8_t lp = 1, rp = 1;
@@ -716,8 +729,9 @@ static void act_threshold_cal(void) {
 						int ok = config_store_save();
 						report_printf("THR,saved=%d%s\r\n", ok, ok ? "" : " (no EEPROM or write failed)");
 					}
-					else if (line[0] == 'P' || line[0] == 'p') { do_capture = 1; have_present = 0; have_absent = 0; }
+					else if (line[0] == 'P' || line[0] == 'p') { do_capture = 1; }
 					else if (line[0] == 'A' || line[0] == 'a') { do_capture = 2; }
+					else if (line[0] == 'C' || line[0] == 'c') { do_capture = 3; }
 					else if (line[0] == '<' || line[0] == 'q' || line[0] == 'X') { run = 0; }
 					len = 0;
 				}
@@ -727,28 +741,50 @@ static void act_threshold_cal(void) {
 		}
 
 		if (run && do_capture) {
-			// A button press fills whichever state is still outstanding, so the
-			// bench flow is press - reposition - press. P/A force a specific one.
-			int want_present = (do_capture == 1) ? !have_present : 0;
+			// A button press fills whichever state is still outstanding, in
+			// order, so the bench flow is press - reposition - press - reposition
+			// - press. P/A/C force a specific one and can be redone at any time.
+			int which = do_capture;
+			if (which == 1 && have_present) {          // plain RIGHT: next outstanding
+				which = !have_absent ? 2 : (!have_corridor ? 3 : 1);
+			}
 
-			report_write(want_present ? "THR,capturing PRESENT...\r\n" : "THR,capturing ABSENT...\r\n");
+			static const char *SNAME[4] = { "", "DEAD END", "OPEN FLOOR", "CORRIDOR" };
+			report_printf("THR,capturing %s...\r\n", SNAME[which]);
 			HAL_Delay(250);              // let go of the button before sampling
 
-			if (want_present) {
+			if (which == 1) {
 				thr_capture(&pl, &pr, &pf);
 				have_present = 1;
-				report_printf("THR,present l=%d r=%d f=%d\r\n", pl, pr, pf);
-			} else {
+				report_printf("THR,deadend l=%d r=%d f=%d\r\n", pl, pr, pf);
+			} else if (which == 2) {
 				thr_capture(&al, &ar, &af);
 				have_absent = 1;
-				report_printf("THR,absent l=%d r=%d f=%d\r\n", al, ar, af);
+				report_printf("THR,openfloor l=%d r=%d f=%d\r\n", al, ar, af);
+			} else {
+				thr_capture(&cl, &cr, &cf);
+				have_corridor = 1;
+				report_printf("THR,corridor l=%d r=%d f=%d\r\n", cl, cr, cf);
 			}
 
 			if (have_present && have_absent) {
+				// The rule for every channel: the threshold goes between the
+				// WEAKEST reading where the wall is really there and the STRONGEST
+				// where it is not. Anything else is an average of states that do
+				// not all matter equally - and it is always the worst case that
+				// decides whether she reads the maze correctly.
+				//
+				// Sides  : present in the dead end AND the corridor; absent on the floor.
+				// Front  : present in the dead end only; absent on the floor AND in
+				//          the corridor - and the corridor is the one that bites.
+				int lp_ = (have_corridor && cl < pl) ? cl : pl;
+				int rp_ = (have_corridor && cr < pr) ? cr : pr;
+				int fa_ = (have_corridor && cf > af) ? cf : af;
+
 				// Midpoint, unweighted. A missed wall drives her into one she cannot
 				// pass; a phantom wall boxes her in. There is no principled reason
 				// here to prefer one failure over the other.
-				int nl = (pl + al) / 2, nr = (pr + ar) / 2, nf = (pf + af) / 2;
+				int nl = (lp_ + al) / 2, nr = (rp_ + ar) / 2, nf = (pf + fa_) / 2;
 				if (nl > 0 && nr > 0 && nf > 0) {
 					WALL_THRESH_LEFT = nl; WALL_THRESH_RIGHT = nr; WALL_THRESH_FRONT = nf;
 					report_printf("THR,new l=%d r=%d f=%d - S to save\r\n", nl, nr, nf);
@@ -756,9 +792,21 @@ static void act_threshold_cal(void) {
 					report_write("THR,rejected (a midpoint came out <= 0)\r\n");
 				}
 				report_printf("THR,margin L %d-%d %s | R %d-%d %s | F %d-%d %s\r\n",
-				              al, pl, thr_verdict(pl, al),
-				              ar, pr, thr_verdict(pr, ar),
-				              af, pf, thr_verdict(pf, af));
+				              al,  lp_, thr_verdict(lp_, al),
+				              ar,  rp_, thr_verdict(rp_, ar),
+				              fa_, pf,  thr_verdict(pf, fa_));
+				if (have_corridor) {
+					if (cf > af) {
+						report_printf("THR,front bounded by CORRIDOR (%d, floor was %d)\r\n", cf, af);
+					}
+					if (cf >= pf) {
+						// The forward pair cannot tell a front wall from the side
+						// walls it is already clipping. No threshold exists.
+						report_write("THR,WARN corridor front >= dead-end front - front channel cannot separate\r\n");
+					}
+				} else {
+					report_write("THR,NOTE front not yet checked against a corridor - capture C\r\n");
+				}
 				// Left and right should be close. If they are not, the fault is in
 				// the mounts and no threshold will hide it.
 				int bal = pl > pr ? pl - pr : pr - pl;
@@ -791,7 +839,8 @@ static void act_threshold_cal(void) {
 				SSD1306_GotoXY(0, OLED_TITLE_Y); SSD1306_Puts("Threshold cal", &Font_7x10, SSD1306_COLOR_WHITE);
 				snprintf(b, sizeof(b), "L%d R%d F%d", sensors.rd_left, sensors.rd_right, fs);
 				SSD1306_GotoXY(0, 18); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
-				snprintf(b, sizeof(b), "cap %s%s", have_present ? "P" : "-", have_absent ? "A" : "-");
+				snprintf(b, sizeof(b), "cap %s%s%s", have_present ? "P" : "-",
+				         have_absent ? "A" : "-", have_corridor ? "C" : "-");
 				SSD1306_GotoXY(0, 30); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
 				SSD1306_UpdateScreen();
 			}
