@@ -10,7 +10,8 @@ tidy and says how changes get in.
 | Path | What it is |
 |------|-----------|
 | `Source/` | STM32CubeIDE project (the firmware). `Core/` = HAL, `Drivers/`, `Modules/` = drivers (IRS, EEPROM, OLED…), `Program/` = the brain (mouse, maze, control, robot_sensors, app_main). |
-| `e4-maze.html` | Web Bluetooth companion app — single self-contained file. |
+| `e4-maze.html` | Web Bluetooth companion app — single self-contained file. This is the competition tool. |
+| `CompanionApp/` | Native SwiftUI companion (macOS/iPad). `E4Companion/` = the app, `Packages/E4Core/` = the transport, protocol, session log and model types, with the unit tests. |
 | `docs/` | The E4 Reference Manual. Open `docs/index.html`. |
 | `3D Files/` | Sensor housings, wheels, mounts (STL / GX). |
 | `E4-cell-alignment-A4.pdf` | 1:1 print jig for squaring a test cell. |
@@ -67,9 +68,19 @@ content is safe.
 ## Firmware version
 
 `Source/Program/inc/version.h` holds `FW_VERSION` — shown on the OLED and
-streamed as `VER` over Bluetooth. Bump it with functional changes: **minor**
-for a feature (`0.6` → `0.7`), **patch** for a fix/tweak (`0.6` → `0.6.1`). The
-build date/time stamp is automatic.
+answered as `VER` over Bluetooth (`VER?`). Bump it with functional changes:
+**minor** for a feature (`0.6` → `0.7`), **patch** for a fix/tweak
+(`0.6` → `0.6.1`). The build date/time stamp is automatic.
+
+**`1.0.0` is reserved** for the build that goes to the October competition.
+Don't spend it early.
+
+A version bump gets an entry at the bottom of [README.md](README.md), under
+**Firmware releases**: one bold line (version, date, what it is), a short
+paragraph saying what changed and *why*, then the firmware commit and any app
+or docs commits that landed with it. Newest first. The point of the "why" is
+that six months on the commit diff still shows what changed and nothing shows
+what it was for.
 
 ## Firmware conventions
 
@@ -77,12 +88,19 @@ build date/time stamp is automatic.
 - Menu actions live in a flat `MENU[]` registry in `Program/src/app_main.cpp`,
   grouped by `CAT[]` / `MODE[]`. Add an action there and wire it into a category.
 - **Calibrated values live in the mouse, not in the source.** `config_store`
-  owns a versioned block in the EEPROM (address 512, clear of the maze store):
-  magic, version, length, payload, checksum, written then read back. Gyro scale
-  is there now and the wall thresholds are next. To add a field, widen the
-  payload and bump `CONFIG_VERSION` — an older block still loads and the new
-  field takes its compiled default. A board with no EEPROM is not an error: the
-  defaults stand and saving reports failure.
+  owns a versioned block in the EEPROM (address 512, clear of the maze store at
+  0): magic, version, length, payload, checksum, written then read back. The
+  block is at **v5** and holds the gyro scale, the three wall thresholds, all
+  sixteen turn rows and the spin dynamics. A board with no EEPROM is not an
+  error: the compiled defaults stand and saving reports failure.
+- **Adding a config field: append, never insert.** Widen the payload at the
+  *end*, bump `CONFIG_VERSION`, and gate the new field on the stored **length**,
+  not on the version number. Use `offsetof` for the guard on a tier that has
+  something after it and `sizeof` only for the last tier — a blanket rename that
+  moves a guard from `offsetof` to `sizeof` will silently discard everything an
+  older block did carry. Inserting a field in the middle shifts every byte after
+  it, and the checksum covers bytes, not meaning: an old block will pass the
+  checksum and load as garbage.
 - Wall sensing is in `Modules` (IRS) + `Program/inc/robot_sensors.h`. Keep pin
   assignments in sync with `Source/E4-Black.ioc` (CubeMX) — the `.ioc` is the
   source of truth for pins, and regenerating from it must not clobber

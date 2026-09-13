@@ -205,7 +205,7 @@
       </tbody>
     </table>
   </div>
-  <p style="font-size:14px;color:var(--muted);margin:12px 4px 0;max-width:64ch">Read the IR monitor at each and watch the front sum climb: the back-wall figure tells us if the range problem is solved; the centred figure is what <span class="amber" style="font-family:var(--mono)">thresh_front</span> should be tuned against.</p>
+  <p style="font-size:14px;color:var(--muted);margin:12px 4px 0;max-width:64ch">Read the IR monitor at each and watch the front sum climb: the back-wall figure tells us if the range problem is solved; the centred figure is what <span class="amber" style="font-family:var(--mono)">WALL_THRESH_FRONT</span> should be tuned against. That value, and its siblings <span class="amber" style="font-family:var(--mono)">WALL_THRESH_LEFT</span> and <span class="amber" style="font-family:var(--mono)">WALL_THRESH_RIGHT</span>, are no longer compiled in: the three-capture routine in Ch3 measures them and the config store keeps them.</p>
 
   <ul class="notes" style="margin-top:22px">
     <li class="note"><i class="dot"></i><span><b>One closed square behaves differently from an open maze.</b> With all four walls present and the mouse centred, the 45° diagonals hit the <b>front</b> wall (~41&nbsp;mm away) before they ever reach a side wall — so a lone test cell won't calibrate the side thresholds the way a real corridor does. The back-wall position keeps each sensor on its intended wall, which is why the diagram uses it.</span></li>

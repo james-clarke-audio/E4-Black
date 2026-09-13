@@ -257,11 +257,25 @@
     <li class="note"><span class="dot"></span><div><b>Mind direct crosstalk.</b> Keep a little separation (or a rib) between each emitter and its detector so IR can't leak straight across without hitting a wall. Ambient subtraction kills daylight, not optical crosstalk.</div></li>
   </ul>
 
-  <div class="callout">
-    <b>Ties back to tonight's reading.</b> A side wall giving only ~10 at cell-centre but 300–400 up close means the <b>diagonal</b> pair (SL/SR) isn't landing on the side wall at lane distance — aimed too shallow (skimming down the lane) or over the band. Bring them onto that ~45&nbsp;mm side wall / leading post and the cell-centre reading should climb well clear of the floor; then the thresholds set themselves.
+  <div class="callout" style="opacity:.65">
+    <b>Superseded — 13 Sep 2026.</b> The reading below describes the <em>original</em> sensor assemblies, before they were desoldered and rebuilt to the method in <a href="e4-sensor-housing.html">Ch.&nbsp;5</a>. The mouse it was measured on no longer exists. Kept for the reasoning, not the numbers.<br><br>
+    <span style="font-style:italic">"Ties back to tonight's reading. A side wall giving only ~10 at cell-centre but 300–400 up close means the <b>diagonal</b> pair (SL/SR) isn't landing on the side wall at lane distance — aimed too shallow (skimming down the lane) or over the band. Bring them onto that ~45&nbsp;mm side wall / leading post and the cell-centre reading should climb well clear of the floor; then the thresholds set themselves."</span>
   </div>
 
-  <p class="foot">Angles are ballpark — narrow-beam parts want tighter aim and reach further; wide-beam parts are more forgiving but noisier. Firm up once you have the emitter/detector part numbers.</p>
+  <h2>Where the numbers come from now</h2>
+  <p>The thresholds are no longer read off by eye and typed into the source. There are three of them — <code>WALL_THRESH_LEFT</code>, <code>WALL_THRESH_RIGHT</code> and <code>WALL_THRESH_FRONT</code>, the last tested against the FL&nbsp;+&nbsp;FR sum — and a guided routine on the mouse (menu <b>Threshold cal</b>, BT key <code>T</code>) measures all three from <b>three captures</b>:</p>
+  <ul class="notes">
+    <li class="note"><span class="dot"></span><div><b>Dead end</b> — both sides and the front all present.</div></li>
+    <li class="note"><span class="dot"></span><div><b>Open floor</b> — nothing in range in any direction.</div></li>
+    <li class="note"><span class="dot"></span><div><b>Corridor</b> — sides present, front absent. This is the state she spends most of her life in, and two captures cannot describe it: it is the case that decides whether the front channel is being judged against the right absent-state.</div></li>
+  </ul>
+  <p>Each capture is a burst of fifteen samples reduced by <b>median</b>, not mean — one stray reflection is discarded rather than quietly averaged in. The threshold itself is the midpoint, but the number that decides whether any of this works is the <b>margin</b>: the separation between weakest-present and strongest-absent, reported per channel as a percentage of the present reading. A threshold sitting in a wide gap survives battery sag, a warm emitter and a different floor; one in a narrow gap flips on all three, and no tuning fixes a sensor that cannot tell the two states apart. The routine also warns if the two sides differ by more than 25&nbsp;% — that is a mount fault, and no threshold will hide it.</p>
+
+  <div class="callout">
+    <b>Open for measurement.</b> Only the <b>open-floor</b> capture has been taken on the rebuilt sensors so far — SL&nbsp;16, SR&nbsp;15, FL&nbsp;15, FR&nbsp;7, with the FL channel steady at a standard deviation of 1.02 where it had been swinging past 90. The dead-end and corridor captures are still to come, and they have to be taken <b>on a maze floor section, not a bench top</b>: the competition floor is black and absorbs, and a white or marble surface returns floor bounce that will sit the absent-state readings far too high and set every threshold with it. This section gets its real numbers once those two captures exist.
+  </div>
+
+  <p class="foot">Angles are ballpark — narrow-beam parts want tighter aim and reach further; wide-beam parts are more forgiving but noisier. The fitted parts are <b>TSAL6100</b> emitters (940&nbsp;nm) into <b>OP505A</b> phototransistors.</p>
 </div>
 </body>
 </html>

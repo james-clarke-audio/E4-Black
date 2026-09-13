@@ -125,7 +125,7 @@
 <div class="specs">
   <div class="s"><div class="v">1 kHz</div><div class="l">control loop</div></div>
   <div class="s"><div class="v">16×16</div><div class="l">maze · 180 mm cell</div></div>
-  <div class="s"><div class="v">4× IR</div><div class="l">SFH 4550 walls</div></div>
+  <div class="s"><div class="v">4× IR</div><div class="l">TSAL6100 walls</div></div>
   <div class="s"><div class="v">320 mAh</div><div class="l">1S LiPo</div></div>
   <div class="s"><div class="v">57 600</div><div class="l">BLE baud</div></div>
   <div class="s"><div class="v">24LC256</div><div class="l">map in EEPROM</div></div>
@@ -175,7 +175,7 @@
         <span><i style="background:var(--amber)"></i> SL / SR → side walls</span>
         <span><i style="background:var(--blue)"></i> FL / FR → forward</span>
       </div>
-      <figcaption><b>The confirmed arrangement.</b> The inner diagonal pair (SL/SR) watches the sides (thresh 60); the outer pair (FL/FR) sums for the wall ahead (thresh 80). The board photo confirmed it: the dome-edge LEDs are the forward pair, the inboard pair angle out to the sides.</figcaption>
+      <figcaption><b>The confirmed arrangement.</b> The inner diagonal pair (SL/SR) watches the sides; the outer pair (FL/FR) sums for the wall ahead. Each channel now carries its own threshold — <span class="amber" style="font-family:var(--mono)">WALL_THRESH_LEFT</span>, <span class="amber" style="font-family:var(--mono)">_RIGHT</span> and <span class="amber" style="font-family:var(--mono)">_FRONT</span>, the last tested against the FL+FR sum — measured by the guided calibration in Ch3 and saved in the mouse rather than compiled in. The board photo confirmed it: the dome-edge LEDs are the forward pair, the inboard pair angle out to the sides.</figcaption>
     </figure>
   </section>
 
@@ -229,6 +229,7 @@
     <div class="end">
       <h2>Two modes, and the road to fast</h2>
       <p>The menu is splitting into a <b>Test / Bench</b> world for calibration, simulation and diagnostics, and a <b>Competition</b> world for the run modes — wall follower and full solver, with search speed, integrated turns and diagonal navigation as options. The realisation underneath: "integrated turns" is one arc primitive that serves both a flowing wall follower and a faster search, and diagonals are the capstone that needs it. That build is tracked, slot by slot, on the companion <b>E4 Build Map</b>.</p>
+      <p>Three of those pieces have since landed. The arc primitive is real and there is exactly one of it — a sixteen-row turn table the menu, the search brain and the live tuner all read from, with the diagonal rows already cut and waiting on the solver (<a href="e4-turns.html">Ch.&nbsp;10</a>). Calibration stopped being a compile-time constant: gyro scale, the three wall thresholds and every turn row now live in a versioned block in the EEPROM, measured on the floor and re-measurable at a venue. And the web app has gained a sibling — a native SwiftUI companion that records every session to disk and can replay one line-for-line, which is how most of the bugs in this chapter would have been found in a tenth of the time.</p>
     </div>
   </section>
 

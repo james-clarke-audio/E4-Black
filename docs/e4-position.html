@@ -80,7 +80,7 @@
     <tr><td><code>BACK_WALL_TO_CENTER</code></td><td class="v">49 mm</td><td class="n">90 &minus; 41 &mdash; the forward travel to put the axle on centre</td></tr>
   </table>
   <p>That 49&nbsp;mm reads two ways, which is a handy sanity check: it's the distance the axle travels from the wall to the cell centre, <em>and</em> the clearance from her back edge to the wall once she's centred. Sit her on the alignment jig's centre cross and a ruler from back edge to wall reads 49&nbsp;mm — if it does, the whole chain is confirmed.</p>
-  <div class="note">On <b>go</b> (hand-start) she drives the 49&nbsp;mm forward, then declares <code>set_position(HALF_CELL)</code> — she now knows she's at the centre of cell 0. The auto-start variant instead expects her placed <em>at the centre</em> and <b>reverses into the wall to square herself</b> first; the placement and the <code>m_handStart</code> flag must agree, or she'll try to reverse into a wall she's already touching.</p>
+  <div class="note">On <b>go</b> (hand-start) she drives the 49&nbsp;mm forward, then declares <code>set_position(HALF_CELL)</code> — she now knows she's at the centre of cell 0. The auto-start variant instead expects her placed <em>at the centre</em> and <b>reverses into the wall to square herself</b> first; the placement and the <code>m_handStart</code> flag must agree, or she'll try to reverse into a wall she's already touching.</div>
 
   <h2 class="sec">Between cells — dead reckoning, and its drift</h2>
   <p>Once running, the E4 currently tracks position by <b>odometry alone</b>. There is no sensor-based correction wired in yet:</p>

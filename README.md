@@ -35,9 +35,10 @@ control and calibration. Built for the October 2026 micromouse competition.
 ## Hardware
 
 - **MCU:** STM32F411CEU6 (Cortex-M4F, "Black Pill"-class).
-- **Wall sensors:** 4× IR pairs — SFH4550 emitters (migrating to TSAL6100,
-  940 nm) into OP505A phototransistors; emitters switched low-side by FDV301N
-  MOSFETs from a 5 V rail.
+- **Wall sensors:** 4× IR pairs — TSAL6100 emitters (940 nm) into OP505A
+  phototransistors; emitters switched low-side by FDV301N MOSFETs from a 5 V
+  rail. (The original board carried SFH4550; the sensor assemblies now fitted
+  are TSAL6100.)
 - **Display / storage:** SSD1306 OLED and a 24LC256 EEPROM, both on I2C1.
 - **Drive:** DRV8833 motor driver, plus a gyro for heading.
 
@@ -63,16 +64,18 @@ Full pin map, sensor geometry and housing detail are in the reference manual
 ## Documentation
 
 The **E4 Reference Manual** lives in [`docs/`](docs/index.html) — open
-`docs/index.html`. Eight chapters: overview, architecture & pin map, sensor aim,
+`docs/index.html`. Ten chapters: overview, architecture & pin map, sensor aim,
 sensor geometry, sensor housing, the firmware/menu map, position integrity
-("Staying Located"), and a design note for the next board (STM32G431).
+("Staying Located"), a design note for the next board (STM32G431), how she
+chooses her path, and the turn table.
 
 ## Repository layout
 
 | Path | What it is |
 |------|-----------|
 | `Source/` | STM32CubeIDE firmware project (Core / Drivers / Modules / Program). |
-| `e4-maze.html` | Web Bluetooth companion app (single file). |
+| `e4-maze.html` | Web Bluetooth companion app (single file) — the competition tool. |
+| `CompanionApp/` | Native SwiftUI companion (macOS/iPad) + the `E4Core` package. |
 | `docs/` | The reference manual (`index.html` + chapters). |
 | `3D Files/` | Sensor housings, wheels, mounts. |
 | `E4-cell-alignment-A4.pdf` | 1:1 print jig for squaring a test cell. |
@@ -95,3 +98,101 @@ UK micromouse community.
 Released under the [MIT License](LICENSE) — © 2022 Peter Harrison
 (ukmars mazerunner-core), © 2026 James Clarke. E4 is a derivative of the
 MIT-licensed mazerunner-core and keeps the same terms.
+
+---
+
+## Firmware releases
+
+`FW_VERSION` lives in `Source/Program/inc/version.h`, shows on the OLED splash
+and is reported over Bluetooth (`VER?`). **Minor** for a feature, **patch** for
+a fix. **1.0.0 is reserved** for the build that goes to the October competition
+— everything before it is bring-up.
+
+Each entry names the firmware commit; companion-app and docs commits that
+landed alongside are listed after it, since the two move together. Newest
+first.
+
+**0.18 — 13 Sep 2026 · Connecting greets her, not drives her**
+The app asked for the firmware version by *running the menu action*, which
+parks on the OLED waiting for a button press — on a screen nearly identical to
+the boot splash, so she read as hung, and the menu cursor was left sitting in
+Diagnostics. Replaced with a `VER?` query that answers without touching the
+menu.
+`f9c32fd` · tests `9a5f6d8`
+
+**0.17 — 13 Sep 2026 · The whole configuration, on demand**
+`CFG?` dumps every persisted value — gyro scale, the three wall thresholds, all
+sixteen turn rows and the spin dynamics — so the app can show what she is
+actually running rather than what it last sent her.
+`246aeec`
+
+**0.16 — 13 Sep 2026 · Spins join the table**
+`OMEGA_SPIN_TURN` / `ALPHA_SPIN_TURN` become runtime values: tunable over
+Bluetooth (`SPIN,…`) and saved with everything else. Config block goes to v5.
+`9c71672`
+
+**0.15 — 13 Sep 2026 · Slots for the diagonal set**
+The turn table grows from four rows to the full sixteen — SS90E, SS90, SS180,
+and the diagonal entries and exits (SD45, DS45, SD135, DS135, DD90), left and
+right. The diagonal rows carry computed geometry and sit inert until the
+diagonal solver exists.
+`6bc5987` · docs `d1c8ef4` (Ch10, the turn table)
+
+**0.14 — 13 Sep 2026 · One turn, tunable live, saved to EEPROM**
+There were three separate copies of the same 90° turn and they had already
+drifted apart — the menu ran alpha 1000 where the search brain ran 2500.
+Collapsed into a single `turn_params[]` table that the menu, the search brain
+and the tuner all read from, editable over Bluetooth and persisted.
+`4f0f4d1`
+
+**0.13 — 13 Sep 2026 · Show what is running, on both displays**
+Commands sent from the app bypassed the menu, so the OLED carried on showing
+something else entirely. The menu cursor now follows whatever action actually
+runs, wherever it was started from.
+`d339d11` · app `f2d5cd0`, `11cd734`, `b323651`, `b828179`, `108e0c8`, `382c723`
+(threshold calibration drawn rather than described; session replay)
+
+**0.12 — 13 Sep 2026 · Threshold calibration: the third capture**
+Two captures — walls present, walls absent — cannot describe a corridor, where
+the sides see wall and the front does not, which is the state she spends most
+of her life in. Added a third capture and generalised the margin test to
+weakest-present against strongest-absent.
+`93a3c9c` · app `ee8095a`, `02bf440`, `167dc30` (maze file import and upload)
+
+**0.11 — 12 Sep 2026 · Per-sensor wall thresholds, calibrated and persisted**
+One shared side threshold became `WALL_THRESH_LEFT` / `_RIGHT` / `_FRONT`,
+settable over Bluetooth (`THR,l,r,f`), captured by a guided routine and saved
+to EEPROM. Also fixed the EEPROM self-test, which had been writing its scratch
+pattern to address 0 — over the maze store.
+`12142da` · app `3dbdb43` · docs `7b189fa` (Ch9, how she chooses her path)
+
+**0.10 — 11 Sep 2026 · One-press Bluetooth bring-up**
+A replacement module can be provisioned from the menu — name set to `MMOUSE`,
+baud to 57600 — with no serial adapter and no guesswork.
+`8c0b13a` · app `64b5e6f`, `2ce5fc9`, `2a243a9`, `29ccaab` (the native SwiftUI
+client starts here: sidebar, seven screens, session logging)
+
+**0.9 — 11 Sep 2026 · Gyro scale becomes a runtime value**
+`GYRO_SCALE` moves out of the source and into the config store: spin a known
+angle, send the error, save. It is a property of the individual MPU-9250 and
+shifts with temperature, so it has to be re-measurable at a venue with nothing
+but the app.
+`f03e0b8`
+
+**0.8 — 10 Sep 2026 · Non-blocking IR sampler**
+A five-state sampler ticked from the control ISR returns a full
+ambient-subtracted set every 5 ms with no busy-wait, so the wall flags stay
+live while she is moving.
+`1498a93` · app `daa2db3`, `2e7a50a` · repo `2fcd708` (CODEOWNERS), `1c77a9d`
+
+**0.7 — 9 Sep 2026 · Live turn tuning over Bluetooth**
+`act_turn_tune` stops being a stub: parametric in-place spins and arcs run on
+command and stream back the achieved gyro angle and forward distance, so turn
+dynamics can be tuned against the surface she is actually on without
+reflashing.
+`3ae1b6e` · app `910cb1b` · docs `e2a6766` (Ch7), `381987e` (Ch8)
+
+**0.6 — 8 Sep 2026 · Batched IR read, ADC timing, menu tools**
+Two-phase batched wall read (dark, then per-emitter lit) and IR sample time
+raised from 3 to 28 cycles. First release with a stamped version.
+`63e09fa` · app `2f60ad7` · docs `c0be1df` (the manual moves into the repo)
