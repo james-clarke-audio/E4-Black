@@ -8,6 +8,10 @@ Mouse mouse;
 
 // The one definition of the turn table. Lives here rather than in the header
 // so there is exactly one copy in the image; mouse_config.h declares it extern.
+// In-place spin dynamics. One definition, same as the arcs.
+float OMEGA_SPIN_TURN = 360.0f;    // deg/s
+float ALPHA_SPIN_TURN = 3600.0f;   // deg/s/s
+
 TurnParameters turn_params[TURN_COUNT] = {
     // speed, entry, exit, lead_out, angle, omega, alpha, trigger
     //

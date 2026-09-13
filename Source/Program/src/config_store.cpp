@@ -7,6 +7,7 @@
 #include "eeprom.h"
 #include "report.h"
 #include <string.h>
+#include <stddef.h>   // offsetof
 
 static int s_present = 0;
 static int s_loaded  = 0;
@@ -25,7 +26,14 @@ typedef struct {
   /* int16 keeps it compact; eeprom_write splits page boundaries for */
   /* us, so the block spanning three pages is not a problem.         */
   int16_t turn[TURN_COUNT][5];   /* 160 */
-} ConfigV4;                      /* 172 */
+  /* APPENDED, not inserted. Every field above keeps its offset, so a v4   */
+  /* block still loads its turns correctly and simply lacks these two.     */
+  /* Inserting a field mid-struct would silently shift turn[] and load 16  */
+  /* turns' worth of misaligned rubbish - which would pass the checksum,   */
+  /* because the checksum covers the bytes, not their meaning.             */
+  int16_t spin_omega;            /* 2 */
+  int16_t spin_alpha;            /* 2 */
+} ConfigV5;                      /* 176 */
 
 static uint8_t sum8(const uint8_t *p, uint16_t n) {
   uint8_t s = 0;
@@ -66,7 +74,7 @@ void config_store_begin(void) {
 
   // Load what this build understands; a shorter (older) payload leaves the
   // remaining fields at their defaults, a longer (newer) one is truncated.
-  ConfigV4 c;
+  ConfigV5 c;
   memset(&c, 0, sizeof(c));
   memcpy(&c, buf, len < sizeof(c) ? len : sizeof(c));
 
@@ -101,7 +109,10 @@ void config_store_begin(void) {
 
   // Turns, only if the block is long enough to hold them.
   int turns_loaded = 0;
-  if (len >= (int)sizeof(ConfigV4)) {
+  // Gated on the bytes the TURNS need, NOT on sizeof the whole struct - a v5
+  // build must still load a v4 block's turns. Getting this wrong is how
+  // appending a field silently discards everything that came before it.
+  if (len >= (int)offsetof(ConfigV5, spin_omega)) {
     int sane = 1;
     for (int i = 0; i < TURN_COUNT; i++) {
       if (c.turn[i][0] < 0   || c.turn[i][0] > 500)   sane = 0;   // entry
@@ -127,12 +138,28 @@ void config_store_begin(void) {
     }
   }
 
+  // Spin dynamics, appended after the turns.
+  int spin_loaded = 0;
+  if (len >= (int)sizeof(ConfigV5)) {
+    if (c.spin_omega > 0 && c.spin_omega < 2000 &&
+        c.spin_alpha > 0 && c.spin_alpha < 32000) {
+      OMEGA_SPIN_TURN = (float)c.spin_omega;
+      ALPHA_SPIN_TURN = (float)c.spin_alpha;
+      spin_loaded = 1;
+    } else {
+      report_write("CFG,spin params out of range, ignored\r\n");
+    }
+  }
+
   s_loaded = 1;
   int w = (int)(GYRO_SCALE * 1000.0f);
   report_printf("CFG,loaded v%u gyro_scale=%d.%03d\r\n", ver, w / 1000, w % 1000);
   report_printf("CFG,thr l=%d r=%d f=%d %s\r\n",
                 WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
                 thr_loaded ? "(eeprom)" : "(defaults)");
+  report_printf("CFG,spin w=%d al=%d %s\r\n",
+                (int)OMEGA_SPIN_TURN, (int)ALPHA_SPIN_TURN,
+                spin_loaded ? "(eeprom)" : "(defaults)");
   report_printf("CFG,turn in=%d out=%d w=%d al=%d %s\r\n",
                 turn_params[1].entry_offset, turn_params[1].lead_out,
                 (int)turn_params[1].omega, (int)turn_params[1].alpha,
@@ -142,7 +169,7 @@ void config_store_begin(void) {
 int config_store_save(void) {
   if (!s_present) return 0;
 
-  ConfigV4 c;
+  ConfigV5 c;
   memset(&c, 0, sizeof(c));
   c.gyro_scale   = GYRO_SCALE;
   c.thresh_left  = (int16_t)WALL_THRESH_LEFT;
@@ -157,10 +184,13 @@ int config_store_save(void) {
     c.turn[i][4] = (int16_t)turn_params[i].alpha;
   }
 
-  uint8_t blk[6 + sizeof(ConfigV4) + 1];
+  c.spin_omega = (int16_t)OMEGA_SPIN_TURN;
+  c.spin_alpha = (int16_t)ALPHA_SPIN_TURN;
+
+  uint8_t blk[6 + sizeof(ConfigV5) + 1];
   blk[0] = 'E'; blk[1] = '4'; blk[2] = 'C'; blk[3] = '1';
   blk[4] = (uint8_t)CONFIG_VERSION;
-  blk[5] = (uint8_t)sizeof(ConfigV4);
+  blk[5] = (uint8_t)sizeof(ConfigV5);
   memcpy(&blk[6], &c, sizeof(c));
   blk[6 + sizeof(c)] = (uint8_t)(blk[4] + blk[5] + sum8(&blk[6], sizeof(c)));
 

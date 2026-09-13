@@ -72,7 +72,10 @@ static void run_arc_from_table(int idx) {
 }
 static void act_right90 (void) { run_arc_from_table(1); }   // SS90ER
 static void act_left90  (void) { run_arc_from_table(0); }   // SS90EL
-static void act_spin180 (void) { control_spin(180.0f, 180.0f, 0.0f, 1000.0f); }
+// Same divergence the 90s had: this used to hardcode omega 180 / alpha 1000
+// while turn_IP180() used 360 / 3600, so "Spin 180" from the menu and the
+// 180 she makes at a dead end were different spins.
+static void act_spin180 (void) { control_spin(180.0f, OMEGA_SPIN_TURN, 0.0f, ALPHA_SPIN_TURN); }
 
 static void act_recal_gyro(void) {
 	SSD1306_Fill(SSD1306_COLOR_BLACK);
@@ -526,7 +529,7 @@ static void act_turn_tune(void) {
 	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
 	uint8_t junk; while (bt_rx_pop(&junk)) { }
 
-	float spin[3] = { 90.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN };   // angle, omega, alpha
+	float spin_angle = 90.0f;   // the angle is per-run, not a stored property
 	int last_kind = 0;   // 0 none, 1 spin, 2 arc
 	int sel = 1;         // which turn ARC edits; SS90ER, the usual one to test
 
@@ -564,7 +567,18 @@ static void act_turn_tune(void) {
 			if (ch == '\r' || ch == '\n') {
 				if (len > 0) {
 					line[len] = '\0';
-					if      (strncmp(line, "SPIN,", 5) == 0) { tt_parse_floats(line + 5, spin, 3); do_run = 1; }
+					if      (strncmp(line, "SPIN,", 5) == 0) {
+						// Writes the LIVE spin dynamics, not a scratch copy - so a spin
+						// tuned here is the spin she makes at a dead end. Angle stays
+						// local: it is what you are asking for this run, not a property
+						// of the mouse.
+						float a[3] = { spin_angle, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN };
+						tt_parse_floats(line + 5, a, 3);
+						spin_angle = a[0];
+						if (a[1] > 0.0f && a[1] < 2000.0f) OMEGA_SPIN_TURN = a[1];
+						if (a[2] > 0.0f && a[2] < 32000.0f) ALPHA_SPIN_TURN = a[2];
+						do_run = 1;
+					}
 					else if (strncmp(line, "ARC,",  4) == 0) {
 						// v, angle, omega, alpha, lead_in, lead_out - seeded from the
 						// live values so a short command only changes what it names.
@@ -616,10 +630,10 @@ static void act_turn_tune(void) {
 		if (run && do_run) {
 			HAL_Delay(300);   // hands-off settle before moving
 			if (do_run == 1) {
-				control_spin(spin[0], spin[1], 0.0f, spin[2]);   // (angle, top_omega, final_omega=0, alpha)
+				control_spin(spin_angle, OMEGA_SPIN_TURN, 0.0f, ALPHA_SPIN_TURN);
 				last_kind = 1;
 				report_printf("TURNRES,spin,cmd=%d,gyro=%d,dist=%d\r\n",
-				              (int)spin[0], (int)gyro.angle(), (int)odometry.robot_distance());
+				              (int)spin_angle, (int)gyro.angle(), (int)odometry.robot_distance());
 			} else {
 				run_arc_from_table(sel);
 				last_kind = 2;
@@ -632,7 +646,7 @@ static void act_turn_tune(void) {
 				SSD1306_Fill(SSD1306_COLOR_BLACK);
 				SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune", &Font_7x10, SSD1306_COLOR_WHITE);
 				snprintf(b, sizeof(b), "%s cmd%d", last_kind == 1 ? "spin" : "arc",
-				         last_kind == 1 ? (int)spin[0] : (int)turn_params[sel].angle);
+				         last_kind == 1 ? (int)spin_angle : (int)turn_params[sel].angle);
 				SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
 				snprintf(b, sizeof(b), "gyro %d", (int)gyro.angle());
 				SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);

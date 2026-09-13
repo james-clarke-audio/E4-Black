@@ -34,8 +34,17 @@ const float SEARCH_ACCELERATION = 2000.0f;
 const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smooth turn
 
 // --- In-place (spin) turn dynamics (deg/s, deg/s/s) ------------------------
-const float OMEGA_SPIN_TURN = 360.0f;
-const float ALPHA_SPIN_TURN = 3600.0f;
+// NOT const, for the same reason the arcs are not: these are measured against
+// a floor, not chosen. Defined once in mouse.cpp, written by the tuner,
+// persisted in the EEPROM config block. The values there are the fallback.
+//
+// These are the ONLY turns that spin in place, and they are where the scrub
+// comes from - two wheels a side off one pinion cannot pivot cleanly about the
+// axle cross, so an in-place 90 costs about 3 mm of translation. An arc barely
+// scrubs at all. That is why SS180 exists in the turn table: to replace the
+// stop-spin-go of turn_back() once there is a path generator to call it.
+extern float OMEGA_SPIN_TURN;
+extern float ALPHA_SPIN_TURN;
 
 // --- Wall-sensor-dependent (inert until real sensors exist) ----------------
 // With no sensors, get_front_sum() returns 0, so a huge trigger means the

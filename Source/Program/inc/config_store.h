@@ -20,6 +20,12 @@
  *               alpha for each of the four turns                    (52 bytes)
  *
  * v4 payload: turn[] widened to all 16 turn types                  (172 bytes)
+ * v5 payload: + int16 spin_omega, spin_alpha                       (176 bytes)
+ *
+ * ALWAYS APPEND, NEVER INSERT. The load is length-driven and reads by struct
+ * offset, so a field added in the middle shifts everything after it and an
+ * older block decodes as rubbish - rubbish that PASSES THE CHECKSUM, because
+ * the checksum covers the bytes and not what they mean.
  *
  * CORRECTION (I had this wrong in v3): there is NO one-page ceiling here.
  * eeprom_write already splits its writes at page boundaries, so a block may
@@ -43,7 +49,7 @@
 #include <stdint.h>
 
 #define CONFIG_ADDR      512u   /* clear of the maze store, 64-byte page aligned */
-#define CONFIG_VERSION   4u
+#define CONFIG_VERSION   5u
 
 #ifdef __cplusplus
 extern "C" {
