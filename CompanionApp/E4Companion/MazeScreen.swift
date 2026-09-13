@@ -87,6 +87,25 @@ struct MazeScreen: View {
 
                     Divider()
 
+                    // No confirmation on these two: they never engage the
+                    // motors, which is exactly why movesTheMouse excludes them.
+                    // Guarding a motor-free action behind a dialog trains you to
+                    // dismiss the dialog that does matter.
+                    Button("Simulate to goal") { session.send(.action(.simulate)) }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .touchTarget()
+                    Button("Simulate explore") { session.send(.action(.simExplore)) }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .touchTarget()
+
+                    Text("Solves the maze she is holding, wheels never turning — send a file above first, or she will simulate whatever ground truth she already has.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.faint)
+
+                    Divider()
+
                     Button("Reset pose") { session.send(.action(.resetPose)) }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
