@@ -54,11 +54,16 @@ struct StatusStrip: View {
                 .fill(indicator)
                 .frame(width: 9, height: 9)
             VStack(alignment: .leading, spacing: 1) {
-                Text(session.connection.isConnected ? deviceName : session.connection.label)
+                // During a replay the strip is showing a recorded mouse's
+                // values, so saying "Disconnected" beside them is true about
+                // the radio and misleading about the screen. The whole strip
+                // has to agree with the replay bar underneath it.
+                Text(session.isReplaying ? "Replaying"
+                     : (session.connection.isConnected ? deviceName : session.connection.label))
                     .font(.callout.weight(.semibold))
                     .lineLimit(1)
                 if let version = session.firmwareVersion {
-                    Text("fw v\(version)")
+                    Text(session.isReplaying ? "recorded on fw v\(version)" : "fw v\(version)")
                         .font(.system(size: 10.5, design: .monospaced))
                         .foregroundStyle(Palette.faint)
                 }
@@ -127,6 +132,7 @@ struct StatusStrip: View {
     }
 
     private var indicator: Color {
+        if session.isReplaying { return Palette.warn }
         switch session.connection {
         case .connected:              return Palette.good
         case .connecting, .scanning:  return Palette.warn
