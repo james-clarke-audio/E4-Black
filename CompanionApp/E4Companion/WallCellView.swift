@@ -62,33 +62,51 @@ struct WallCellView: View {
         drawSensors(&context, in: cell, side: side)
     }
 
+    /// What a wall means right now — the five states worth telling apart.
+    ///
+    /// Named rather than switched on a tuple of two optionals: `(Bool?, Bool?)`
+    /// has nine inhabitants, and the one that was missing was `(true, nil)` —
+    /// a wall being asked for before she has reported anything at all, which is
+    /// the state the diagram is in for the first second every single time.
+    private enum WallLook {
+        case confirmed      // wanted, and she sees it
+        case expected       // wanted, and she does not — or has not said yet
+        case unexpected     // not wanted, and she sees one anyway
+        case absent         // not wanted, correctly nothing
+        case idle           // nothing being asked for, nothing seen
+    }
+
+    private func look(asked: Bool?, seen: Bool?) -> WallLook {
+        let sees = (seen == true)
+        guard let asked else { return sees ? .confirmed : .idle }
+        if asked { return sees ? .confirmed : .expected }
+        return sees ? .unexpected : .absent
+    }
+
     /// A wall is drawn solid when it is wanted, outlined when it is explicitly
     /// not, and tinted by whether she can actually see it.
     private func drawWall(_ context: inout GraphicsContext, rect: CGRect,
                           asked: Bool?, seen: Bool?) {
         let path = Path(roundedRect: rect, cornerRadius: 2)
 
-        switch (asked, seen) {
-        case (true?, true?):
-            // Wanted and seen — the state you are trying to reach.
+        switch look(asked: asked, seen: seen) {
+        case .confirmed:
+            // The state you are trying to reach.
             context.fill(path, with: .color(Palette.good))
-        case (true?, false?):
-            // Wanted, not seen. Either it is not there yet, or it is there and
-            // she cannot detect it; the live readings beside the sensor are what
-            // separates those two, which is why they are drawn.
+
+        case .expected:
+            // Either it is not there yet, or it is there and she cannot detect
+            // it; the live readings beside the sensor are what separate those
+            // two, which is why they are drawn.
             context.fill(path, with: .color(Palette.warn.opacity(0.30)))
             context.stroke(path, with: .color(Palette.warn), lineWidth: 1.5)
-        case (false?, true?):
-            // Explicitly not wanted, and she sees one anyway. On the open-floor
-            // capture this is the finding, not a nuisance.
+
+        case .unexpected:
+            // On the open-floor capture this is the finding, not a nuisance.
             context.fill(path, with: .color(Palette.bad.opacity(0.30)))
             context.stroke(path, with: .color(Palette.bad), lineWidth: 1.5)
-        case (false?, _):
-            context.stroke(path, with: .color(Palette.Dark.faint),
-                           style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
-        case (nil, true?):
-            context.fill(path, with: .color(Palette.Dark.sent))
-        case (nil, _):
+
+        case .absent, .idle:
             context.stroke(path, with: .color(Palette.Dark.faint),
                            style: StrokeStyle(lineWidth: 1.2, dash: [4, 4]))
         }
