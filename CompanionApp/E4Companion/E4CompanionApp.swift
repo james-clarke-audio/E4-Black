@@ -11,6 +11,7 @@ struct E4CompanionApp: App {
     @State private var session = E4Session()
     @State private var maze = E4Maze()
     @State private var store = SessionStore()
+    @State private var uploader = E4MazeUploader()
 
     var body: some Scene {
         WindowGroup {
@@ -18,9 +19,11 @@ struct E4CompanionApp: App {
                 .environment(session)
                 .environment(maze)
                 .environment(store)
+                .environment(uploader)
                 .task {
                     maze.attach(to: session)
                     store.attach(to: session)
+                    uploader.attach(to: session)
                 }
                 // A session is one connection, so recording follows the link
                 // rather than the app's lifetime.

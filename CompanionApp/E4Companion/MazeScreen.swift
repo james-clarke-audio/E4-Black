@@ -1,9 +1,24 @@
 import SwiftUI
 import E4Core
+import UniformTypeIdentifiers
 
 struct MazeScreen: View {
     @Environment(E4Session.self) private var session
     @Environment(E4Maze.self) private var maze
+    @Environment(E4MazeUploader.self) private var uploader
+
+    @State private var picking = false
+    @State private var loaded: E4MazeFile?
+    @State private var loadedName = ""
+    @State private var flipped = false
+    @State private var loadError: String?
+
+    /// What would actually be sent — the file, turned over if the orientation
+    /// switch is on. Nothing in a maze file records which way up it was written.
+    private var outgoing: E4MazeFile? {
+        guard let loaded else { return nil }
+        return flipped ? loaded.flippedVertically() : loaded
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -49,6 +64,8 @@ struct MazeScreen: View {
                         FieldRow(key: "path", value: "\(steps) cells")
                     }
                 }
+
+                importCard
 
                 Card("Run") {
                     Button("Search") { confirm = .search }
@@ -98,6 +115,136 @@ struct MazeScreen: View {
     }
 
     @State private var confirm: E4MenuAction?
+
+    // MARK: - Maze file import
+
+    private var importCard: some View {
+        Card("Maze file") {
+            if let file = outgoing {
+                MazeFilePreview(file: file)
+                    .frame(height: 128)
+                    .background(Palette.Dark.bg, in: RoundedRectangle(cornerRadius: 6))
+
+                Text(loadedName)
+                    .font(.system(size: 10.5, design: .monospaced))
+                    .foregroundStyle(Palette.faint)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+
+                HStack(spacing: 6) {
+                    Text(file.format == .ascii ? "ascii" : "bytes")
+                    Text("·")
+                    Text("goal \(file.chosenGoal.x),\(file.chosenGoal.y)")
+                }
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(Palette.faint)
+
+                // Nothing in a maze file says which way up it was written, so
+                // this stays a switch you flip after looking at the drawing
+                // rather than something guessed from the contents.
+                Toggle("Flip vertically", isOn: $flipped)
+                    .font(.callout)
+                    .toggleStyle(.switch)
+
+                if file.looksDegenerate {
+                    Text("Every cell came out identical — that is a parse that latched onto the wrong thing, not a maze. Try the flip, or send me the file.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.bad)
+                }
+            } else {
+                Text("Load a maze from a file and send it to her as ground truth, then Simulate to watch her solve it with no arena in front of you.")
+                    .font(.callout)
+                    .foregroundStyle(Palette.dim)
+            }
+
+            if let loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundStyle(Palette.bad)
+            }
+
+            HStack(spacing: 8) {
+                Button("Load…") { picking = true }
+                    .buttonStyle(.bordered)
+                    .touchTarget()
+                    .disabled(uploader.isUploading)
+                Button("Send to mouse") { Task { await sendMaze() } }
+                    .buttonStyle(.borderedProminent)
+                    .touchTarget()
+                    .disabled(outgoing == nil || uploader.isUploading
+                              || !session.connection.isConnected)
+            }
+
+            uploadStatus
+        }
+        .fileImporter(isPresented: $picking,
+                      allowedContentTypes: [.plainText, .data],
+                      allowsMultipleSelection: false) { result in
+            handlePick(result)
+        }
+    }
+
+    @ViewBuilder
+    private var uploadStatus: some View {
+        switch uploader.phase {
+        case .idle:
+            EmptyView()
+        case .clearing:
+            uploadLine("Clearing her map…", Palette.dim)
+        case .sendingRow(let y):
+            uploadLine("Row \(y + 1) of 16…", Palette.dim)
+        case .sendingGoal:
+            uploadLine("Setting the goal…", Palette.dim)
+        case .verifying:
+            uploadLine("Reading it back…", Palette.dim)
+        case .finished(let result):
+            Text(result.summary)
+                .font(.caption)
+                .foregroundStyle(result.isClean ? Palette.good : Palette.warn)
+        case .failed(let reason):
+            Text(reason)
+                .font(.caption)
+                .foregroundStyle(Palette.bad)
+        }
+    }
+
+    private func uploadLine(_ text: String, _ tint: Color) -> some View {
+        HStack(spacing: 7) {
+            ProgressView().controlSize(.small)
+            Text(text).font(.caption).foregroundStyle(tint)
+        }
+    }
+
+    private func sendMaze() async {
+        guard let outgoing else { return }
+        await uploader.upload(outgoing)
+    }
+
+    /// The picker hands back a security-scoped URL on both platforms — reading
+    /// it without starting access works in the simulator and fails on a real
+    /// sandboxed build, which is the worst way to find out.
+    private func handlePick(_ result: Result<[URL], Error>) {
+        loadError = nil
+        uploader.reset()
+        do {
+            guard let url = try result.get().first else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+
+            let data = try Data(contentsOf: url)
+            guard let file = E4MazeFile.load(data) else {
+                loadError = "Could not read \(url.lastPathComponent) as a maze."
+                loaded = nil
+                return
+            }
+            loaded = file
+            loadedName = url.lastPathComponent
+            flipped = false
+        } catch {
+            loadError = error.localizedDescription
+            loaded = nil
+        }
+    }
 
     private var goalSummary: String {
         let xs = maze.goals.map(\.x), ys = maze.goals.map(\.y)
@@ -240,5 +387,69 @@ struct MazeCanvas: View {
             }
         }
         .drawingGroup()
+    }
+}
+
+
+/// A small drawing of a maze FILE — not of her map.
+///
+/// It exists for one question only: is this the right way up? A maze that
+/// parsed upside down looks entirely plausible as a maze, and the only cheap
+/// way to catch it is to look at it before it is sent.
+struct MazeFilePreview: View {
+    let file: E4MazeFile
+
+    var body: some View {
+        Canvas { context, size in
+            let n = E4MazeFile.size
+            let inset: CGFloat = 4
+            let side = min(size.width, size.height) - inset * 2
+            guard side > 0 else { return }
+            let cell = side / CGFloat(n)
+            let x0 = (size.width - side) / 2
+            let y0 = (size.height - side) / 2
+
+            var path = Path()
+            for y in 0..<n {
+                for x in 0..<n {
+                    let m = file.mask(x: x, y: y)
+                    // y runs north-up in the data and down the screen, so the
+                    // row is mirrored here rather than in the parser.
+                    let left = x0 + CGFloat(x) * cell
+                    let top = y0 + CGFloat(n - 1 - y) * cell
+                    if m & 1 != 0 {
+                        path.move(to: CGPoint(x: left, y: top))
+                        path.addLine(to: CGPoint(x: left + cell, y: top))
+                    }
+                    if m & 4 != 0 {
+                        path.move(to: CGPoint(x: left, y: top + cell))
+                        path.addLine(to: CGPoint(x: left + cell, y: top + cell))
+                    }
+                    if m & 8 != 0 {
+                        path.move(to: CGPoint(x: left, y: top))
+                        path.addLine(to: CGPoint(x: left, y: top + cell))
+                    }
+                    if m & 2 != 0 {
+                        path.move(to: CGPoint(x: left + cell, y: top))
+                        path.addLine(to: CGPoint(x: left + cell, y: top + cell))
+                    }
+                }
+            }
+            context.stroke(path, with: .color(Palette.Dark.ink.opacity(0.85)),
+                           style: StrokeStyle(lineWidth: 1, lineCap: .square))
+
+            // Start and goal, so "upside down" is obvious at a glance rather
+            // than something you have to reason about from the wall pattern.
+            let goal = file.chosenGoal
+            let g = CGRect(x: x0 + CGFloat(goal.x) * cell + 1,
+                           y: y0 + CGFloat(n - 1 - goal.y) * cell + 1,
+                           width: cell - 2, height: cell - 2)
+            context.fill(Path(ellipseIn: g), with: .color(Palette.Dark.sent))
+
+            let s = CGRect(x: x0 + 1,
+                           y: y0 + CGFloat(n - 1) * cell + 1,
+                           width: cell - 2, height: cell - 2)
+            context.fill(Path(ellipseIn: s), with: .color(Palette.Dark.warn))
+        }
     }
 }

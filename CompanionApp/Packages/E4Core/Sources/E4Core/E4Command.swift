@@ -55,6 +55,22 @@ public enum E4Command: Sendable, Equatable {
     /// Ask for the live thresholds without changing anything.
     case readThresholds
 
+    // --- ground-truth maze upload (GT channel) -----------------------------
+    // Every one of these is acked by the mouse, and the row carries a
+    // checksum she checks before accepting it. See E4MazeUploader.
+
+    /// Wipe her ground-truth maze before sending a new one.
+    case mazeClear
+
+    /// One row: 16 hex wall masks plus the position-weighted checksum.
+    case mazeRow(y: Int, hex: String, checksum: UInt8)
+
+    /// Set the goal cell. She echoes it back as `GTGOK`.
+    case mazeGoal(x: Int, y: Int)
+
+    /// Ask her to read the whole truth maze back for verification.
+    case mazeVerify
+
     /// The exact bytes to put on the wire, terminator included.
     public var line: String {
         switch self {
@@ -81,6 +97,14 @@ public enum E4Command: Sendable, Equatable {
             return "THR,\(l),\(r),\(f)\n"
         case .readThresholds:
             return "THR?\n"
+        case .mazeClear:
+            return "GTC\n"
+        case .mazeRow(let y, let hex, let checksum):
+            return "GTR,\(y),\(hex),\(String(format: "%02x", checksum))\n"
+        case .mazeGoal(let x, let y):
+            return "GTG,\(x),\(y)\n"
+        case .mazeVerify:
+            return "GTE\n"
         }
     }
 
