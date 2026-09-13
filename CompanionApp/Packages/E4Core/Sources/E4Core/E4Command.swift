@@ -55,6 +55,10 @@ public enum E4Command: Sendable, Equatable {
     /// Ask for the live thresholds without changing anything.
     case readThresholds
 
+    /// Ask who she is. A QUERY — unlike the Firmware ver menu action, which
+    /// holds her display and waits for a button press.
+    case readVersion
+
     /// Ask her to report the whole live configuration, turn table included.
     case readConfig
 
@@ -103,6 +107,8 @@ public enum E4Command: Sendable, Equatable {
             return "THR,\(l),\(r),\(f)\n"
         case .readThresholds:
             return "THR?\n"
+        case .readVersion:
+            return "VER?\n"
         case .readConfig:
             return "CFG?\n"
         case .selectTurn(let index):

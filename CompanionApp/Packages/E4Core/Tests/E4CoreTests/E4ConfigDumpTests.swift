@@ -117,7 +117,36 @@ final class E4ConfigDumpTests: XCTestCase {
     func testCommandWireFormat() {
         XCTAssertEqual(E4Command.readConfig.line, "CFG?\n")
         XCTAssertEqual(E4Command.selectTurn(14).line, "SEL,14\n")
+        XCTAssertEqual(E4Command.readVersion.line, "VER?\n")
     }
+
+    /// Connecting must GREET her, not drive her. The Firmware ver menu action
+    /// holds her OLED waiting for a button press — fired automatically on
+    /// connect it looked like a hang on a screen resembling the boot splash,
+    /// and left the physical menu parked in Diagnostics.
+    @MainActor
+    func testConnectingSendsAQueryNotAMenuAction() {
+        let transport = RecordingTransport()
+        _ = E4Session(transport: transport)
+        transport.onStateChange?(.connected("MMOUSE"))
+
+        XCTAssertEqual(transport.sent, ["VER?\n"])
+        XCTAssertFalse(transport.sent.contains("V\n"),
+                       "a bare V runs the blocking menu action")
+    }
+}
+
+@MainActor
+private final class RecordingTransport: E4Transport {
+    var onStateChange: ((E4ConnectionState) -> Void)?
+    var onDiscover: (([E4Peripheral]) -> Void)?
+    var onLine: ((String) -> Void)?
+    var sent: [String] = []
+    func startScan(includeUnnamed: Bool) {}
+    func stopScan() {}
+    func connect(to id: UUID) {}
+    func disconnect() {}
+    func send(_ text: String) { sent.append(text) }
 }
 
 @MainActor

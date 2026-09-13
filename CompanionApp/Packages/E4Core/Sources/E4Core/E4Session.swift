@@ -139,7 +139,14 @@ public final class E4Session {
                 // Ask who she is straight away — the version chip is the
                 // fastest confirmation that the link is genuinely working,
                 // not just nominally connected.
-                self.send(.action(.firmwareVersion))
+                //
+                // A QUERY, deliberately, not the Firmware ver menu action. That
+                // action holds her OLED and waits for a button press, which is
+                // correct for a person reading it off the display and quite
+                // wrong as an automatic greeting: connecting appeared to hang
+                // her on a screen that looks like the boot splash, and left the
+                // physical menu parked inside Diagnostics.
+                self.send(.readVersion)
             }
             if case .idle = state { self.clearLiveValues() }
         }

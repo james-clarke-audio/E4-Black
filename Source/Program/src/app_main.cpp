@@ -1249,6 +1249,15 @@ void app_main()
 						int nh = cc ? atoi(cc + 1) : nw;
 						if (nw > 0 && nh > 0) { maze.set_bounds((uint8_t)nw, (uint8_t)nh); mouse.show_arena(); }
 					}
+					else if (strncmp(bt_line, "VER?", 4) == 0) {
+						// A QUERY, not the menu action. act_fw_version holds the OLED
+						// and waits for a button, which is right for a person reading
+						// it off the display and wrong for an app asking "who are you?"
+						// on connect - that looked like a hang on a screen almost
+						// identical to the boot splash, and left the menu parked in
+						// Diagnostics. A query answers and changes nothing.
+						report_printf("VER,%s,%s\r\n", FW_VERSION, FW_BUILD);
+					}
 					else if (strncmp(bt_line, "CFG?", 4) == 0) {
 						// Everything she is actually holding, including the twelve turn
 						// rows nothing drives yet - those are invisible otherwise, and a
