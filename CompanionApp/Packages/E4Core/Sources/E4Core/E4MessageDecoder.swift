@@ -94,6 +94,14 @@ public enum E4MessageDecoder {
                 .trimmingCharacters(in: .whitespaces)
             return .version(firmware: version, build: build)
 
+        case "THR":
+            // Decoded from the raw body, not the comma fields: several of these
+            // lines carry commas of their own inside one human-readable phrase.
+            let body = String(raw.dropFirst(min(4, raw.count)))
+            if let report = E4ThresholdReport.decode(body: body) {
+                return .threshold(report)
+            }
+
         case "CFG":
             return .config(decodeConfig(raw))
 

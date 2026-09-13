@@ -89,6 +89,10 @@ public enum E4Message: Sendable, Equatable {
     /// `GTOK` / `GTERR` / `GTDONE` / `GTGOK,x,y` / `GTQ,x,y` / `GTV,y,<hex>`
     case mazeTruth(E4MazeTruth)
 
+    /// Anything the threshold-calibration routine says: which capture is being
+    /// taken, what it read, the proposed thresholds and the margins behind them.
+    case threshold(E4ThresholdReport)
+
     // MARK: Fallback
 
     /// Anything else — EEPROM scan output, prompts, free-form firmware chatter.

@@ -62,6 +62,11 @@ public final class E4Session {
     public private(set) var lastTurnResult: E4TurnResult?
     public private(set) var lastGyroCal: E4GyroCalReport?
 
+    /// Everything the threshold-calibration routine has said this session.
+    /// Held as state rather than read back out of the log, so a view can draw
+    /// the current step instead of re-parsing text to find out where it is.
+    public private(set) var thresholdCal = E4ThresholdCalState()
+
     /// Which emitter the hold routine has lit, for the aiming workflow.
     public private(set) var litEmitter: Int?
 
@@ -216,12 +221,19 @@ public final class E4Session {
             lastGyroCal = report
             if let scale = report.currentScale { gyroScale = scale }
 
+        case .threshold(let report):
+            thresholdCal.apply(report)
+
         case .turnResult(let result):
             lastTurnResult = result
 
         case .runStarted(let index, let name):
             runningAction = E4MenuAction(rawValue: index)
             runningActionName = name.isEmpty ? nil : name
+            // A second calibration run must not inherit the first one's
+            // captures. She has almost certainly been moved between them, so
+            // mixing the two would be averaging two different geometries.
+            if runningAction == .thresholdCal { thresholdCal.reset() }
 
         case .runFinished:
             runningAction = nil
