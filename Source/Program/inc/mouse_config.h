@@ -45,10 +45,25 @@ const int EXTRA_WALL_ADJUST    = 5;        // trigger nudge when a side wall is 
 const int TURN_THRESHOLD_SS90E = 1000000;  // effectively "never trigger by sensor"
 
 // Parameters for one smooth (curved) search turn.
+//
+// entry_offset and exit_offset are NOT symmetric in meaning, and conflating
+// them is an easy afternoon to lose:
+//   entry_offset  where the arc STARTS, as a distance back from the pivot
+//   exit_offset   a FRAME CORRECTION after the arc - nothing is driven, the
+//                 position origin is relabelled so the next cell lines up
+//   lead_out      a real straight run AFTER the arc, used only by the
+//                 standalone menu move and the tuner (the search does not
+//                 drive one: forward motion simply continues into the cell)
+//
+// The radius is not stored because it is not free: R = v / omega, with omega
+// in radians. At 300 mm/s and 170 deg/s that is ~101 mm, which is why
+// entry_offset is ~100 - for a turn centred on the crossing, the arc must
+// start about R before it.
 struct TurnParameters {
   int   speed;         // mm/s    - constant forward speed held during the turn
   int   entry_offset;  // mm      - distance from the cell-boundary pivot to turn start
-  int   exit_offset;   // mm      - distance from the pivot to turn end
+  int   exit_offset;   // mm      - frame relabel after the turn (search only)
+  int   lead_out;      // mm      - straight run after the arc (standalone move only)
   float angle;         // deg     - total turn angle (+ = left/CCW)
   float omega;         // deg/s   - peak angular velocity
   float alpha;         // deg/s/s - angular acceleration
@@ -56,15 +71,19 @@ struct TurnParameters {
 };
 
 // --- Smooth search-turn parameters, indexed by Mouse::TurnType -------------
-// { speed, entry_offset(mm), exit_offset(mm), angle(deg), omega(deg/s),
-//   alpha(deg/s/s), trigger }.  omega/alpha come from the E4 arc tuning
-// (R ~= 100 mm at v = 300 mm/s -> ~170 deg/s). entry/exit offsets are a
-// starting point -- tune on the bench like we did the arc turn.
-const TurnParameters turn_params[4] = {
-    { (int)SEARCH_TURN_SPEED, 100, 30,  90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E }, // 0 SS90EL
-    { (int)SEARCH_TURN_SPEED, 100, 30, -90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E }, // 1 SS90ER
-    { (int)SEARCH_TURN_SPEED, 100, 30,  90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E }, // 2 SS90L
-    { (int)SEARCH_TURN_SPEED, 100, 30, -90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E }, // 3 SS90R
-};
+//
+// NOT const, and THE ONLY definition of these turns anywhere. The menu 90
+// moves, the search and the live tuner all read this array, and the tuner
+// writes to it - so what you tune is what she runs. Before this they were
+// three separate copies that had already drifted apart (the menu move used
+// alpha 1000 while the search used 2500, which meant "Right 90" and the turn
+// she made while searching were different turns).
+//
+// Persisted in the EEPROM config block, so a tune done at a venue survives a
+// power cycle. Values here are the fallback when no saved block is found.
+extern TurnParameters turn_params[4];
+
+// Names for reports, indexed the same way.
+extern const char *const turn_names[4];
 
 #endif // MOUSE_CONFIG_H

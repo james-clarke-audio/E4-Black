@@ -2,7 +2,8 @@
  * config_store.cpp  --  see config_store.h
  */
 #include "config_store.h"
-#include "config.h"     // GYRO_SCALE (now a runtime variable)
+#include "config.h"       // GYRO_SCALE, WALL_THRESH_* (runtime)
+#include "mouse_config.h"  // turn_params
 #include "eeprom.h"
 #include "report.h"
 #include <string.h>
@@ -20,7 +21,13 @@ typedef struct {
   int16_t reserved;        /* 2  -- explicit: without it the compiler pads to a
                                     4-byte multiple anyway, and the checksum
                                     would then cover bytes nothing ever sets. */
-} ConfigV2;                /* 12 */
+  /* Four turns x { entry, exit, lead_out, omega, alpha }.            40 */
+  /* int16 because the whole block must fit ONE 24LC256 page: a page  */
+  /* write that crosses a boundary WRAPS rather than continuing, so a */
+  /* 65th byte would silently overwrite byte 0 of the same page.      */
+  /* 6 header + 52 payload + 1 checksum = 59, inside the 64 at 512.   */
+  int16_t turn[4][5];      /* 40 */
+} ConfigV3;                /* 52 */
 
 static uint8_t sum8(const uint8_t *p, uint16_t n) {
   uint8_t s = 0;
@@ -61,7 +68,7 @@ void config_store_begin(void) {
 
   // Load what this build understands; a shorter (older) payload leaves the
   // remaining fields at their defaults, a longer (newer) one is truncated.
-  ConfigV2 c;
+  ConfigV3 c;
   memset(&c, 0, sizeof(c));
   memcpy(&c, buf, len < sizeof(c) ? len : sizeof(c));
 
@@ -94,29 +101,68 @@ void config_store_begin(void) {
     }
   }
 
+  // Turns, only if the block is long enough to hold them.
+  int turns_loaded = 0;
+  if (len >= 52) {
+    int sane = 1;
+    for (int i = 0; i < 4; i++) {
+      if (c.turn[i][0] < 0   || c.turn[i][0] > 500)   sane = 0;   // entry
+      if (c.turn[i][1] < -200|| c.turn[i][1] > 500)   sane = 0;   // exit (may be negative)
+      if (c.turn[i][2] < 0   || c.turn[i][2] > 500)   sane = 0;   // lead_out
+      if (c.turn[i][3] < 1   || c.turn[i][3] > 2000)  sane = 0;   // omega
+      if (c.turn[i][4] < 1   || c.turn[i][4] > 32000) sane = 0;   // alpha
+    }
+    if (sane) {
+      // The ANGLE is deliberately not persisted. A saved -90 that came back as
+      // +90 through a corrupt byte would turn her the wrong way at speed, and
+      // it is not a thing anyone tunes - it is what the turn IS.
+      for (int i = 0; i < 4; i++) {
+        turn_params[i].entry_offset = c.turn[i][0];
+        turn_params[i].exit_offset  = c.turn[i][1];
+        turn_params[i].lead_out     = c.turn[i][2];
+        turn_params[i].omega        = (float)c.turn[i][3];
+        turn_params[i].alpha        = (float)c.turn[i][4];
+      }
+      turns_loaded = 1;
+    } else {
+      report_write("CFG,turn params out of range, ignored\r\n");
+    }
+  }
+
   s_loaded = 1;
   int w = (int)(GYRO_SCALE * 1000.0f);
   report_printf("CFG,loaded v%u gyro_scale=%d.%03d\r\n", ver, w / 1000, w % 1000);
   report_printf("CFG,thr l=%d r=%d f=%d %s\r\n",
                 WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
                 thr_loaded ? "(eeprom)" : "(defaults)");
+  report_printf("CFG,turn in=%d out=%d w=%d al=%d %s\r\n",
+                turn_params[1].entry_offset, turn_params[1].lead_out,
+                (int)turn_params[1].omega, (int)turn_params[1].alpha,
+                turns_loaded ? "(eeprom)" : "(defaults)");
 }
 
 int config_store_save(void) {
   if (!s_present) return 0;
 
-  ConfigV2 c;
+  ConfigV3 c;
   memset(&c, 0, sizeof(c));
   c.gyro_scale   = GYRO_SCALE;
   c.thresh_left  = (int16_t)WALL_THRESH_LEFT;
   c.thresh_right = (int16_t)WALL_THRESH_RIGHT;
   c.thresh_front = (int16_t)WALL_THRESH_FRONT;
   c.reserved     = 0;
+  for (int i = 0; i < 4; i++) {
+    c.turn[i][0] = (int16_t)turn_params[i].entry_offset;
+    c.turn[i][1] = (int16_t)turn_params[i].exit_offset;
+    c.turn[i][2] = (int16_t)turn_params[i].lead_out;
+    c.turn[i][3] = (int16_t)turn_params[i].omega;
+    c.turn[i][4] = (int16_t)turn_params[i].alpha;
+  }
 
-  uint8_t blk[6 + sizeof(ConfigV2) + 1];
+  uint8_t blk[6 + sizeof(ConfigV3) + 1];
   blk[0] = 'E'; blk[1] = '4'; blk[2] = 'C'; blk[3] = '1';
   blk[4] = (uint8_t)CONFIG_VERSION;
-  blk[5] = (uint8_t)sizeof(ConfigV2);
+  blk[5] = (uint8_t)sizeof(ConfigV3);
   memcpy(&blk[6], &c, sizeof(c));
   blk[6 + sizeof(c)] = (uint8_t)(blk[4] + blk[5] + sum8(&blk[6], sizeof(c)));
 

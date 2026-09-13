@@ -62,8 +62,16 @@ uint16_t cntL = 0, cntR = 0;
 typedef void (*menu_action_t)(void);
 
 static void act_forward (void) { control_forward_move(180.0f, 180.0f, 0.0f, 1000.0f); }
-static void act_right90 (void) { control_arc_turn(300.0f, 102.0f, -90.0f, 170.0f, 1000.0f, 90.0f); }
-static void act_left90  (void) { control_arc_turn(300.0f, 102.0f,  90.0f, 170.0f, 1000.0f, 90.0f); }
+// Both read the ONE turn table, so "Right 90" from the menu and the turn she
+// makes while searching are the same turn. They were not before: this used to
+// hardcode alpha 1000 while turn_params carried 2500.
+static void run_arc_from_table(int idx) {
+	const TurnParameters &p = turn_params[idx];
+	control_arc_turn((float)p.speed, (float)p.entry_offset, p.angle,
+	                 p.omega, p.alpha, (float)p.lead_out);
+}
+static void act_right90 (void) { run_arc_from_table(1); }   // SS90ER
+static void act_left90  (void) { run_arc_from_table(0); }   // SS90EL
 static void act_spin180 (void) { control_spin(180.0f, 180.0f, 0.0f, 1000.0f); }
 
 static void act_recal_gyro(void) {
@@ -518,12 +526,18 @@ static void act_turn_tune(void) {
 	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
 	uint8_t junk; while (bt_rx_pop(&junk)) { }
 
-	// Last-run parameters, seeded from the search-turn defaults.
-	float spin[3] = { 90.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN };                    // angle, omega, alpha
-	float arc[6]  = { SEARCH_TURN_SPEED, -90.0f, 170.0f, 2500.0f, 100.0f, 30.0f };  // v, angle, omega, alpha, in, out
+	float spin[3] = { 90.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN };   // angle, omega, alpha
 	int last_kind = 0;   // 0 none, 1 spin, 2 arc
+	int sel = 1;         // which turn ARC edits; SS90ER, the usual one to test
 
-	report_write("Turn tune ready: SPIN,a,w,al | ARC,v,a,w,al,in,out | R=repeat <=exit\r\n");
+	// ARC now writes STRAIGHT INTO turn_params[sel] instead of a local copy.
+	// A tuner that edited a copy could only ever tell you what a turn would
+	// have been like - you then transcribed numbers by hand into two other
+	// places and hoped. What you tune here is what she searches with.
+	report_write("Turn tune: SPIN,a,w,al | ARC,v,a,w,al,in,out | SEL,0-3 | S=save | R=repeat | <=exit\r\n");
+	report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",
+	              sel, turn_names[sel], turn_params[sel].speed, turn_params[sel].entry_offset,
+	              turn_params[sel].lead_out, (int)turn_params[sel].omega, (int)turn_params[sel].alpha);
 	if (s_haveOled) {
 		SSD1306_Fill(SSD1306_COLOR_BLACK);
 		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune",      &Font_7x10, SSD1306_COLOR_WHITE);
@@ -550,7 +564,45 @@ static void act_turn_tune(void) {
 				if (len > 0) {
 					line[len] = '\0';
 					if      (strncmp(line, "SPIN,", 5) == 0) { tt_parse_floats(line + 5, spin, 3); do_run = 1; }
-					else if (strncmp(line, "ARC,",  4) == 0) { tt_parse_floats(line + 4, arc,  6); do_run = 2; }
+					else if (strncmp(line, "ARC,",  4) == 0) {
+						// v, angle, omega, alpha, lead_in, lead_out - seeded from the
+						// live values so a short command only changes what it names.
+						TurnParameters &p = turn_params[sel];
+						float a[6] = { (float)p.speed, p.angle, p.omega, p.alpha,
+						               (float)p.entry_offset, (float)p.lead_out };
+						tt_parse_floats(line + 4, a, 6);
+						p.speed        = (int)a[0];
+						p.angle        = a[1];
+						p.omega        = a[2];
+						p.alpha        = a[3];
+						p.entry_offset = (int)a[4];
+						p.lead_out     = (int)a[5];
+						do_run = 2;
+					}
+					else if (strncmp(line, "OUT,", 4) == 0) {
+						// exit_offset is the frame relabel the SEARCH uses. It changes
+						// nothing you can watch in a standalone turn, so it is set
+						// explicitly rather than riding along with ARC.
+						float v[1] = { (float)turn_params[sel].exit_offset };
+						if (tt_parse_floats(line + 4, v, 1) == 1) {
+							turn_params[sel].exit_offset = (int)v[0];
+							report_printf("TUNE,exit=%d (search frame relabel)\r\n", (int)v[0]);
+						}
+					}
+					else if (strncmp(line, "SEL,", 4) == 0) {
+						float v[1] = { (float)sel };
+						if (tt_parse_floats(line + 4, v, 1) == 1 && v[0] >= 0 && v[0] <= 3) {
+							sel = (int)v[0];
+							const TurnParameters &p = turn_params[sel];
+							report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",
+							              sel, turn_names[sel], p.speed, p.entry_offset,
+							              p.lead_out, (int)p.omega, (int)p.alpha);
+						}
+					}
+					else if (line[0] == 'S') {
+						int ok = config_store_save();
+						report_printf("TUNE,saved=%d%s\r\n", ok, ok ? "" : " (no EEPROM or write failed)");
+					}
 					else if (line[0] == 'R' || line[0] == 'r') { do_run = last_kind ? last_kind : 1; }
 					else if (line[0] == 'X' || line[0] == '<' || line[0] == 'q') { run = 0; }
 					len = 0;
@@ -568,17 +620,18 @@ static void act_turn_tune(void) {
 				report_printf("TURNRES,spin,cmd=%d,gyro=%d,dist=%d\r\n",
 				              (int)spin[0], (int)gyro.angle(), (int)odometry.robot_distance());
 			} else {
-				control_arc_turn(arc[0], arc[4], arc[1], arc[2], arc[3], arc[5]); // (v, lead_in, angle, omega, alpha, lead_out)
+				run_arc_from_table(sel);
 				last_kind = 2;
 				report_printf("TURNRES,arc,cmd=%d,gyro=%d,dist=%d\r\n",
-				              (int)arc[1], (int)gyro.angle(), (int)odometry.robot_distance());
+				              (int)turn_params[sel].angle, (int)gyro.angle(),
+				              (int)odometry.robot_distance());
 			}
 			if (s_haveOled) {
 				char b[24];
 				SSD1306_Fill(SSD1306_COLOR_BLACK);
 				SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune", &Font_7x10, SSD1306_COLOR_WHITE);
 				snprintf(b, sizeof(b), "%s cmd%d", last_kind == 1 ? "spin" : "arc",
-				         last_kind == 1 ? (int)spin[0] : (int)arc[1]);
+				         last_kind == 1 ? (int)spin[0] : (int)turn_params[sel].angle);
 				SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
 				snprintf(b, sizeof(b), "gyro %d", (int)gyro.angle());
 				SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts(b, &Font_7x10, SSD1306_COLOR_WHITE);
