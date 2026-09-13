@@ -23,6 +23,13 @@ struct ContentView: View {
             }
             .navigationSplitViewStyle(.balanced)
         }
+        // You start a replay from History, which is the one screen that can
+        // show nothing of it — so pressing Replay left you watching a file
+        // listing and concluding the replay was not working. Go where the
+        // thing you just asked for actually appears.
+        .onChange(of: session.isReplaying) {
+            if session.isReplaying, screen == .history { screen = .maze }
+        }
         // The app does not follow the system appearance. Light chrome was a
         // deliberate choice on the web app — the dark panel made small text
         // hard to read at the bench — and following a dark-mode Mac would
