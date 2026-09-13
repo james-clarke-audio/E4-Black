@@ -12,6 +12,10 @@ struct ContentView: View {
             // and survives the sidebar collapsing in portrait.
             StatusStrip()
 
+            if session.isReplaying {
+                ReplayBar()
+            }
+
             NavigationSplitView(columnVisibility: $columns) {
                 sidebar
             } detail: {

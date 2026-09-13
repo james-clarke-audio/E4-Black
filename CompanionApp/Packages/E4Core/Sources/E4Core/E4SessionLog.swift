@@ -218,6 +218,37 @@ public enum E4SessionReader {
             .sorted { $0.header.started > $1.header.started }
     }
 
+    /// Header and entries from bytes rather than from a URL.
+    ///
+    /// Taking Data is what lets a log arrive from anywhere — a file someone
+    /// sent you, an archive, the document picker on an iPad — instead of only
+    /// from the app's own Sessions folder.
+    public static func parse(_ data: Data) throws -> (header: E4SessionLog.Header?,
+                                                      entries: [E4SessionLog.Entry]) {
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw E4SessionLogError.notReadable
+        }
+        var header: E4SessionLog.Header?
+        var out: [E4SessionLog.Entry] = []
+        for (i, line) in text.split(separator: "\n", omittingEmptySubsequences: true).enumerated() {
+            guard let lineData = line.data(using: .utf8) else { continue }
+            if i == 0 {
+                header = try? E4SessionLog.decoder.decode(E4SessionLog.Header.self, from: lineData)
+                // A file with no header is still worth playing: it may be a
+                // hand-trimmed extract, and the entries are the substance.
+                if header != nil { continue }
+            }
+            // A malformed line is skipped rather than failing the read — a
+            // truncated last line is normal after a crash, and losing the whole
+            // recording over its final fragment would be absurd.
+            if let entry = try? E4SessionLog.decoder.decode(E4SessionLog.Entry.self, from: lineData) {
+                out.append(entry)
+            }
+        }
+        guard !out.isEmpty else { throw E4SessionLogError.noEntries }
+        return (header, out)
+    }
+
     /// Every entry, in order. A malformed line is skipped rather than failing
     /// the read — a truncated last line is normal after a crash.
     public static func entries(of url: URL) throws -> [E4SessionLog.Entry] {
@@ -295,5 +326,18 @@ public enum E4SessionReader {
         }
 
         return stats
+    }
+}
+
+/// Why a log could not be read, in words worth showing someone.
+public enum E4SessionLogError: LocalizedError {
+    case notReadable
+    case noEntries
+
+    public var errorDescription: String? {
+        switch self {
+        case .notReadable: return "That file is not text this app can read."
+        case .noEntries:   return "No session lines in that file."
+        }
     }
 }

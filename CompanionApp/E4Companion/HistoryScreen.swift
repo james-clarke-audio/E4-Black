@@ -1,10 +1,14 @@
 import SwiftUI
 import E4Core
+import UniformTypeIdentifiers
 
 struct HistoryScreen: View {
     @Environment(SessionStore.self) private var store
+    @Environment(E4ReplayPlayer.self) private var player
     @State private var selected: E4SessionSummary?
     @State private var stats: E4SessionStats?
+    @State private var opening = false
+    @State private var openError: String?
 
     var body: some View {
         HStack(spacing: 0) {
@@ -15,12 +19,38 @@ struct HistoryScreen: View {
                 .frame(maxWidth: .infinity)
         }
         .onAppear { store.refresh() }
+        .fileImporter(isPresented: $opening,
+                      allowedContentTypes: [.json, .plainText, .data],
+                      allowsMultipleSelection: false) { result in
+            openPicked(result)
+        }
     }
 
     // MARK: list
 
     private var list: some View {
         VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                // Any .e4log, not just this app's own folder: a log someone
+                // sends you, or one you archived, has to have a way in.
+                Button("Open log…") { opening = true }
+                    .buttonStyle(.bordered)
+                    .touchTarget()
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+
+            if let openError {
+                Text(openError)
+                    .font(.caption)
+                    .foregroundStyle(Palette.bad)
+                    .padding(.horizontal, 14)
+                    .padding(.bottom, 8)
+            }
+
+            Rectangle().fill(Palette.line).frame(height: 1)
+
             if let recording = store.recording {
                 HStack(spacing: 8) {
                     Circle().fill(Palette.bad).frame(width: 8, height: 8)
@@ -97,6 +127,7 @@ struct HistoryScreen: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            Button("Replay") { replay(summary.url) }
             Button("Show in Finder") { reveal(summary.url) }
             Button("Delete", role: .destructive) {
                 store.delete(summary)
@@ -157,13 +188,24 @@ struct HistoryScreen: View {
                         }
                     }
 
-                    Button {
-                        reveal(selected.url)
-                    } label: {
-                        Label("Show log in Finder", systemImage: "folder")
+                    HStack(spacing: 8) {
+                        Button {
+                            replay(selected.url)
+                        } label: {
+                            Label("Replay", systemImage: "play.fill")
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .touchTarget()
+
+                        Button {
+                            reveal(selected.url)
+                        } label: {
+                            Label("Show in Finder", systemImage: "folder")
+                        }
+                        .buttonStyle(.bordered)
+                        .touchTarget()
+                        Spacer()
                     }
-                    .buttonStyle(.bordered)
-                    .touchTarget()
                 }
                 .padding(18)
                 .frame(maxWidth: 860)
@@ -261,6 +303,29 @@ struct HistoryScreen: View {
     private func bytes(_ n: Int) -> String {
         n > 1_048_576 ? String(format: "%.1f MB", Double(n) / 1_048_576)
                       : String(format: "%.0f KB", Double(n) / 1024)
+    }
+
+    private func replay(_ url: URL) {
+        openError = nil
+        do {
+            try player.load(data: try Data(contentsOf: url), name: url.lastPathComponent)
+            player.play()
+        } catch {
+            openError = error.localizedDescription
+        }
+    }
+
+    private func openPicked(_ result: Result<[URL], Error>) {
+        openError = nil
+        do {
+            guard let url = try result.get().first else { return }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+            try player.load(data: try Data(contentsOf: url), name: url.lastPathComponent)
+            player.play()
+        } catch {
+            openError = error.localizedDescription
+        }
     }
 
     private func reveal(_ url: URL) {

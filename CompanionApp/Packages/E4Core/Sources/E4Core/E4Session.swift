@@ -110,6 +110,15 @@ public final class E4Session {
         observers.append(handler)
     }
 
+    /// True while a recorded log is driving the session instead of the radio.
+    ///
+    /// This is not cosmetic. Everything on screen during a replay is history,
+    /// and a command sent from a screen showing history would go to a real
+    /// mouse in the present — so sending is refused outright rather than
+    /// disabled screen by screen, which is the kind of guard that holds
+    /// everywhere including the screens nobody remembered to change.
+    public private(set) var isReplaying = false
+
     private let transport: any E4Transport
 
     public init(transport: (any E4Transport)? = nil) {
@@ -156,6 +165,7 @@ public final class E4Session {
     }
 
     public func send(_ command: E4Command) {
+        guard !isReplaying else { return refuseWhileReplaying(command.line) }
         let text = command.line.trimmingCharacters(in: .whitespacesAndNewlines)
         transport.send(command.line)
         recorder?.record(text, tx: true)
@@ -167,9 +177,61 @@ public final class E4Session {
     public func sendRaw(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        guard !isReplaying else { return refuseWhileReplaying(trimmed) }
         transport.send(trimmed + "\n")
         recorder?.record(trimmed, tx: true)
         append(.init(text: "→ " + trimmed, kind: .sent))
+    }
+
+    private func refuseWhileReplaying(_ line: String) {
+        append(.init(text: "✕ " + line.trimmingCharacters(in: .whitespacesAndNewlines)
+                     + "  (not sent — replaying)", kind: .alert))
+    }
+
+    // MARK: - Replay
+
+    /// Begin driving this session from a recorded log.
+    ///
+    /// Live values are cleared first: a replay that inherited the current
+    /// battery reading or the maze she is holding right now would be a picture
+    /// of two different moments at once, and you would have no way of telling
+    /// which parts were which.
+    public func beginReplay() {
+        guard !isReplaying else { return }
+        disconnect()
+        clearLiveValues()
+        maze_resetRequested()
+        isReplaying = true
+    }
+
+    public func endReplay() {
+        guard isReplaying else { return }
+        isReplaying = false
+        clearLiveValues()
+    }
+
+    /// Feed one recorded line in, exactly as the radio would have delivered it.
+    ///
+    /// Deliberately the same path as a live line, decoder and observers and
+    /// all: if replay used a shortcut, a bug visible on a replay would not be
+    /// a bug that happens live, and the replay would stop being evidence.
+    public func replay(line: String, sent: Bool) {
+        guard isReplaying else { return }
+        if sent {
+            // Show what was sent at the time without sending anything now.
+            append(.init(text: "→ " + line, kind: .sent))
+            return
+        }
+        let message = E4MessageDecoder.decode(line)
+        apply(message)
+        append(.init(text: line, kind: kind(for: message)))
+        for observer in observers { observer(message) }
+    }
+
+    /// Observers hold the maze and the uploader; a replay has to start from a
+    /// blank map or it draws the new run on top of the old one.
+    private func maze_resetRequested() {
+        for observer in observers { observer(.resetMaze) }
     }
 
     // MARK: - Receiving
