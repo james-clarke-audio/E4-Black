@@ -23,7 +23,7 @@ TurnParameters turn_params[TURN_COUNT] = {
     { (int)SEARCH_TURN_SPEED, 100, 30, 90,   -90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  1 SS90ER 
     { (int)SEARCH_TURN_SPEED, 100, 30, 90,    90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  2 SS90L   fast straight-to-straight 90
     { (int)SEARCH_TURN_SPEED, 100, 30, 90,   -90.0f, 170.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  3 SS90R  
-    { (int)SEARCH_TURN_SPEED,  90, 30, 90,   180.0f, 191.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  4 SS180L  about-turn without stopping; R=90 lands one cell over
+    { (int)SEARCH_TURN_SPEED,  90, 30, 90,   180.0f, 191.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  4 SS180L  hairpin, not a dead end; R=90 lands one cell over
     { (int)SEARCH_TURN_SPEED,  90, 30, 90,  -180.0f, 191.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  5 SS180R 
     { (int)SEARCH_TURN_SPEED, 120, 30, 90,    45.0f,  95.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  6 SD45L   straight ONTO the diagonal - gentle, so a large R
     { (int)SEARCH_TURN_SPEED, 120, 30, 90,   -45.0f,  95.0f, 2500.0f, TURN_THRESHOLD_SS90E },  //  7 SD45R  

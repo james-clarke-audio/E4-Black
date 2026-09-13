@@ -41,8 +41,15 @@ const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smoo
 // These are the ONLY turns that spin in place, and they are where the scrub
 // comes from - two wheels a side off one pinion cannot pivot cleanly about the
 // axle cross, so an in-place 90 costs about 3 mm of translation. An arc barely
-// scrubs at all. That is why SS180 exists in the turn table: to replace the
-// stop-spin-go of turn_back() once there is a path generator to call it.
+// scrubs at all.
+//
+// That scrub is not avoidable at a dead end, and SS180 does NOT replace it: an
+// SS180 sweeps a full cell pitch sideways, so it needs the neighbouring column
+// open, and a dead end is walled on both sides and ahead. turn_back() stays
+// exactly where it is. SS180 is for the hairpin - two corridors either side of
+// a dividing wall, joined at the far end - which is a speed-run move, because
+// committing to the arc means knowing the neighbour is open before entering
+// the turn, and a search only learns that standing in the cell.
 extern float OMEGA_SPIN_TURN;
 extern float ALPHA_SPIN_TURN;
 
@@ -105,7 +112,7 @@ enum TurnType {
   SS90ER   =  1,
   SS90L    =  2,   // fast straight-to-straight 90
   SS90R    =  3,
-  SS180L   =  4,   // about-turn without stopping; R=90 lands one cell over
+  SS180L   =  4,   // hairpin, not a dead end; R=90 lands one cell over
   SS180R   =  5,
   SD45L    =  6,   // straight ONTO the diagonal - gentle, so a large R
   SD45R    =  7,

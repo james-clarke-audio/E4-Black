@@ -161,8 +161,8 @@
     <tr class="grp"><td colspan="7">About turn &mdash; reversing without stopping</td></tr>
     <tr>
       <td class="n">4</td><td class="v">SS180L</td><td class="n">+180</td><td class="n">90</td><td class="n">191</td>
-      <td class="t"><b>Facing back the way she came, in the adjacent column.</b> R&nbsp;=&nbsp;90 makes the turn diameter exactly one 180&nbsp;mm cell pitch, so she comes back down the <em>next</em> column rather than the one she arrived in.</td>
-      <td class="t">dead ends at speed; replaces the stop-spin-go of <code>turn_back()</code></td>
+      <td class="t"><b>Facing back the way she came, in the adjacent column.</b> R&nbsp;=&nbsp;90 makes the turn diameter exactly one 180&nbsp;mm cell pitch, so she comes back down the <em>next</em> column rather than the one she arrived in — which is the whole point, and the whole constraint: she has to have an open neighbour to swing into.</td>
+      <td class="t"><b>Hairpins.</b> Up one corridor, around the end of a dividing wall, back down the parallel corridor — the merged form of a back-to-back 90/90 pair, without the straight between them. <b>Not dead ends</b> (see below).</td>
     </tr>
     <tr>
       <td class="n">5</td><td class="v">SS180R</td><td class="n">&minus;180</td><td class="n">90</td><td class="n">191</td>
@@ -226,6 +226,14 @@
       <td class="t">as above</td>
     </tr>
   </table>
+  </div>
+
+  <div class="note">
+    <b>SS180 is not a dead-end turn.</b> An earlier draft of this table said it was, and that is wrong — geometrically it cannot be. The arc sweeps a full 180&nbsp;mm of lateral travel, one whole cell pitch, so it needs the neighbouring column to be <em>open</em>. A dead end is by definition walled on both sides and ahead: there is nowhere to swing. Dead ends stay <code>turn_back()</code> — coast to the cell centre, spin in place, drive back out — and the ~3&nbsp;mm of scrub that costs is the price of the only manoeuvre that fits.
+    <br><br>
+    Where SS180 earns its place is the <b>hairpin</b>: a dividing wall with a corridor either side, joined at the far end. She runs up column&nbsp;<i>x</i>, sweeps through the connecting cell and comes back down column&nbsp;<i>x</i>+1 without ever slowing. The path is the one two SS90s would walk; SS180 just refuses to straighten up in the middle of it.
+    <br><br>
+    That also makes it a <b>speed-run turn, not a search turn</b>. Committing to the arc means knowing the neighbouring column is open <em>before</em> entering the turn, and during a search she does not know that until she is standing in the cell reading its walls. On a known path the map has already answered the question.
   </div>
 
   <p class="dimc">Angles in degrees, <b>positive is left</b>, matching the firmware's sign convention. R in mm, &omega; in deg/s, both at the 300&nbsp;mm/s search speed. The two shaded rows are the only ones that have been run against a floor; every other radius is arithmetic.</p>
