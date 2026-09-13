@@ -67,6 +67,11 @@ public final class E4Session {
     /// the current step instead of re-parsing text to find out where it is.
     public private(set) var thresholdCal = E4ThresholdCalState()
 
+    /// The turn table and provenance, as last reported by `CFG?`. Only worth
+    /// showing once `isComplete` — a half-arrived dump looks like a
+    /// configuration rather than a fragment.
+    public private(set) var configDump = E4ConfigDump()
+
     /// Which emitter the hold routine has lit, for the aiming workflow.
     public private(set) var litEmitter: Int?
 
@@ -278,6 +283,20 @@ public final class E4Session {
 
         case .config(let cfg):
             if let scale = cfg.gyroScale { gyroScale = scale }
+            switch cfg.outcome {
+            case .dumpBegin(let version, let present, let loaded, let turns):
+                // A fresh dump replaces the last one outright. Merging two
+                // would leave rows from a configuration she no longer holds.
+                configDump.reset()
+                configDump.version = version
+                configDump.eepromPresent = present
+                configDump.blockLoaded = loaded
+                configDump.expectedTurns = turns
+            case .dumpEnd:
+                configDump.receivedEnd = true
+            default:
+                break
+            }
 
         case .gyroCal(let report):
             lastGyroCal = report
@@ -285,6 +304,14 @@ public final class E4Session {
 
         case .threshold(let report):
             thresholdCal.apply(report)
+
+        case .turn(let turn):
+            if let i = configDump.turns.firstIndex(where: { $0.index == turn.index }) {
+                configDump.turns[i] = turn
+            } else {
+                configDump.turns.append(turn)
+                configDump.turns.sort { $0.index < $1.index }
+            }
 
         case .turnResult(let result):
             lastTurnResult = result

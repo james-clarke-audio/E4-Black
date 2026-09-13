@@ -68,6 +68,10 @@ int  config_store_present(void);
 /* 1 if a valid, checksum-clean block was found and loaded at boot. */
 int  config_store_loaded(void);
 
+/* Report the live configuration. full = 0 is the four-line boot summary;
+ * full = 1 adds one line per turn. Driven from the app by "CFG?". */
+void config_store_report(int full);
+
 #ifdef __cplusplus
 }
 #endif

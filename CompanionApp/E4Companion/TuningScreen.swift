@@ -26,6 +26,15 @@ struct TuningScreen: View {
     /// the latest one, so comparing a change against the run before it means
     /// keeping them ourselves.
     @State private var results: [Row] = []
+    @State private var selectedTurn = 1        // SS90ER, the usual one to test
+
+    /// Names come from her dump when we have one, so the picker cannot drift
+    /// from the firmware's table. Falls back to indices before the first CFG?.
+    private var turnChoices: [(Int, String)] {
+        let dumped = session.configDump.turns
+        guard !dumped.isEmpty else { return (0..<16).map { ($0, "turn \($0)") } }
+        return dumped.map { ($0.index, "\($0.index)  \($0.name)") }
+    }
 
     private struct Row: Identifiable {
         let id = UUID()
@@ -42,6 +51,7 @@ struct TuningScreen: View {
                 spinCard
                 arcCard
                 resultsCard
+                configCard
             }
             .padding(18)
             .frame(maxWidth: 900)
@@ -101,6 +111,26 @@ struct TuningScreen: View {
     private var arcCard: some View {
         Card {
             header("Arc turn", note: "wheels roll — far less scrub")
+
+            // ARC writes the SELECTED row of her live table, so which row is
+            // selected is part of the command, not a detail. Sixteen exist;
+            // twelve of them nothing drives yet.
+            HStack(spacing: 8) {
+                Text("editing")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker("Turn", selection: $selectedTurn) {
+                    ForEach(turnChoices, id: \.0) { index, label in
+                        Text(label).tag(index)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .frame(maxWidth: 190)
+                .onChange(of: selectedTurn) { session.send(.selectTurn(selectedTurn)) }
+                Spacer()
+            }
+            .disabled(!active)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 120), spacing: 9)], spacing: 9) {
                 NumberField("velocity", value: $arcVelocity, unit: "mm/s")
                 NumberField("angle", value: $arcAngle, unit: "deg")
@@ -161,6 +191,79 @@ struct TuningScreen: View {
                     }
                     .font(.caption.monospaced())
                 }
+            }
+        }
+    }
+
+    // MARK: config dump
+
+    /// What she is ACTUALLY holding, as opposed to what the fields above say.
+    ///
+    /// Those fields are what you are about to send; this is what she has. They
+    /// diverge the moment anyone edits a number without pressing Run, and the
+    /// difference is invisible without asking her.
+    private var configCard: some View {
+        let dump = session.configDump
+        return Card {
+            HStack(spacing: 9) {
+                Text("HER CONFIGURATION")
+                    .font(.caption2.monospaced())
+                    .tracking(1.2)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Read from mouse") { session.send(.readConfig) }
+                    .buttonStyle(.bordered)
+                    .touchTarget()
+                    .disabled(!session.connection.isConnected)
+            }
+
+            if dump.isComplete {
+                HStack(spacing: 14) {
+                    FieldRow(key: "block", value: dump.blockLoaded == true
+                             ? "v\(dump.version ?? 0) from EEPROM" : "compiled defaults",
+                             tint: dump.blockLoaded == true ? Palette.good : Palette.warn)
+                }
+                if dump.eepromPresent == false {
+                    Text("No EEPROM answering — nothing you tune will survive a power cycle.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.bad)
+                }
+
+                Divider()
+
+                ForEach(dump.turns) { turn in
+                    HStack(spacing: 10) {
+                        Text(turn.name)
+                            .font(.caption.monospaced().weight(.semibold))
+                            .frame(width: 62, alignment: .leading)
+                            .foregroundStyle(turn.isDriven ? Palette.ink : Palette.faint)
+                        Text("\(turn.angle)°")
+                            .font(.caption.monospaced())
+                            .frame(width: 44, alignment: .trailing)
+                            .foregroundStyle(Palette.dim)
+                        Text("R\(Int(turn.radiusMM))")
+                            .font(.caption.monospaced())
+                            .frame(width: 44, alignment: .trailing)
+                            .foregroundStyle(Palette.dim)
+                        Text("in \(turn.entryOffset)  ex \(turn.exitOffset)  out \(turn.leadOut)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(Palette.faint)
+                        Spacer()
+                        if !turn.isDriven {
+                            Text("slot")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(Palette.faint)
+                        }
+                    }
+                }
+
+                Text("Radius is derived, not stored: R = v / ω. Rows marked “slot” are reachable by the tuner but nothing drives them — there is no diagonal navigation yet.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.faint)
+            } else {
+                Text("Ask her what she is holding — gyro scale, thresholds, spin dynamics and all sixteen turns, with whether each came from the EEPROM or from a compiled default.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
             }
         }
     }

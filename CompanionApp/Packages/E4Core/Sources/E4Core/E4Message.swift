@@ -93,6 +93,9 @@ public enum E4Message: Sendable, Equatable {
     /// taken, what it read, the proposed thresholds and the margins behind them.
     case threshold(E4ThresholdReport)
 
+    /// One row of the turn table, from a `CFG?` dump.
+    case turn(E4Turn)
+
     // MARK: Fallback
 
     /// Anything else — EEPROM scan output, prompts, free-form firmware chatter.
@@ -156,6 +159,10 @@ public struct E4ConfigReport: Sendable, Equatable {
         case loaded(version: Int)
         case checksumFailure(version: Int)
         case valueRejected
+        /// `CFG,dump v5 present=1 loaded=1 turns=16` — the turn rows follow.
+        case dumpBegin(version: Int, present: Bool, loaded: Bool, turns: Int)
+        /// `CFG,dump end` — everything has arrived.
+        case dumpEnd
         case other
     }
     public let outcome: Outcome

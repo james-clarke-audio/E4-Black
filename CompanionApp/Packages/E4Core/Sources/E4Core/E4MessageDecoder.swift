@@ -94,6 +94,9 @@ public enum E4MessageDecoder {
                 .trimmingCharacters(in: .whitespaces)
             return .version(firmware: version, build: build)
 
+        case "TRN":
+            if let turn = E4Turn.decode(raw) { return .turn(turn) }
+
         case "THR":
             // Decoded from the raw body, not the comma fields: several of these
             // lines carry commas of their own inside one human-readable phrase.
@@ -230,7 +233,18 @@ public enum E4MessageDecoder {
         let version = firstInt(after: "v", in: body)
 
         let outcome: E4ConfigReport.Outcome
-        if body.hasPrefix("loaded") {
+        // Checked before "loaded", because "CFG,dump v5 present=1 loaded=1"
+        // contains the word loaded and would otherwise be read as a load report
+        // carrying no gyro scale.
+        if body.hasPrefix("dump end") {
+            outcome = .dumpEnd
+        } else if body.hasPrefix("dump") {
+            let pairs = keyValues(in: body)
+            outcome = .dumpBegin(version: version ?? 0,
+                                 present: (pairs["present"].flatMap(Int.init) ?? 0) != 0,
+                                 loaded: (pairs["loaded"].flatMap(Int.init) ?? 0) != 0,
+                                 turns: pairs["turns"].flatMap(Int.init) ?? 0)
+        } else if body.hasPrefix("loaded") {
             outcome = .loaded(version: version ?? 0)
         } else if body.contains("checksum-fail") {
             outcome = .checksumFailure(version: version ?? 0)

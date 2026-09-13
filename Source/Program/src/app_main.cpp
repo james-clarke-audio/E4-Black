@@ -1249,6 +1249,12 @@ void app_main()
 						int nh = cc ? atoi(cc + 1) : nw;
 						if (nw > 0 && nh > 0) { maze.set_bounds((uint8_t)nw, (uint8_t)nh); mouse.show_arena(); }
 					}
+					else if (strncmp(bt_line, "CFG?", 4) == 0) {
+						// Everything she is actually holding, including the twelve turn
+						// rows nothing drives yet - those are invisible otherwise, and a
+						// slot you cannot inspect is a slot you cannot trust.
+						config_store_report(1);
+					}
 					else if (strncmp(bt_line, "THR?", 4) == 0) {
 						report_printf("THR,now l=%d r=%d f=%d\r\n",
 						              WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT);

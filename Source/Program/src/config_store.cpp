@@ -12,6 +12,15 @@
 static int s_present = 0;
 static int s_loaded  = 0;
 
+// Where each tier actually came from, kept so a dump can say so rather than
+// printing numbers with no provenance. "60" means nothing on its own; "60,
+// from EEPROM" and "60, compiled default because nothing was saved" are
+// different facts and only one of them means she is calibrated.
+static uint8_t s_version     = 0;
+static int     s_thr_loaded  = 0;
+static int     s_spin_loaded = 0;
+static int     s_turn_loaded = 0;
+
 // Payload mirrors what is live in RAM. Kept as a struct so the length byte in
 // the header and the bytes actually written can never disagree.
 typedef struct {
@@ -46,6 +55,7 @@ void config_store_begin(void) {
   s_loaded  = 0;
   if (!s_present) {
     report_write("CFG,no-eeprom (defaults, nothing persists)\r\n");
+    config_store_report(0);
     return;
   }
 
@@ -56,6 +66,7 @@ void config_store_begin(void) {
   }
   if (hdr[0] != 'E' || hdr[1] != '4' || hdr[2] != 'C' || hdr[3] != '1') {
     report_write("CFG,blank (defaults)\r\n");     // never written, not a fault
+    config_store_report(0);
     return;
   }
 
@@ -151,19 +162,48 @@ void config_store_begin(void) {
     }
   }
 
-  s_loaded = 1;
+  s_loaded      = 1;
+  s_version     = ver;
+  s_thr_loaded  = thr_loaded;
+  s_spin_loaded = spin_loaded;
+  s_turn_loaded = turns_loaded;
+  config_store_report(0);
+}
+
+// The live configuration, as she actually holds it.
+//
+// full = 0 is the boot summary. full = 1 adds a line per turn, which is the
+// only way to see the twelve rows nothing drives yet - they are invisible
+// otherwise, and a slot you cannot inspect is a slot you cannot trust.
+void config_store_report(int full) {
   int w = (int)(GYRO_SCALE * 1000.0f);
-  report_printf("CFG,loaded v%u gyro_scale=%d.%03d\r\n", ver, w / 1000, w % 1000);
+  if (s_loaded) {
+    report_printf("CFG,loaded v%u gyro_scale=%d.%03d\r\n", s_version, w / 1000, w % 1000);
+  } else {
+    report_printf("CFG,defaults gyro_scale=%d.%03d\r\n", w / 1000, w % 1000);
+  }
   report_printf("CFG,thr l=%d r=%d f=%d %s\r\n",
                 WALL_THRESH_LEFT, WALL_THRESH_RIGHT, WALL_THRESH_FRONT,
-                thr_loaded ? "(eeprom)" : "(defaults)");
+                s_thr_loaded ? "(eeprom)" : "(defaults)");
   report_printf("CFG,spin w=%d al=%d %s\r\n",
                 (int)OMEGA_SPIN_TURN, (int)ALPHA_SPIN_TURN,
-                spin_loaded ? "(eeprom)" : "(defaults)");
+                s_spin_loaded ? "(eeprom)" : "(defaults)");
   report_printf("CFG,turn in=%d out=%d w=%d al=%d %s\r\n",
                 turn_params[1].entry_offset, turn_params[1].lead_out,
                 (int)turn_params[1].omega, (int)turn_params[1].alpha,
-                turns_loaded ? "(eeprom)" : "(defaults)");
+                s_turn_loaded ? "(eeprom)" : "(defaults)");
+
+  if (full) {
+    report_printf("CFG,dump v%u present=%d loaded=%d turns=%d\r\n",
+                  s_version, s_present, s_loaded, TURN_COUNT);
+    for (int i = 0; i < TURN_COUNT; i++) {
+      const TurnParameters &p = turn_params[i];
+      report_printf("TRN,%d,%s,v=%d,in=%d,ex=%d,out=%d,a=%d,w=%d,al=%d\r\n",
+                    i, turn_names[i], p.speed, p.entry_offset, p.exit_offset,
+                    p.lead_out, (int)p.angle, (int)p.omega, (int)p.alpha);
+    }
+    report_write("CFG,dump end\r\n");
+  }
 }
 
 int config_store_save(void) {

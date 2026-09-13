@@ -55,6 +55,12 @@ public enum E4Command: Sendable, Equatable {
     /// Ask for the live thresholds without changing anything.
     case readThresholds
 
+    /// Ask her to report the whole live configuration, turn table included.
+    case readConfig
+
+    /// Pick which turn the tuner's ARC edits.
+    case selectTurn(Int)
+
     // --- ground-truth maze upload (GT channel) -----------------------------
     // Every one of these is acked by the mouse, and the row carries a
     // checksum she checks before accepting it. See E4MazeUploader.
@@ -97,6 +103,10 @@ public enum E4Command: Sendable, Equatable {
             return "THR,\(l),\(r),\(f)\n"
         case .readThresholds:
             return "THR?\n"
+        case .readConfig:
+            return "CFG?\n"
+        case .selectTurn(let index):
+            return "SEL,\(index)\n"
         case .mazeClear:
             return "GTC\n"
         case .mazeRow(let y, let hex, let checksum):
