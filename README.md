@@ -64,10 +64,10 @@ Full pin map, sensor geometry and housing detail are in the reference manual
 ## Documentation
 
 The **E4 Reference Manual** lives in [`docs/`](docs/index.html) — open
-`docs/index.html`. Ten chapters: overview, architecture & pin map, sensor aim,
-sensor geometry, sensor housing, the firmware/menu map, position integrity
+`docs/index.html`. Eleven chapters: overview, architecture & pin map, sensor
+aim, sensor geometry, sensor housing, the firmware/menu map, position integrity
 ("Staying Located"), a design note for the next board (STM32G431), how she
-chooses her path, and the turn table.
+chooses her path, the turn table, and the one-piece sensor carrier.
 
 ## Repository layout
 
@@ -77,7 +77,7 @@ chooses her path, and the turn table.
 | `e4-maze.html` | Web Bluetooth companion app (single file) — the competition tool. |
 | `CompanionApp/` | Native SwiftUI companion (macOS/iPad) + the `E4Core` package. |
 | `docs/` | The reference manual (`index.html` + chapters). |
-| `3D Files/` | Sensor housings, wheels, mounts. |
+| `3D Files/` | Sensor housings, wheels, mounts, and the one-piece sensor carrier (STL + the parametric source that generates it). |
 | `E4-cell-alignment-A4.pdf` | 1:1 print jig for squaring a test cell. |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the fuller layout and workflow.

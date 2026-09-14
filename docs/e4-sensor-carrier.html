@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 The Sensor Carrier</title>
+<meta name="description" content="One printed part carrying all four E4 wall-sensor pairs — why the optics moved rather than the angles, the lead-length constraint that splits emitter from detector, and V-troughs instead of bores.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1015; --panel:#151a21; --panel2:#1b212b; --line:#262e39; --line2:#333d4a;
+    --ink:#e8eef5; --dim:#93a0b1; --faint:#5c6773;
+    --amber:#e6b34a; --blue:#5aa8ff;
+    --built:#54cc72; --built-bg:rgba(84,204,114,.13);
+    --plan:#9aa2f0;  --plan-bg:rgba(154,162,240,.13);
+    --bad:#e06c75;   --bad-bg:rgba(224,108,117,.13);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;padding:34px 22px 72px}
+  .wrap{max-width:820px;margin:0 auto}
+  a{color:var(--blue)}
+  code{font-family:var(--mono);font-size:.9em;color:var(--dim)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin:0 0 10px;display:flex;align-items:center;gap:11px}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--amber)}
+  h1{font-size:33px;font-weight:700;letter-spacing:-.02em;margin:0 0 10px;line-height:1.05;text-wrap:balance}
+  .sub{color:var(--dim);font-size:16px;margin:0 0 30px;max-width:64ch}
+  .sub b{color:var(--ink);font-weight:500}
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:38px 0 14px;font-weight:600;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  p{margin:0 0 14px}
+  .lead{color:var(--ink)} .dimc{color:var(--dim)}
+  .tblwrap{overflow-x:auto;margin:6px 0 18px}
+  table.dim{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
+  table.dim th,table.dim td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.dim th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;white-space:nowrap}
+  table.dim td.v{font-family:var(--mono);color:var(--amber);white-space:nowrap}
+  table.dim td.n{font-family:var(--mono);color:var(--dim);white-space:nowrap}
+  table.dim td.t{color:var(--dim);font-size:13px}
+  table.dim tr.grp td{background:var(--panel);font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:6px 9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin:0 0 12px}
+  .card h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.55}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-left:auto}
+  .chip.built{color:var(--built);background:var(--built-bg)}
+  .chip.plan{color:var(--plan);background:var(--plan-bg)}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 16px;margin:0 0 14px;font-size:14px;color:var(--dim)}
+  .note b{color:var(--ink);font-weight:600}
+  .note.bad{border-left-color:var(--bad)}
+  .note.ok{border-left-color:var(--built)}
+  ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
+  ul.tight li b{color:var(--ink);font-weight:500}
+  ol.steps{margin:0 0 16px;padding-left:22px} ol.steps li{margin:0 0 9px;color:var(--dim)}
+  ol.steps li b{color:var(--ink);font-weight:500}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin:0 0 16px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.62;color:var(--dim)}
+  figure{margin:0 0 18px}
+  figcaption{font-size:12.5px;color:var(--faint);margin-top:8px;font-family:var(--mono);line-height:1.5}
+  svg{display:block;width:100%;height:auto}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="e4nav" style="max-width:820px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 11 &middot; The Sensor Carrier</span><span class="sp"></span><a href="e4-turns.html">&larr; Prev</a><span class="dis">Next &rarr;</span></nav>
+
+<div class="wrap">
+  <p class="eyebrow">E4 Micromouse &middot; sensor mechanics</p>
+  <h1>The Sensor Carrier</h1>
+  <p class="sub">One printed part holding all four wall-sensor pairs. <b>It exists because the aim was never the problem &mdash; the positions were.</b> This is what the board file said, what the two datasheets forced, and why the emitter and detector ended up at different heights pointing at the same spot.</p>
+
+  <div class="note">
+    <b>This is for the second board, not the one that runs today.</b> The mouse on the bench keeps its hand-aimed sensors and still gets calibrated as it stands &mdash; <a href="sensor-aim.html">Ch.&nbsp;3</a> and <a href="e4-sensor-geometry.html">Ch.&nbsp;4</a> describe that build and remain correct for it. The carrier goes on a spare, already-populated board, so nothing has to be desoldered.
+  </div>
+
+  <h2 class="sec">What the board actually does</h2>
+
+  <p class="lead">Plotted to scale from <code>documents/schematics/E4-blackpill-v2.brd</code>, with the mouse centred in a cell, the side beam does not land where the chapter on aim says it should.</p>
+
+  <figure>
+    <div class="card" style="padding:12px">
+<svg viewBox="0 0 800 340" role="img" aria-label="Plan view of the mouse centred in a cell. The board-routed SL beam leaves at 60 degrees, travels 81 mm and lands on the inner corner of the forward post. The carrier beams leave from further outboard, travel about 65 mm and land on the flat wall face, 7 mm clear of the post.">
+<rect x="0" y="0" width="800" height="340" fill="#11161d"/>
+<rect x="40.0" y="60.0" width="48.0" height="280.0" fill="#2b333f"/>
+<rect x="712.0" y="60.0" width="48.0" height="280.0" fill="#2b333f"/>
+<rect x="40.0" y="36.0" width="48.0" height="48.0" fill="#46515f"/>
+<rect x="712.0" y="36.0" width="48.0" height="48.0" fill="#46515f"/>
+<text x="42.0" y="30.0" fill="#5c6773" font-family="IBM Plex Mono,monospace" font-size="11">post</text>
+<text x="758.0" y="30.0" fill="#5c6773" font-family="IBM Plex Mono,monospace" font-size="11" text-anchor="end">post</text>
+<polyline points="554.0,314.0 553.8,305.9 553.2,297.9 552.1,289.9 550.6,282.0 548.8,274.1 546.5,266.4 543.8,258.8 540.7,251.4 537.2,244.1 533.4,237.0 529.2,230.1 524.6,223.5 519.7,217.1 514.4,211.0 508.9,205.1 503.0,199.6 496.9,194.3 490.5,189.4 483.9,184.8 477.0,180.6 469.9,176.8 462.6,173.3 455.2,170.2 447.6,167.5 439.9,165.2 432.0,163.4 424.1,161.9 416.1,160.8 408.1,160.2 400.0,160.0 391.9,160.2 383.9,160.8 375.9,161.9 368.0,163.4 360.1,165.2 352.4,167.5 344.8,170.2 337.4,173.3 330.1,176.8 323.0,180.6 316.1,184.8 309.5,189.4 303.1,194.3 297.0,199.6 291.1,205.1 285.6,211.0 280.3,217.1 275.4,223.5 270.8,230.1 266.6,237.0 262.8,244.1 259.3,251.4 256.2,258.8 253.5,266.4 251.2,274.1 249.4,282.0 247.9,289.9 246.8,297.9 246.2,305.9 246.0,314.0" fill="#182430" stroke="#2f6f9e" stroke-width="1.6"/>
+<line x1="246.0" y1="314.0" x2="554.0" y2="314.0" stroke="#2f6f9e" stroke-width="1.6"/>
+<line x1="345.1" y1="204.4" x2="63.6" y2="41.9" stroke="#6b7684" stroke-width="2" stroke-dasharray="6 4"/>
+<circle cx="63.6" cy="41.9" r="4" fill="#e06c75"/>
+<line x1="454.3" y1="204.4" x2="736.6" y2="41.4" stroke="#6b7684" stroke-width="2" stroke-dasharray="6 4"/>
+<circle cx="736.6" cy="41.4" r="4" fill="#e06c75"/>
+<text x="14.0" y="272.0" fill="#6b7684" font-family="IBM Plex Mono,monospace" font-size="12">board as routed &#183; 60&#176; &#183; 81 mm &#8594; post corner</text>
+<line x1="296.0" y1="227.0" x2="64.0" y2="112.0" stroke="#e6b34a" stroke-width="2.4"/>
+<circle cx="296.0" cy="227.0" r="3" fill="#e8eef5"/>
+<line x1="315.0" y1="203.0" x2="64.0" y2="112.0" stroke="#5aa8ff" stroke-width="2.4"/>
+<circle cx="315.0" cy="203.0" r="3" fill="#e8eef5"/>
+<line x1="504.0" y1="227.0" x2="736.0" y2="112.0" stroke="#e6b34a" stroke-width="2.4"/>
+<circle cx="504.0" cy="227.0" r="3" fill="#e8eef5"/>
+<line x1="485.0" y1="203.0" x2="736.0" y2="112.0" stroke="#5aa8ff" stroke-width="2.4"/>
+<circle cx="485.0" cy="203.0" r="3" fill="#e8eef5"/>
+<circle cx="64.0" cy="112.0" r="4.5" fill="#54cc72"/>
+<circle cx="736.0" cy="112.0" r="4.5" fill="#54cc72"/>
+<text x="14.0" y="296.0" fill="#e6b34a" font-family="IBM Plex Mono,monospace" font-size="12">carrier &#183; emitter 63.6&#176; 64.7 mm</text>
+<text x="14.0" y="320.0" fill="#5aa8ff" font-family="IBM Plex Mono,monospace" font-size="12">carrier &#183; detector 70.1&#176; 66.7 mm</text>
+</svg>
+    </div>
+    <figcaption><b>Mouse centred in a cell, to scale.</b> Grey dashed: the side beam as the board routes it. Amber and blue: the carrier's emitter and detector. The green dot is the target &mdash; the flat wall face at y&nbsp;=&nbsp;112, chosen to sit 7&nbsp;mm short of the post.</figcaption>
+  </figure>
+
+  <p><code>IR-SIDELEFT</code> sits at <b>(24.77, 88.90)</b> rotated 60&deg;. That is <b>24.8&nbsp;mm inboard of the board edge</b>, which puts it <b>70.3&nbsp;mm from the side wall</b> &mdash; so at 60&deg; the beam has to travel <b>81.1&nbsp;mm</b> to reach it, the far end of the 40&ndash;90&nbsp;mm useful range. It arrives at y&nbsp;=&nbsp;129.5.</p>
+
+  <div class="note bad">
+    <b>The forward post spans y 119&ndash;131.</b> So the beam lands on the post &mdash; 4.5&nbsp;mm past its centre, <b>1.5&nbsp;mm from its trailing edge</b>. That is not a weak reading, it is a reading taken at the seam between this cell's wall and the next one's. Where the next cell has an opening on that side, the beam passes straight through the gap and the channel reports <em>no wall</em> while there is a wall beside her. It reads the wrong cell.
+  </div>
+
+  <h2 class="sec">The angle was not the problem</h2>
+
+  <p>The instinct is to open the bore angle. Solving position and angle together says otherwise: the best azimuth is <b>63.6&deg;</b>, against the 60&deg; the board already has. Almost nothing.</p>
+
+  <p>What does the work is <b>15&nbsp;mm of outboard travel</b>. Moving the optic from x&nbsp;=&nbsp;24.8 to x&nbsp;=&nbsp;12.5 takes the reach from 81.1&nbsp;mm to <b>64.7&nbsp;mm</b> and moves the landing point off the post onto flat wall. Widening the angle alone would move the landing point but leave the shot long; moving the optic fixes both at once.</p>
+
+  <p class="dimc">That is the whole argument for a carrier. A housing bonded over a footprint can only hold the angle the pads give it. A carrier bolted to the board holds the optic wherever the CAD says, and the leads take up the difference &mdash; the solder joints stop being a mount and go back to being an electrical connection.</p>
+
+  <h2 class="sec">Two lead lengths, one pair</h2>
+
+  <p class="lead">The pair cannot move as a unit, because the two parts do not have the same reach:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>part</th><th>package</th><th>barrel</th><th>flange</th><th>body</th><th>leads</th><th>beam</th></tr>
+    <tr><td class="v">TSAL6100</td><td class="n">T-1&frac34;</td><td class="n">&oslash;5.00</td><td class="n">&oslash;5.80</td><td class="n">8.70</td><td class="n">26.5</td><td class="t">&plusmn;10&deg; half-angle</td></tr>
+    <tr><td class="v">OP505A</td><td class="n">T-1</td><td class="n">&oslash;3.05</td><td class="n">&oslash;3.94</td><td class="n">4.83</td><td class="n">12.7 min</td><td class="t">25&deg; viewing angle</td></tr>
+  </table>
+  </div>
+
+  <p><b>The detector has less than half the lead the emitter has.</b> A first attempt at the carrier put both parts of each pair on one rigid block at 12&nbsp;mm; the side detector would have needed <b>31.2&nbsp;mm of lead to reach its pads, and it has 12.7</b>. That part was not buildable, and nothing about the geometry was wrong except the assumption that the pair travels together.</p>
+
+  <div class="note ok">
+    <b>What matters is that both axes meet at the same point on the wall, not that they are parallel.</b> Once the pair is allowed to come apart, each part is placed independently &mdash; as far toward the target as its own leads and the board rim allow &mdash; and then aimed at the shared target. The emitter, with 26.5&nbsp;mm, goes high and well outboard. The detector, with 12.7&nbsp;mm, stays near its own pads, sits lower, and <b>tilts up</b> to meet the emitter's spot.
+  </div>
+
+  <p>The split height is better than a compromise, not worse. Floor bounce needs the emitter to illuminate the floor <em>and</em> the detector to be looking at it. The emitter has <b>10.5&deg;</b> of down-tilt margin before its beam reaches the floor at that range, against 4.9&deg; as the board stands; the detector is aimed <b>5.1&deg; the other way</b>, away from the floor entirely. The two failures have been decoupled.</p>
+
+  <h2 class="sec">The eight placements</h2>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>ch</th><th>part</th><th>optic x, y, z</th><th>azimuth</th><th>elev</th><th>to target</th><th>lead used</th></tr>
+    <tr class="grp"><td colspan="7">Sides &mdash; target is the flat wall face at y = 112, 7 mm short of the post</td></tr>
+    <tr><td class="v">SL</td><td class="n">TSAL6100</td><td class="n">12.50, 83.25, 12.0</td><td class="n">+63.6&deg;</td><td class="n">0.00&deg;</td><td class="n">64.7</td><td class="t">24.4 / 26.5</td></tr>
+    <tr><td class="v">SL</td><td class="n">OP505A</td><td class="n">17.25, 89.25, 6.0</td><td class="n">+70.1&deg;</td><td class="n">+5.14&deg;</td><td class="n">66.7</td><td class="t">10.7 / 12.7</td></tr>
+    <tr><td class="v">SR</td><td class="n">TSAL6100</td><td class="n">64.50, 83.25, 12.0</td><td class="n">&minus;63.6&deg;</td><td class="n">0.00&deg;</td><td class="n">64.7</td><td class="t">24.5 / 26.5</td></tr>
+    <tr><td class="v">SR</td><td class="n">OP505A</td><td class="n">59.75, 89.25, 6.0</td><td class="n">&minus;70.1&deg;</td><td class="n">+5.14&deg;</td><td class="n">66.7</td><td class="t">10.5 / 12.7</td></tr>
+    <tr class="grp"><td colspan="7">Front &mdash; no side wall in the path; these look up the corridor</td></tr>
+    <tr><td class="v">FL</td><td class="n">TSAL6100</td><td class="n">6.75, 73.50, 12.0</td><td class="n">+10.3&deg;</td><td class="n">0.00&deg;</td><td class="n">&mdash;</td><td class="t">16.8 / 26.5</td></tr>
+    <tr><td class="v">FL</td><td class="n">OP505A</td><td class="n">5.50, 73.00, 6.0</td><td class="n">+10.2&deg;</td><td class="n">+0.87&deg;</td><td class="n">&mdash;</td><td class="t">9.3 / 12.7</td></tr>
+    <tr><td class="v">FR</td><td class="n">TSAL6100</td><td class="n">70.00, 74.25, 12.0</td><td class="n">&minus;10.4&deg;</td><td class="n">0.00&deg;</td><td class="n">&mdash;</td><td class="t">16.6 / 26.5</td></tr>
+    <tr><td class="v">FR</td><td class="n">OP505A</td><td class="n">71.25, 73.00, 6.0</td><td class="n">&minus;10.2&deg;</td><td class="n">+0.87&deg;</td><td class="n">&mdash;</td><td class="t">9.3 / 12.7</td></tr>
+  </table>
+  </div>
+
+  <p class="dimc">Board frame, mm, <b>z&nbsp;=&nbsp;0 is the PCB top surface</b>. Round trip on the sides goes from 81.1&nbsp;/&nbsp;81.1&nbsp;mm to 64.7&nbsp;/&nbsp;66.7 &mdash; roughly <b>&times;1.53</b> the return. Every channel keeps <b>2&nbsp;mm of lead in reserve</b>; letting the solver run to the limit bought only &times;1.55, which is not worth having no margin for a bend radius.</p>
+
+  <p>The front pair barely moves. The first solve sent them 10&nbsp;mm forward and inboard, because &ldquo;minimise distance to target&rdquo; with a target 400&nbsp;mm up the corridor just means <em>go as far forward as possible</em> &mdash; a meaningless objective for a sensor with no side wall to reach. Changed to minimise lead used, they sit essentially over their own pads.</p>
+
+  <h2 class="sec">V-troughs, not bores</h2>
+
+  <p class="lead">A 0.4&nbsp;mm nozzle cannot hold a &oslash;5.8&nbsp;mm bore to optical tolerance. It does not need to.</p>
+
+  <p>Each part lies in a <b>90&deg; V-trough</b> opening upward. A V locates a cylinder on its two flanks whatever the print came out at: a bore that prints 0.2&nbsp;mm oversize gives 0.2&nbsp;mm of slop and free tilt, while a V that prints 0.2&nbsp;mm wide seats the same cylinder 0.14&nbsp;mm lower and <em>nothing else changes</em>. Lateral position stays exact, and the aim comes from the trough's direction &mdash; a number in the CAD, not a hole diameter.</p>
+
+  <p>That matters because <a href="e4-sensor-housing.html">Ch.&nbsp;5</a> is a catalogue of what loose bores cost. The emitter in the printed housing is located on its flange over about a millimetre of a 8.6&nbsp;mm lever: <b>&plusmn;4&ndash;6&deg; of free tilt</b>. The detector is worse &mdash; the datasheets settle the open question in that chapter, and the answer is that the &oslash;4.05 bore never touches the &oslash;3.05 body at all. It catches the &oslash;3.94 flange, 0.76&nbsp;mm thick, with 0.11&nbsp;mm of clearance: <b>about &plusmn;8&deg;</b>.</p>
+
+  <p class="dimc">Trough apexes are set from the <b>barrel</b> diameters &mdash; &oslash;5.00 and &oslash;3.05 &mdash; not the flanges. Getting that wrong by the 0.95&nbsp;mm between &oslash;3.05 and a guessed &oslash;4.00 drops the detector axis 0.67&nbsp;mm.</p>
+
+  <h2 class="sec">Mounting, with one hole to spare</h2>
+
+  <p>The board carries five 2&nbsp;mm holes: four at (17,&nbsp;17), (60,&nbsp;17), (60,&nbsp;51) and (17,&nbsp;51), and one at the nose apex, <b>(38.5,&nbsp;98)</b>. The four are spoken for twice over &mdash; they carry the motor mounts <em>and</em> the <code>U$1</code> SPI/I2C daughterboard, which declares holes at the same coordinates. That leaves the apex, and one hole is a pivot.</p>
+
+  <p>Two things in the board file make that solvable without drilling. <b>Nothing is on the bottom layer</b> &mdash; zero mirrored elements &mdash; and the motor mounts are 40&nbsp;&times;&nbsp;15&nbsp;&times;&nbsp;6&nbsp;mm parts living entirely at y&nbsp;&le;&nbsp;51, clear of the nose, which starts at y&nbsp;=&nbsp;61.5. So the carrier can <b>capture the board rim</b> instead of bolting through it:</p>
+
+  <ul class="tight">
+    <li><b>Two C-section feet</b> at 30&deg; and 150&deg; round the nose &mdash; an arm over the board, a web outboard of the rim, a hook underneath. They take lateral load and lift.</li>
+    <li><b>One M2 at the apex</b>, nut under the board. It takes rotation and clamps the whole thing down. 2.5&nbsp;mm clear of the nearest copper on both layers.</li>
+  </ul>
+
+  <div class="note">
+    <b>The 5&nbsp;V trace hugs the rim on the bottom layer, almost the whole way round.</b> It is under the board edge at most angles, and the problem is not electrical &mdash; the foot is plastic and the resist is a tough epoxy. It is that 0.035&nbsp;mm of copper under the resist is a <em>ridge</em>, and a flat foot bearing on a ridge contacts along a line and rocks. For a mount whose only job is holding an angle, that is the one thing it cannot do. Each foot therefore carries a <b>1.6 &times; 0.6&nbsp;mm relief groove</b> across its seating face, so it bridges the trace and seats on bare resist either side.
+  </div>
+
+  <h2 class="sec">Printing it</h2>
+
+  <ul class="tight">
+    <li><b>Orientation:</b> baseplate-underside down. The flat face at z&nbsp;=&nbsp;2.0 in the model is the bed contact &mdash; that 2&nbsp;mm is the standoff over the SMDs, not material.</li>
+    <li><b>Supports:</b> under the two rim feet only, which hang 5.8&nbsp;mm below that plane. Genuine overhang elsewhere is <b>0.0&nbsp;mm&sup2;</b>.</li>
+    <li><b>Perimeters:</b> at least four, with solid infill through the sensor blocks. Black PLA blocks 940&nbsp;nm well &mdash; unlike black SLA resin, whose pigment loading is capped by the need to pass 405&nbsp;nm to cure &mdash; but FDM has its own leak path: light piping along layer boundaries.</li>
+    <li><b>Fit:</b> 11&nbsp;g, 77 &times; 51 &times; 19&nbsp;mm, comfortably inside an Adventurer&nbsp;3. Minimum clearance over any component is <b>0.90&nbsp;mm</b>, at Q1/Q3.</li>
+  </ul>
+
+  <h2 class="sec">Fitting it</h2>
+
+  <ol class="steps">
+    <li><b>Test-fit a part in each trough.</b> It should seat with light thumb pressure. If a trough is tight, the flanks are where to scrape, not the apex.</li>
+    <li><b>Bolt the carrier down</b> &mdash; apex M2, nut under the board, feet hooked over the rim.</li>
+    <li><b>Drop each part in, dome forward.</b> Position and aim are now set and cannot be adjusted, which is the point.</li>
+    <li><b>Form and trim the leads to the pads, then solder.</b> The joints carry no aim, so they can be formed to suit rather than to a datum.</li>
+    <li><b>A dab of epoxy in the well behind each rear flange.</b> Each trough widens by 2&nbsp;mm for its last 3&nbsp;mm so the fillet keys to the block instead of being squeezed into the V. Rear only &mdash; the V sets the aim and the epoxy only retains, so IR-transparent adhesive is not a problem here the way it would be near the optics.</li>
+  </ol>
+
+  <h2 class="sec">What this does not settle</h2>
+
+  <ul class="tight">
+    <li><b>Nothing here has been printed or measured.</b> Every number is from the board file and the two datasheets. The &times;1.53 is geometry, not a reading.</li>
+    <li><b>The return model is approximate.</b> A wall is an extended surface rather than a point, so the round trip is nearer 1/d&sup2; than 1/d&#8308;; the figure quoted is the conservative one.</li>
+    <li><b>The target is one position.</b> y&nbsp;=&nbsp;112 is right with the mouse centred in a cell. She reads walls at <code>SENSING_POSITION</code>, well forward of that, and the landing point moves with her &mdash; the 7&nbsp;mm of post clearance is a margin at one pose, not a guarantee across the cell.</li>
+    <li><b>The thresholds will need re-measuring.</b> Shorter, cleaner paths mean higher present-state readings, so the three captures in <a href="sensor-aim.html">Ch.&nbsp;3</a> have to be redone for this board &mdash; on a maze floor section, not a bench top.</li>
+  </ul>
+
+  <footer>
+    <span>E4 &middot; TSAL6100 + OP505A &middot; one-piece carrier</span>
+    <span>companion to Ch 3 Sensor Aim &middot; Ch 4 Sensor Geometry &middot; Ch 5 Sensor Housing</span>
+  </footer>
+</div>
+</body>
+</html>
