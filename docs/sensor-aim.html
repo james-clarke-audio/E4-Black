@@ -225,30 +225,44 @@
     </li>
   </ul>
 
-  <h2>Side view — keep it on the 12 mm band</h2>
+  <h2>Side view &mdash; a 50 mm band, and a floor 7 mm below you</h2>
   <figure>
     <div class="card">
-      <svg viewBox="0 0 560 250" role="img" aria-label="Side view. The maze wall is only 12mm tall. Aim the beam level or slightly down so it lands on that short band. Too high skims over; too low bounces off the floor.">
-        <line x1="40" y1="196" x2="520" y2="196" stroke="var(--wall)" stroke-width="2.5"/>
-        <text x="46" y="214" fill="var(--muted)" font-size="11.5" font-family="'IBM Plex Mono',monospace">floor</text>
-        <rect x="452" y="150" width="12" height="46" fill="var(--wall)"/>
-        <line x1="486" y1="150" x2="486" y2="196" stroke="var(--muted)" stroke-width="1"/>
-        <line x1="481" y1="150" x2="491" y2="150" stroke="var(--muted)" stroke-width="1"/>
-        <line x1="481" y1="196" x2="491" y2="196" stroke="var(--muted)" stroke-width="1"/>
-        <text x="498" y="176" fill="var(--muted)" font-size="12" font-family="'IBM Plex Mono',monospace">12 mm</text>
-        <rect x="52" y="150" width="30" height="20" rx="3" fill="var(--mouse)" stroke="var(--wall)" stroke-width="1.6"/>
-        <text x="67" y="142" fill="var(--ink)" font-size="11.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">sensor</text>
-        <line x1="82" y1="162" x2="452" y2="170" stroke="var(--beam)" stroke-width="2.6"/>
-        <circle cx="452" cy="170" r="5" fill="var(--target)"/>
-        <text x="250" y="156" fill="var(--ink)" font-size="12.5" font-family="'IBM Plex Sans',sans-serif">level → lands on the band</text>
-        <line x1="82" y1="160" x2="520" y2="120" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
-        <text x="300" y="120" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">too high → skims over</text>
-        <line x1="82" y1="166" x2="300" y2="196" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
-        <text x="150" y="192" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">too low → floor bounce</text>
+      <svg viewBox="0 0 560 250" role="img" aria-label="Side view, drawn to scale. The maze wall is 50 mm tall and the sensors sit about 7 mm above the floor, so a level beam lands near the bottom of the wall with 43 mm of wall above it and only 7 mm of clearance below. Aiming level or slightly up stays on the wall; aiming down finds the floor within a cell or two and reads as a phantom wall.">
+        <line x1="40" y1="206" x2="520" y2="206" stroke="var(--wall)" stroke-width="2.5"/>
+        <text x="44" y="222" fill="var(--muted)" font-size="11.5" font-family="'IBM Plex Mono',monospace">floor</text>
+
+        <rect x="452" y="126" width="14" height="80" fill="var(--wall)"/>
+        <line x1="486" y1="126" x2="486" y2="206" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="481" y1="126" x2="491" y2="126" stroke="var(--muted)" stroke-width="1"/>
+        <line x1="481" y1="206" x2="491" y2="206" stroke="var(--muted)" stroke-width="1"/>
+        <text x="496" y="170" fill="var(--muted)" font-size="12" font-family="'IBM Plex Mono',monospace">50 mm</text>
+
+        <rect x="52" y="188" width="30" height="14" rx="3" fill="var(--mouse)" stroke="var(--wall)" stroke-width="1.6"/>
+        <text x="80" y="180" fill="var(--ink)" font-size="11.5" font-family="'IBM Plex Mono',monospace" text-anchor="middle">sensor &middot; 7 mm up</text>
+
+        <line x1="82" y1="193" x2="452" y2="140" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="250" y="150" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">up &rarr; 43 mm of wall above you</text>
+
+        <line x1="82" y1="195" x2="452" y2="195" stroke="var(--beam)" stroke-width="2.6"/>
+        <circle cx="452" cy="195" r="5" fill="var(--target)"/>
+        <text x="236" y="188" fill="var(--ink)" font-size="12.5" font-family="'IBM Plex Sans',sans-serif">level &rarr; lands on the wall</text>
+
+        <line x1="82" y1="197" x2="420" y2="206" stroke="var(--muted)" stroke-width="1.6" stroke-dasharray="5 5"/>
+        <text x="196" y="222" fill="var(--muted)" font-size="12" font-family="'IBM Plex Sans',sans-serif">down &rarr; floor bounce</text>
       </svg>
     </div>
-    <figcaption><b>Vertical aim.</b> Same for all four. The wall is only 12&nbsp;mm tall, so this is the fussy axis — keep the beam level or a hair down onto the band. Over the top sees nothing; into the floor gives a strong <em>false</em> reading.</figcaption>
+    <figcaption><b>Vertical aim, to scale.</b> The wall is <b>50&nbsp;mm</b> tall and the sensors sit about <b>7&nbsp;mm</b> above the floor, so a level beam lands near the <em>bottom</em> of the wall with roughly six times more room above it than below. The band is not the fussy part — the clearance under it is.</figcaption>
   </figure>
+
+  <div class="callout">
+    <b>Correction — 14 Sep 2026.</b> This section previously called the wall a &ldquo;12&nbsp;mm band&rdquo; and told you to aim <em>level or a hair down</em>. Both were wrong: 12&nbsp;mm is the wall&rsquo;s <b>thickness</b>, not its height, and taking it for the height inverted the advice.
+    <br><br>
+    Run the numbers from 7&nbsp;mm up. To put the beam on the floor you need only <span style="font-family:var(--mono)">atan(7/d)</span> — about <b>2&deg; at one cell ahead and barely 1&deg; at two</b>, which is well inside the scatter of a hand-aimed mount. To clear the top of the wall instead you need <span style="font-family:var(--mono)">atan(43/d)</span>: <b>13&deg; at one cell, 7&deg; at two</b>. The errors are nowhere near symmetric.
+    <br><br>
+    The two failures aren&rsquo;t equal either. Over the top, an absent wall reads as absent and a present wall is simply missed. Into the floor, <em>every</em> cell returns something, the open-floor reading climbs to meet the wall reading, and the margin the threshold calibration depends on collapses — which is the same failure a white or marble bench top produces, from the other direction. <b>Aim level, and bias up rather than down.</b>
+  </div>
+
 
   <h2>Why this arrangement works</h2>
   <ul class="notes">
