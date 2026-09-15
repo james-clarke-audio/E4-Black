@@ -213,35 +213,76 @@
 
   <p class="dimc">Board frame, mm. <b>The detector lead is the binding constraint everywhere</b> &mdash; SL uses 12.2&nbsp;mm of a 12.70&nbsp;mm <em>minimum</em>. The solver also has to keep every pad at least 0.4&nbsp;mm <em>behind</em> the housing's rear face, because a housing that seats on its own pads leaves nowhere for the lead to go. FL and FR both had to move forward to satisfy that.</p>
 
-  <h2 class="sec">Holding it down</h2>
+  <h2 class="sec">Holding it down &mdash; and getting it wrong twice</h2>
 
-  <p>The board carries five 2&nbsp;mm holes, and four of them are spoken for twice over &mdash; the motor mounts <em>and</em> the <code>U$1</code> daughterboard both declare holes at (17,&nbsp;17), (60,&nbsp;17), (60,&nbsp;51) and (17,&nbsp;51). That leaves the nose apex at <b>(38.5,&nbsp;98)</b>, and one hole is a pivot.</p>
+  <p>The board carries five 2&nbsp;mm holes. Four of them are spoken for twice over &mdash; the motor mounts <em>and</em> the <code>U$1</code> daughterboard both declare holes at (17,&nbsp;17), (60,&nbsp;17), (60,&nbsp;51) and (17,&nbsp;51) &mdash; which left only the nose apex at <b>(38.5,&nbsp;98)</b>, and one hole is a pivot.</p>
 
-  <p>Nothing is on the bottom layer, so the plate can capture the board edge instead of bolting through it. The curved nose rim is fully occupied by the housings &mdash; every foot angle there either clipped a beam or ran through a housing &mdash; so the two feet hook the <b>straight side edges at y&nbsp;=&nbsp;58</b>. With the apex bolt that is a 77&nbsp;&times;&nbsp;40&nbsp;mm triangle, better conditioned than anything the rim offered.</p>
+  <p>The first printed version therefore gripped the board's <em>side edges</em> at y&nbsp;=&nbsp;58, on the reasoning that if the holes were unavailable the rim was the next best anchor. That version was printed and it failed, for a reason no amount of checking the plate against itself would ever have found.</p>
+
+  <div class="bad">
+    <b>The grippers were in the wheel wells.</b> The board is not a rectangle with a semicircular nose. Between y&nbsp;=&nbsp;14.5 and y&nbsp;=&nbsp;54.5 it steps <em>in</em> to x&nbsp;=&nbsp;11.46 and 65.54 to clear the wheels, and only flares back out above 54.5. The grippers at x&nbsp;=&nbsp;1.0 and 76.0 sat about 8&nbsp;mm inside those wells and fouled the tyres. The plate was checked against the real outline; the <em>feet</em> were placed against a remembered one.
+  </div>
+
+  <p class="dimc">The board slot was also cut 1.8&nbsp;mm for a 1.6&nbsp;mm PCB and closed up in the print. Vertical pockets come out near-nominal in FDM; a <em>horizontal</em> slot loses 0.2&ndash;0.4&nbsp;mm to squish and sag and wants +0.6. Moot now &mdash; there is no slot in the current part &mdash; but the asymmetry is worth carrying forward.</p>
+
+  <h2 class="sec">The foot is the motor-mount rail</h2>
+
+  <p>The way out was in the silkscreen the whole time. Each motor mount is a <b>40 &times; 6 &times; 15&nbsp;mm</b> block standing on the board &mdash; that is the plain white outline on layer 21, the rail at x&nbsp;14&ndash;20 running y&nbsp;14.5&ndash;54.5, mirrored at x&nbsp;57&ndash;63 &mdash; and it stands on <b>one M2 nut per stud</b>, purely as a spacer.</p>
+
+  <p>So the plate's foot does not need to find somewhere new to sit. It <b>replaces that nut</b>: a 6 &times; 40 &times; 1.6&nbsp;mm tongue lying inside the white outline with both studs passing through it, and the mount slots down on top exactly as before. A nut is about 4&nbsp;mm across; the foot bears over 240&nbsp;mm&sup2;. Whatever the mount's base profile turns out to be in detail, more of it is supported than was before.</p>
+
+  <p>That makes five fixings &mdash; four studs and the apex &mdash; where the first version had two hooks and a pivot, and nothing anywhere near a wheel.</p>
 
   <div class="note">
-    <b>The 5&nbsp;V trace hugs the rim on the bottom layer.</b> The problem is not electrical &mdash; the foot is plastic and the resist is a tough epoxy. It is that 0.035&nbsp;mm of copper under the resist is a <em>ridge</em>, and a flat foot bearing on a ridge contacts along a line and rocks. Each foot carries a <b>1.6 &times; 0.6&nbsp;mm relief groove</b> so it bridges the trace and seats on bare resist either side.
+    <b>1.6&nbsp;mm, not 2.</b> The obvious instinct is to make a printed foot thicker than the nut it replaces. It is the wrong instinct, because <em>the wheels are the datum</em>. The axle height above the floor is fixed by the wheel; the mount is fixed to the axle. Packing the mount up off the board does not raise the mount &mdash; it lowers the <em>board</em>, taking the sensors and the ground clearance down with it. A 2&nbsp;mm foot would have dropped the optics from 7.0 to 6.6&nbsp;mm. At exactly one nut thickness, nothing on the mouse moves.
   </div>
+
+  <p>Between the foot and the nose the plate has to get from x&nbsp;&asymp;&nbsp;17 out to the board edge and past the Black Pill, which occupies x&nbsp;12.7&ndash;64.8 from y&nbsp;=&nbsp;57.2 forward. It stays at foot height for the mount's full length, steps up to the 6.4&nbsp;mm plate at y&nbsp;=&nbsp;54.8 &mdash; 0.3&nbsp;mm past the mount's end &mdash; and threads the corridor between the board edge and the Black Pill. Forward of y&nbsp;=&nbsp;57 it hangs 0.8&nbsp;mm past the board edge, which is free air there, and that is what widens the pinch from 1.8 to <b>3.0&nbsp;mm</b>.</p>
+
+  <p>The apex boss now runs the full way to the board rather than stopping at the plate underside. On the gripper version the hooks set the standoff and the apex bolt was only a locator; with the hooks gone it was left spanning 2&nbsp;mm of air, and tightening it would have bowed the nose down.</p>
 
   <h2 class="sec">Printing and fitting</h2>
 
   <ul class="tight">
-    <li><b>Orientation:</b> plate-underside down. The flat face at z&nbsp;=&nbsp;2.0 is the bed contact &mdash; that 2&nbsp;mm is standoff over the SMDs, not material.</li>
-    <li><b>Supports:</b> under the two side feet only. Genuine overhang elsewhere is <b>0.0&nbsp;mm&sup2;</b>.</li>
+    <li><b>Orientation:</b> feet down, flat on the bed. The plate body's 2&nbsp;mm underside is standoff over the SMDs, not material.</li>
+    <li><b>Supports:</b> none. Genuine overhang is <b>0.0&nbsp;mm&sup2;</b>.</li>
     <li><b>Perimeters:</b> at least four. Black PLA blocks 940&nbsp;nm well &mdash; unlike black SLA resin, whose pigment loading is capped by the need to pass 405&nbsp;nm to cure &mdash; but FDM has its own leak path: light piping along layer boundaries.</li>
   </ul>
 
   <ol class="steps">
-    <li><b>Bolt the plate down</b> &mdash; apex M2, nut under the board, feet hooked over the side edges.</li>
+    <li><b>Take the four nuts out</b> from under the motor mounts and lift the mounts off the studs.</li>
+    <li><b>Lay the plate on,</b> feet over the studs, apex M2 at (38.5,&nbsp;98) with a nut under the board.</li>
+    <li><b>Put the mounts back</b> straight onto the feet, then the two nuts and the daughterboard above each as before.</li>
     <li><b>Drop each housing through its pocket</b> until it seats on the PCB. The pockets are U-channels: both flanks run the full 8&nbsp;mm, which is what fixes the azimuth; front and rear are open for the beam and the leads.</li>
     <li><b>Check the azimuth, then epoxy in the pocket.</b></li>
     <li><b>Fit the parts to the housings and form the leads</b> as on the current mouse. Bend right at the rear face and trim only after forming &mdash; the detector has almost no lead to spare.</li>
   </ol>
 
+  <div class="note">
+    <b>Do not lean on the driver.</b> The foot is a printed part taking the mount's clamp load where a steel nut used to. M2 at sensible torque is fine; if it crushes, the axles dip and the sensor height goes with them.
+  </div>
+
+  <h2 class="sec">What the current part verifies at</h2>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>check</th><th>result</th></tr>
+    <tr><td class="t">Beam cones &mdash; 33 rays per optic, against the plate <b>and all four placed housings</b></td><td class="n ok">0 of 264 blocked</td></tr>
+    <tr><td class="t">Lead paths &mdash; every pad reachable from the board up to its lead height</td><td class="n ok">0 of 16 blocked</td></tr>
+    <tr><td class="t">Vertices inside a wheel cutout</td><td class="n ok">0</td></tr>
+    <tr><td class="t">Material above the foot inside the mount rail (y&nbsp;&le;&nbsp;54.8)</td><td class="n ok">none</td></tr>
+    <tr><td class="t">Clearance to the Black Pill</td><td class="n ok">0.6 mm</td></tr>
+    <tr><td class="t">Narrowest arm section</td><td class="n">3.0 mm wide &times; 6.4 tall</td></tr>
+    <tr><td class="t">Minimum cross-section, foot to nose</td><td class="n">13 mm&sup2;</td></tr>
+    <tr><td class="t">Mesh</td><td class="n ok">watertight, 1 body, ~7 g</td></tr>
+    <tr><td class="t">Genuine overhang</td><td class="n ok">0.0 mm&sup2;</td></tr>
+  </table>
+  </div>
+
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">
-    <li><b>Nothing has been printed.</b> Every number is from the board file, the two datasheets and the housing STL.</li>
+    <li><b>The current part has not been printed.</b> The gripper version was, and four separate defects came out of it &mdash; every one spotted by eye in the slicer, none by the verification above. Treat the table as necessary and nowhere near sufficient: it proves the plate does not block itself, not that the plate fits the mouse.</li>
     <li><b>The free tilt inside the housing bores is unchanged.</b> The plate fixes the housing's angle, not the part's angle within it &mdash; and by <a href="e4-sensor-housing.html">Ch.&nbsp;5</a> that is still &plusmn;4&ndash;6&deg; for the emitter and about &plusmn;8&deg; for the detector. This is now the dominant error in the assembly.</li>
     <li><b>The return model is approximate.</b> A wall is an extended surface rather than a point, so the round trip is nearer 1/d&sup2; than 1/d&#8308;; the figure quoted is the conservative one.</li>
     <li><b>The target is one position.</b> y&nbsp;=&nbsp;112.9 is right with the mouse centred in a cell. She reads walls at <code>SENSING_POSITION</code>, well forward of that, and the landing point moves with her.</li>
