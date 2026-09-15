@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>E4 The Sensor Carrier</title>
-<meta name="description" content="One printed part carrying all four E4 wall-sensor pairs — why the optics moved rather than the angles, the lead-length constraint that splits emitter from detector, and V-troughs instead of bores.">
+<meta name="description" content="One printed plate carrying all four E4 sensor housings — why the optics moved rather than the angles, the lead-length constraint that sets every placement, and the four defects caught in a slicer before printing.">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
@@ -78,10 +78,10 @@
 <div class="wrap">
   <p class="eyebrow">E4 Micromouse &middot; sensor mechanics</p>
   <h1>The Sensor Carrier</h1>
-  <p class="sub">One printed part holding all four wall-sensor pairs. <b>It exists because the aim was never the problem &mdash; the positions were.</b> This is what the board file said, what the two datasheets forced, and why the emitter and detector ended up at different heights pointing at the same spot.</p>
+  <p class="sub">One printed plate that holds all four of the existing sensor housings at computed positions and angles. <b>It exists because the aim was never the problem &mdash; the positions were.</b> This is what the board file said, what the two datasheets forced, and the four things that had to be caught in a slicer before anything was printed.</p>
 
   <div class="note">
-    <b>This is for the second board, not the one that runs today.</b> The mouse on the bench keeps its hand-aimed sensors and still gets calibrated as it stands &mdash; <a href="sensor-aim.html">Ch.&nbsp;3</a> and <a href="e4-sensor-geometry.html">Ch.&nbsp;4</a> describe that build and remain correct for it. The carrier goes on a spare, already-populated board, so nothing has to be desoldered.
+    <b>This is for the second board, not the one that runs today.</b> The mouse on the bench keeps its hand-aimed sensors and still gets calibrated as it stands &mdash; <a href="sensor-aim.html">Ch.&nbsp;3</a> and <a href="e4-sensor-geometry.html">Ch.&nbsp;4</a> describe that build and remain correct for it. The plate goes on a spare, already-populated board, so nothing has to be desoldered.
   </div>
 
   <h2 class="sec">What the board actually does</h2>
@@ -90,11 +90,11 @@
 
   <figure>
     <div class="card" style="padding:12px">
-<svg viewBox="0 0 800 340" role="img" aria-label="Plan view of the mouse centred in a cell. The board-routed SL beam leaves at 60 degrees, travels 81 mm and lands on the inner corner of the forward post. The carrier beams leave from further outboard, travel about 65 mm and land on the flat wall face, 7 mm clear of the post.">
+<svg viewBox="0 0 800 340" role="img" aria-label="Plan view, mouse centred in a cell. The board-routed side beam leaves at 60 degrees, runs 81 mm and lands on the forward post. The socket plate puts the housing further outboard at 70 degrees, so the beam runs 63 mm and lands on the flat wall face, 6 mm clear of the post.">
 <rect x="0" y="0" width="800" height="340" fill="#11161d"/>
 <rect x="40.0" y="60.0" width="48.0" height="280.0" fill="#2b333f"/>
-<rect x="712.0" y="60.0" width="48.0" height="280.0" fill="#2b333f"/>
 <rect x="40.0" y="36.0" width="48.0" height="48.0" fill="#46515f"/>
+<rect x="712.0" y="60.0" width="48.0" height="280.0" fill="#2b333f"/>
 <rect x="712.0" y="36.0" width="48.0" height="48.0" fill="#46515f"/>
 <text x="42.0" y="30.0" fill="#5c6773" font-family="IBM Plex Mono,monospace" font-size="11">post</text>
 <text x="758.0" y="30.0" fill="#5c6773" font-family="IBM Plex Mono,monospace" font-size="11" text-anchor="end">post</text>
@@ -104,22 +104,18 @@
 <circle cx="63.6" cy="41.9" r="4" fill="#e06c75"/>
 <line x1="454.3" y1="204.4" x2="736.6" y2="41.4" stroke="#6b7684" stroke-width="2" stroke-dasharray="6 4"/>
 <circle cx="736.6" cy="41.4" r="4" fill="#e06c75"/>
-<text x="14.0" y="272.0" fill="#6b7684" font-family="IBM Plex Mono,monospace" font-size="12">board as routed &#183; 60&#176; &#183; 81 mm &#8594; post corner</text>
-<line x1="296.0" y1="227.0" x2="64.0" y2="112.0" stroke="#e6b34a" stroke-width="2.4"/>
-<circle cx="296.0" cy="227.0" r="3" fill="#e8eef5"/>
-<line x1="315.0" y1="203.0" x2="64.0" y2="112.0" stroke="#5aa8ff" stroke-width="2.4"/>
-<circle cx="315.0" cy="203.0" r="3" fill="#e8eef5"/>
-<line x1="504.0" y1="227.0" x2="736.0" y2="112.0" stroke="#e6b34a" stroke-width="2.4"/>
-<circle cx="504.0" cy="227.0" r="3" fill="#e8eef5"/>
-<line x1="485.0" y1="203.0" x2="736.0" y2="112.0" stroke="#5aa8ff" stroke-width="2.4"/>
-<circle cx="485.0" cy="203.0" r="3" fill="#e8eef5"/>
-<circle cx="64.0" cy="112.0" r="4.5" fill="#54cc72"/>
-<circle cx="736.0" cy="112.0" r="4.5" fill="#54cc72"/>
-<text x="14.0" y="296.0" fill="#e6b34a" font-family="IBM Plex Mono,monospace" font-size="12">carrier &#183; emitter 63.6&#176; 64.7 mm</text>
-<text x="14.0" y="320.0" fill="#5aa8ff" font-family="IBM Plex Mono,monospace" font-size="12">carrier &#183; detector 70.1&#176; 66.7 mm</text>
+<line x1="300.0" y1="194.4" x2="63.2" y2="108.2" stroke="#e6b34a" stroke-width="2.4"/>
+<circle cx="300.0" cy="194.4" r="3" fill="#e8eef5"/>
+<circle cx="63.2" cy="108.2" r="4.5" fill="#54cc72"/>
+<line x1="496.8" y1="191.1" x2="736.5" y2="101.4" stroke="#e6b34a" stroke-width="2.4"/>
+<circle cx="496.8" cy="191.1" r="3" fill="#e8eef5"/>
+<circle cx="736.5" cy="101.4" r="4.5" fill="#54cc72"/>
+<text x="14.0" y="272.0" fill="#6b7684" font-family="IBM Plex Mono,monospace" font-size="12">board as routed  60&#176;  81 mm &#8594; post</text>
+<text x="14.0" y="296.0" fill="#e6b34a" font-family="IBM Plex Mono,monospace" font-size="12">socket plate  70&#176;  63 mm &#8594; flat wall</text>
+<text x="14.0" y="320.0" fill="#93a0b1" font-family="IBM Plex Mono,monospace" font-size="12">emitter and detector share this line, 5.7 mm apart in height</text>
 </svg>
     </div>
-    <figcaption><b>Mouse centred in a cell, to scale.</b> Grey dashed: the side beam as the board routes it. Amber and blue: the carrier's emitter and detector. The green dot is the target &mdash; the flat wall face at y&nbsp;=&nbsp;112, chosen to sit 7&nbsp;mm short of the post.</figcaption>
+    <figcaption><b>Mouse centred in a cell, to scale.</b> Grey dashed: the side beam as the board routes it, landing on the post. Amber: the same channel once the housing is moved outboard by the plate. The two optics share one line in plan &mdash; they sit one above the other in the housing, 5.7&nbsp;mm apart in height.</figcaption>
   </figure>
 
   <p><code>IR-SIDELEFT</code> sits at <b>(24.77, 88.90)</b> rotated 60&deg;. That is <b>24.8&nbsp;mm inboard of the board edge</b>, which puts it <b>70.3&nbsp;mm from the side wall</b> &mdash; so at 60&deg; the beam has to travel <b>81.1&nbsp;mm</b> to reach it, the far end of the 40&ndash;90&nbsp;mm useful range. It arrives at y&nbsp;=&nbsp;129.5.</p>
@@ -130,109 +126,130 @@
 
   <h2 class="sec">The angle was not the problem</h2>
 
-  <p>The instinct is to open the bore angle. Solving position and angle together says otherwise: the best azimuth is <b>63.6&deg;</b>, against the 60&deg; the board already has. Almost nothing.</p>
-
-  <p>What does the work is <b>15&nbsp;mm of outboard travel</b>. Moving the optic from x&nbsp;=&nbsp;24.8 to x&nbsp;=&nbsp;12.5 takes the reach from 81.1&nbsp;mm to <b>64.7&nbsp;mm</b> and moves the landing point off the post onto flat wall. Widening the angle alone would move the landing point but leave the shot long; moving the optic fixes both at once.</p>
-
-  <p class="dimc">That is the whole argument for a carrier. A housing bonded over a footprint can only hold the angle the pads give it. A carrier bolted to the board holds the optic wherever the CAD says, and the leads take up the difference &mdash; the solder joints stop being a mount and go back to being an electrical connection.</p>
-
-  <h2 class="sec">Two lead lengths, one pair</h2>
-
-  <p class="lead">The pair cannot move as a unit, because the two parts do not have the same reach:</p>
+  <p>The instinct is to open the bore angle. Solving position and angle together says otherwise. Even at the board's existing 60&deg;, moving the optic outboard still lands on the post; 65&deg; catches its edge. <b>70&deg;</b> is the shallowest angle that reaches flat wall at all:</p>
 
   <div class="tblwrap">
   <table class="dim">
-    <tr><th>part</th><th>package</th><th>barrel</th><th>flange</th><th>body</th><th>leads</th><th>beam</th></tr>
-    <tr><td class="v">TSAL6100</td><td class="n">T-1&frac34;</td><td class="n">&oslash;5.00</td><td class="n">&oslash;5.80</td><td class="n">8.70</td><td class="n">26.5</td><td class="t">&plusmn;10&deg; half-angle</td></tr>
-    <tr><td class="v">OP505A</td><td class="n">T-1</td><td class="n">&oslash;3.05</td><td class="n">&oslash;3.94</td><td class="n">4.83</td><td class="n">12.7 min</td><td class="t">25&deg; viewing angle</td></tr>
+    <tr><th>azimuth</th><th>reach</th><th>lands at</th><th>ahead of the nose</th><th>return vs 81 mm</th></tr>
+    <tr><td class="v">60&deg;</td><td class="n">70.0</td><td class="n">128.2</td><td class="n">28.2</td><td class="t">&times;1.34 &mdash; still on the post</td></tr>
+    <tr><td class="v">65&deg;</td><td class="n">66.5</td><td class="n">120.7</td><td class="n">20.7</td><td class="t">&times;1.49 &mdash; on the post edge</td></tr>
+    <tr class="live"><td class="v">70&deg;</td><td class="n">62.8</td><td class="n">112.9</td><td class="n">12.9</td><td class="t"><b>&times;1.67 &mdash; 6 mm clear of the post</b></td></tr>
+    <tr><td class="v">75&deg;</td><td class="n">61.9</td><td class="n">107.3</td><td class="n">7.3</td><td class="t">&times;1.72</td></tr>
+    <tr><td class="v">80&deg;</td><td class="n">60.6</td><td class="n">101.1</td><td class="n">1.1</td><td class="t">&times;1.80 &mdash; almost straight sideways</td></tr>
   </table>
   </div>
 
-  <p><b>The detector has less than half the lead the emitter has.</b> A first attempt at the carrier put both parts of each pair on one rigid block at 12&nbsp;mm; the side detector would have needed <b>31.2&nbsp;mm of lead to reach its pads, and it has 12.7</b>. That part was not buildable, and nothing about the geometry was wrong except the assumption that the pair travels together.</p>
+  <p class="dimc">More oblique buys signal and spends look-ahead. Left at 70&deg; because that is the first row that clears the post, keeping as much forward view as the geometry allows. It is one line in the generator if it wants to move.</p>
+
+  <p>What does the work is <b>moving the optic outboard</b>, not opening the angle. That is the whole argument for a plate: a housing bonded straight to the board can only sit where its pads are, while a plate holds it wherever the CAD says and lets the leads take up the difference.</p>
+
+  <h2 class="sec">Why the existing housing, and not a new carrier</h2>
+
+  <p class="lead">The first four attempts replaced the housing entirely, holding each part in a printed <b>90&deg; V-trough</b> &mdash; the reasoning being that a 0.4&nbsp;mm nozzle cannot hold a &oslash;5.8&nbsp;mm bore to optical tolerance, while a V locates a cylinder whatever the print came out at.</p>
+
+  <p>That reasoning is still sound. The design was not. It kept failing on things a solid-model check does not look at, and every one of them was caught by eye in a slicer preview:</p>
+
+  <ul class="tight">
+    <li><b>Every optic was blind.</b> The trough cut started at the dome tip but the block face stood 0.5&nbsp;mm in front of it, so all eight beams fired into a wall of PLA. Visible in the slicer as a thin flange across each part.</li>
+    <li><b>No lead holes.</b> All sixteen pads were covered by the carrier. Nothing could reach the board.</li>
+    <li><b>The beam cone, not the axis.</b> After both of those were fixed, the axis was clear for all eight &mdash; but 14 of 32 cone rays on FL and 6 on FR were still blocked. The tests had been sampling the centre line only.</li>
+    <li><b>The plate sat through the Black Pill.</b> Its real library footprint is <b>20.32 &times; 52.07, offset and rotated 90&deg;</b>; the clearance check had been using a guessed, centred box. Every version up to that point intersected it.</li>
+  </ul>
+
+  <div class="note bad">
+    <b>The common thread is checking a part as a solid instead of as an optical mount.</b> Watertight, one body, overhang angles, wall thickness, volume &mdash; all green, on a part that could not see, could not be wired, and occupied the same space as the MCU. The verification that matters here traces <em>rays</em> and <em>lead paths</em> against the plate <b>and</b> the parts standing in it, and that is what the generator now does on every build.
+  </div>
+
+  <p>With the housings already printed and proven, reusing them removes the whole class of problem: the optics sit where they already sit relative to each other, the leads reach the pads the way they already do on the bench mouse, and the plate has one job left &mdash; position and azimuth.</p>
+
+  <h2 class="sec">What the housing gives you</h2>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>feature</th><th>value</th><th>note</th></tr>
+    <tr><td>Footprint</td><td class="v">6.893 &times; 8.025</td><td class="t">across &times; along the beam. Seats on the PCB.</td></tr>
+    <tr><td>Height</td><td class="v">16.941</td><td class="t">Passes through the plate; the plate grips the middle.</td></tr>
+    <tr><td>Emitter optic</td><td class="v">12.743</td><td class="t">above the seat, at the front face</td></tr>
+    <tr><td>Detector optic</td><td class="v">7.021</td><td class="t">above the seat, 2.225 behind the front face</td></tr>
+    <tr><td>Separation</td><td class="v">5.722</td><td class="t"><b>emitter above detector</b>, coaxial in plan</td></tr>
+    <tr><td>Leads</td><td class="v">rear face</td><td class="t">both pairs exit 8.025 behind the front</td></tr>
+  </table>
+  </div>
+
+  <p>That vertical stack is what makes the lead problem tractable. The TSAL6100 has <b>26.5&nbsp;mm</b> of lead and the OP505A only <b>12.70&nbsp;mm</b>; the detector sits 5.7&nbsp;mm lower precisely where the shorter lead needs it to be.</p>
+
+  <h2 class="sec">Emitter over the plate, detector along a trench</h2>
+
+  <p class="lead">The plate is <b>6.4&nbsp;mm</b> thick, from z&nbsp;=&nbsp;2.0 to 8.4. The two optics are on opposite sides of that top face, and they need different relief.</p>
+
+  <ul class="tight">
+    <li><b>The emitter, at 12.743, looks out over the plate.</b> Its cone (half-angle + 5&deg; of margin) is subtracted for clearance and that is all it needs.</li>
+    <li><b>The detector, at 7.021, is below the plate top.</b> Give it a cone and it peers down a conical tunnel with a restricted field of view &mdash; which is exactly what a first attempt did, leaving a visible cone-shaped hole in the plate in front of each detector. It gets an <b>open trench</b> instead: everything above z&nbsp;=&nbsp;4.0 in front of it is removed, so it looks out over open sky.</li>
+  </ul>
 
   <div class="note ok">
-    <b>What matters is that both axes meet at the same point on the wall, not that they are parallel.</b> Once the pair is allowed to come apart, each part is placed independently &mdash; as far toward the target as its own leads and the board rim allow &mdash; and then aimed at the shared target. The emitter, with 26.5&nbsp;mm, goes high and well outboard. The detector, with 12.7&nbsp;mm, stays near its own pads, sits lower, and <b>tilts up</b> to meet the emitter's spot.
+    <b>The trench floor turns out to be useful.</b> It blocks the detector's downward periphery &mdash; rays more than about 20&deg; below axis &mdash; while leaving everything level and upward clear out to 35&deg;. Downward is the floor-bounce direction (<a href="sensor-aim.html">Ch.&nbsp;3</a>), so that is a baffle rather than an obstruction. And the emitter's own beam does not descend to z&nbsp;=&nbsp;4 until roughly 50&nbsp;mm out, well past the plate, so the trench floor is never illuminated.
   </div>
 
-  <p>The split height is better than a compromise, not worse. Floor bounce needs the emitter to illuminate the floor <em>and</em> the detector to be looking at it. The emitter has <b>10.5&deg;</b> of down-tilt margin before its beam reaches the floor at that range, against 4.9&deg; as the board stands; the detector is aimed <b>5.1&deg; the other way</b>, away from the floor entirely. The two failures have been decoupled.</p>
+  <h2 class="sec">Thickness, and the emitter shroud</h2>
 
-  <h2 class="sec">The eight placements</h2>
+  <p>The plate started at 3&nbsp;mm and was too thin to trust. Measured rather than eyeballed: the narrowest neck &mdash; where the front arc meets the rear anchors &mdash; was <b>0.8&nbsp;mm across</b>, two extrusion widths at a 0.4&nbsp;mm nozzle, and the section at mid-height was in <b>37 disconnected fragments</b>.</p>
+
+  <p>The fix comes from the housing itself. The <b>emitter shroud's underside sits at 9.296&nbsp;mm</b>, and those necks run directly beneath it &mdash; so the plate can be 6.4&nbsp;mm thick and still pass under. Necks to <b>2.4&nbsp;mm</b>, fragments to <b>3</b>, and the pocket now grips each housing over 6.4&nbsp;mm of its height rather than 3.</p>
+
+  <p class="dimc">Enlarging the pocket collars to gain more was tried and made it <em>worse</em> &mdash; 0.8&nbsp;mm at a 10&nbsp;mm collar, because a larger collar creates fresh thin features where it meets its neighbours. Left at 2.4&nbsp;mm, which is six perimeters.</p>
+
+  <h2 class="sec">The four placements</h2>
 
   <div class="tblwrap">
   <table class="dim">
-    <tr><th>ch</th><th>part</th><th>optic x, y, z</th><th>azimuth</th><th>elev</th><th>to target</th><th>lead used</th></tr>
-    <tr class="grp"><td colspan="7">Sides &mdash; target is the flat wall face at y = 112, 7 mm short of the post</td></tr>
-    <tr><td class="v">SL</td><td class="n">TSAL6100</td><td class="n">12.50, 83.25, 12.0</td><td class="n">+63.6&deg;</td><td class="n">0.00&deg;</td><td class="n">64.7</td><td class="t">24.4 / 26.5</td></tr>
-    <tr><td class="v">SL</td><td class="n">OP505A</td><td class="n">17.25, 89.25, 6.0</td><td class="n">+70.1&deg;</td><td class="n">+5.14&deg;</td><td class="n">66.7</td><td class="t">10.7 / 12.7</td></tr>
-    <tr><td class="v">SR</td><td class="n">TSAL6100</td><td class="n">64.50, 83.25, 12.0</td><td class="n">&minus;63.6&deg;</td><td class="n">0.00&deg;</td><td class="n">64.7</td><td class="t">24.5 / 26.5</td></tr>
-    <tr><td class="v">SR</td><td class="n">OP505A</td><td class="n">59.75, 89.25, 6.0</td><td class="n">&minus;70.1&deg;</td><td class="n">+5.14&deg;</td><td class="n">66.7</td><td class="t">10.5 / 12.7</td></tr>
-    <tr class="grp"><td colspan="7">Front &mdash; no side wall in the path; these look up the corridor</td></tr>
-    <tr><td class="v">FL</td><td class="n">TSAL6100</td><td class="n">6.75, 73.50, 12.0</td><td class="n">+10.3&deg;</td><td class="n">0.00&deg;</td><td class="n">&mdash;</td><td class="t">16.8 / 26.5</td></tr>
-    <tr><td class="v">FL</td><td class="n">OP505A</td><td class="n">5.50, 73.00, 6.0</td><td class="n">+10.2&deg;</td><td class="n">+0.87&deg;</td><td class="n">&mdash;</td><td class="t">9.3 / 12.7</td></tr>
-    <tr><td class="v">FR</td><td class="n">TSAL6100</td><td class="n">70.00, 74.25, 12.0</td><td class="n">&minus;10.4&deg;</td><td class="n">0.00&deg;</td><td class="n">&mdash;</td><td class="t">16.6 / 26.5</td></tr>
-    <tr><td class="v">FR</td><td class="n">OP505A</td><td class="n">71.25, 73.00, 6.0</td><td class="n">&minus;10.2&deg;</td><td class="n">+0.87&deg;</td><td class="n">&mdash;</td><td class="t">9.3 / 12.7</td></tr>
+    <tr><th>ch</th><th>front face</th><th>azimuth</th><th>emitter lead</th><th>detector lead</th><th>reach</th></tr>
+    <tr><td class="v">SL</td><td class="n">13.50, 91.41</td><td class="n">+70.0&deg;</td><td class="n">19.5 / 26.5</td><td class="n">12.2 / 12.7</td><td class="t">62.8 mm, lands y = 112.9</td></tr>
+    <tr><td class="v">SR</td><td class="n">62.69, 92.23</td><td class="n">&minus;69.5&deg;</td><td class="n">19.0 / 26.5</td><td class="n">10.7 / 12.7</td><td class="t">63.8 mm, lands y = 114.6</td></tr>
+    <tr><td class="v">FL</td><td class="n">4.84, 76.75</td><td class="n">+9.5&deg;</td><td class="n">18.7 / 26.5</td><td class="n">10.9 / 12.7</td><td class="t">up-corridor</td></tr>
+    <tr><td class="v">FR</td><td class="n">72.13, 76.73</td><td class="n">&minus;10.5&deg;</td><td class="n">18.7 / 26.5</td><td class="n">10.9 / 12.7</td><td class="t">up-corridor</td></tr>
   </table>
   </div>
 
-  <p class="dimc">Board frame, mm, <b>z&nbsp;=&nbsp;0 is the PCB top surface</b>. Round trip on the sides goes from 81.1&nbsp;/&nbsp;81.1&nbsp;mm to 64.7&nbsp;/&nbsp;66.7 &mdash; roughly <b>&times;1.53</b> the return. Every channel keeps <b>2&nbsp;mm of lead in reserve</b>; letting the solver run to the limit bought only &times;1.55, which is not worth having no margin for a bend radius.</p>
+  <p class="dimc">Board frame, mm. <b>The detector lead is the binding constraint everywhere</b> &mdash; SL uses 12.2&nbsp;mm of a 12.70&nbsp;mm <em>minimum</em>. The solver also has to keep every pad at least 0.4&nbsp;mm <em>behind</em> the housing's rear face, because a housing that seats on its own pads leaves nowhere for the lead to go. FL and FR both had to move forward to satisfy that.</p>
 
-  <p>The front pair barely moves. The first solve sent them 10&nbsp;mm forward and inboard, because &ldquo;minimise distance to target&rdquo; with a target 400&nbsp;mm up the corridor just means <em>go as far forward as possible</em> &mdash; a meaningless objective for a sensor with no side wall to reach. Changed to minimise lead used, they sit essentially over their own pads.</p>
+  <h2 class="sec">Holding it down</h2>
 
-  <h2 class="sec">V-troughs, not bores</h2>
+  <p>The board carries five 2&nbsp;mm holes, and four of them are spoken for twice over &mdash; the motor mounts <em>and</em> the <code>U$1</code> daughterboard both declare holes at (17,&nbsp;17), (60,&nbsp;17), (60,&nbsp;51) and (17,&nbsp;51). That leaves the nose apex at <b>(38.5,&nbsp;98)</b>, and one hole is a pivot.</p>
 
-  <p class="lead">A 0.4&nbsp;mm nozzle cannot hold a &oslash;5.8&nbsp;mm bore to optical tolerance. It does not need to.</p>
-
-  <p>Each part lies in a <b>90&deg; V-trough</b> opening upward. A V locates a cylinder on its two flanks whatever the print came out at: a bore that prints 0.2&nbsp;mm oversize gives 0.2&nbsp;mm of slop and free tilt, while a V that prints 0.2&nbsp;mm wide seats the same cylinder 0.14&nbsp;mm lower and <em>nothing else changes</em>. Lateral position stays exact, and the aim comes from the trough's direction &mdash; a number in the CAD, not a hole diameter.</p>
-
-  <p>That matters because <a href="e4-sensor-housing.html">Ch.&nbsp;5</a> is a catalogue of what loose bores cost. The emitter in the printed housing is located on its flange over about a millimetre of a 8.6&nbsp;mm lever: <b>&plusmn;4&ndash;6&deg; of free tilt</b>. The detector is worse &mdash; the datasheets settle the open question in that chapter, and the answer is that the &oslash;4.05 bore never touches the &oslash;3.05 body at all. It catches the &oslash;3.94 flange, 0.76&nbsp;mm thick, with 0.11&nbsp;mm of clearance: <b>about &plusmn;8&deg;</b>.</p>
-
-  <p class="dimc">Trough apexes are set from the <b>barrel</b> diameters &mdash; &oslash;5.00 and &oslash;3.05 &mdash; not the flanges. Getting that wrong by the 0.95&nbsp;mm between &oslash;3.05 and a guessed &oslash;4.00 drops the detector axis 0.67&nbsp;mm.</p>
-
-  <h2 class="sec">Mounting, with one hole to spare</h2>
-
-  <p>The board carries five 2&nbsp;mm holes: four at (17,&nbsp;17), (60,&nbsp;17), (60,&nbsp;51) and (17,&nbsp;51), and one at the nose apex, <b>(38.5,&nbsp;98)</b>. The four are spoken for twice over &mdash; they carry the motor mounts <em>and</em> the <code>U$1</code> SPI/I2C daughterboard, which declares holes at the same coordinates. That leaves the apex, and one hole is a pivot.</p>
-
-  <p>Two things in the board file make that solvable without drilling. <b>Nothing is on the bottom layer</b> &mdash; zero mirrored elements &mdash; and the motor mounts are 40&nbsp;&times;&nbsp;15&nbsp;&times;&nbsp;6&nbsp;mm parts living entirely at y&nbsp;&le;&nbsp;51, clear of the nose, which starts at y&nbsp;=&nbsp;61.5. So the carrier can <b>capture the board rim</b> instead of bolting through it:</p>
-
-  <ul class="tight">
-    <li><b>Two C-section feet</b> at 30&deg; and 150&deg; round the nose &mdash; an arm over the board, a web outboard of the rim, a hook underneath. They take lateral load and lift.</li>
-    <li><b>One M2 at the apex</b>, nut under the board. It takes rotation and clamps the whole thing down. 2.5&nbsp;mm clear of the nearest copper on both layers.</li>
-  </ul>
+  <p>Nothing is on the bottom layer, so the plate can capture the board edge instead of bolting through it. The curved nose rim is fully occupied by the housings &mdash; every foot angle there either clipped a beam or ran through a housing &mdash; so the two feet hook the <b>straight side edges at y&nbsp;=&nbsp;58</b>. With the apex bolt that is a 77&nbsp;&times;&nbsp;40&nbsp;mm triangle, better conditioned than anything the rim offered.</p>
 
   <div class="note">
-    <b>The 5&nbsp;V trace hugs the rim on the bottom layer, almost the whole way round.</b> It is under the board edge at most angles, and the problem is not electrical &mdash; the foot is plastic and the resist is a tough epoxy. It is that 0.035&nbsp;mm of copper under the resist is a <em>ridge</em>, and a flat foot bearing on a ridge contacts along a line and rocks. For a mount whose only job is holding an angle, that is the one thing it cannot do. Each foot therefore carries a <b>1.6 &times; 0.6&nbsp;mm relief groove</b> across its seating face, so it bridges the trace and seats on bare resist either side.
+    <b>The 5&nbsp;V trace hugs the rim on the bottom layer.</b> The problem is not electrical &mdash; the foot is plastic and the resist is a tough epoxy. It is that 0.035&nbsp;mm of copper under the resist is a <em>ridge</em>, and a flat foot bearing on a ridge contacts along a line and rocks. Each foot carries a <b>1.6 &times; 0.6&nbsp;mm relief groove</b> so it bridges the trace and seats on bare resist either side.
   </div>
 
-  <h2 class="sec">Printing it</h2>
+  <h2 class="sec">Printing and fitting</h2>
 
   <ul class="tight">
-    <li><b>Orientation:</b> baseplate-underside down. The flat face at z&nbsp;=&nbsp;2.0 in the model is the bed contact &mdash; that 2&nbsp;mm is the standoff over the SMDs, not material.</li>
-    <li><b>Supports:</b> under the two rim feet only, which hang 5.8&nbsp;mm below that plane. Genuine overhang elsewhere is <b>0.0&nbsp;mm&sup2;</b>.</li>
-    <li><b>Perimeters:</b> at least four, with solid infill through the sensor blocks. Black PLA blocks 940&nbsp;nm well &mdash; unlike black SLA resin, whose pigment loading is capped by the need to pass 405&nbsp;nm to cure &mdash; but FDM has its own leak path: light piping along layer boundaries.</li>
-    <li><b>Fit:</b> 11&nbsp;g, 77 &times; 51 &times; 19&nbsp;mm, comfortably inside an Adventurer&nbsp;3. Minimum clearance over any component is <b>0.90&nbsp;mm</b>, at Q1/Q3.</li>
+    <li><b>Orientation:</b> plate-underside down. The flat face at z&nbsp;=&nbsp;2.0 is the bed contact &mdash; that 2&nbsp;mm is standoff over the SMDs, not material.</li>
+    <li><b>Supports:</b> under the two side feet only. Genuine overhang elsewhere is <b>0.0&nbsp;mm&sup2;</b>.</li>
+    <li><b>Perimeters:</b> at least four. Black PLA blocks 940&nbsp;nm well &mdash; unlike black SLA resin, whose pigment loading is capped by the need to pass 405&nbsp;nm to cure &mdash; but FDM has its own leak path: light piping along layer boundaries.</li>
   </ul>
 
-  <h2 class="sec">Fitting it</h2>
-
   <ol class="steps">
-    <li><b>Test-fit a part in each trough.</b> It should seat with light thumb pressure. If a trough is tight, the flanks are where to scrape, not the apex.</li>
-    <li><b>Bolt the carrier down</b> &mdash; apex M2, nut under the board, feet hooked over the rim.</li>
-    <li><b>Drop each part in, dome forward.</b> Position and aim are now set and cannot be adjusted, which is the point.</li>
-    <li><b>Form and trim the leads to the pads, then solder.</b> The joints carry no aim, so they can be formed to suit rather than to a datum.</li>
-    <li><b>A dab of epoxy in the well behind each rear flange.</b> Each trough widens by 2&nbsp;mm for its last 3&nbsp;mm so the fillet keys to the block instead of being squeezed into the V. Rear only &mdash; the V sets the aim and the epoxy only retains, so IR-transparent adhesive is not a problem here the way it would be near the optics.</li>
+    <li><b>Bolt the plate down</b> &mdash; apex M2, nut under the board, feet hooked over the side edges.</li>
+    <li><b>Drop each housing through its pocket</b> until it seats on the PCB. The pockets are U-channels: both flanks run the full 8&nbsp;mm, which is what fixes the azimuth; front and rear are open for the beam and the leads.</li>
+    <li><b>Check the azimuth, then epoxy in the pocket.</b></li>
+    <li><b>Fit the parts to the housings and form the leads</b> as on the current mouse. Bend right at the rear face and trim only after forming &mdash; the detector has almost no lead to spare.</li>
   </ol>
 
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">
-    <li><b>Nothing here has been printed or measured.</b> Every number is from the board file and the two datasheets. The &times;1.53 is geometry, not a reading.</li>
+    <li><b>Nothing has been printed.</b> Every number is from the board file, the two datasheets and the housing STL.</li>
+    <li><b>The free tilt inside the housing bores is unchanged.</b> The plate fixes the housing's angle, not the part's angle within it &mdash; and by <a href="e4-sensor-housing.html">Ch.&nbsp;5</a> that is still &plusmn;4&ndash;6&deg; for the emitter and about &plusmn;8&deg; for the detector. This is now the dominant error in the assembly.</li>
     <li><b>The return model is approximate.</b> A wall is an extended surface rather than a point, so the round trip is nearer 1/d&sup2; than 1/d&#8308;; the figure quoted is the conservative one.</li>
-    <li><b>The target is one position.</b> y&nbsp;=&nbsp;112 is right with the mouse centred in a cell. She reads walls at <code>SENSING_POSITION</code>, well forward of that, and the landing point moves with her &mdash; the 7&nbsp;mm of post clearance is a margin at one pose, not a guarantee across the cell.</li>
-    <li><b>The thresholds will need re-measuring.</b> Shorter, cleaner paths mean higher present-state readings, so the three captures in <a href="sensor-aim.html">Ch.&nbsp;3</a> have to be redone for this board &mdash; on a maze floor section, not a bench top.</li>
+    <li><b>The target is one position.</b> y&nbsp;=&nbsp;112.9 is right with the mouse centred in a cell. She reads walls at <code>SENSING_POSITION</code>, well forward of that, and the landing point moves with her.</li>
+    <li><b>The thresholds will need re-measuring</b> for this board &mdash; on a maze floor section, not a bench top.</li>
   </ul>
 
   <footer>
-    <span>E4 &middot; TSAL6100 + OP505A &middot; one-piece carrier</span>
+    <span>E4 &middot; TSAL6100 + OP505A &middot; socket plate for the printed housings</span>
     <span>companion to Ch 3 Sensor Aim &middot; Ch 4 Sensor Geometry &middot; Ch 5 Sensor Housing</span>
   </footer>
 </div>
