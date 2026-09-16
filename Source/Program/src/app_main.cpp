@@ -243,6 +243,16 @@ static void act_zigzag_test(void) {
 // explored -- so a whole run can be rehearsed at the bench before she drives.
 static plan::Route s_route;      // 1.2 KB: static, never on the stack
 
+// maze.h's Heading and plan::Head are separate enums that happen to agree.
+// Nothing enforced that, so assert it here rather than casting and hoping: if
+// either is ever reordered this stops the build, instead of the mouse planning
+// a route from the wrong start heading and every wall check being 90 degrees
+// out.
+static_assert((int)NORTH == (int)plan::NN, "Heading/plan::Head disagree on NORTH");
+static_assert((int)EAST  == (int)plan::EE, "Heading/plan::Head disagree on EAST");
+static_assert((int)SOUTH == (int)plan::SS, "Heading/plan::Head disagree on SOUTH");
+static_assert((int)WEST  == (int)plan::WW, "Heading/plan::Head disagree on WEST");
+
 static bool plan_wall_is_exit(const void *, int x, int y, int h) {
 	if (x < 0 || x >= MAZE_WIDTH || y < 0 || y >= MAZE_HEIGHT) return false;
 	return maze.is_exit(Location((uint8_t)x, (uint8_t)y), (Heading)h);
@@ -296,7 +306,7 @@ static void act_plan_route(void) {
 		const plan::DiagTurns &use = (kind == 2) ? dt : off;
 		const plan::WallReader wr = { &plan_wall_is_exit, 0 };
 		uint32_t t0 = HAL_GetTick();
-		plan_native(s_route, wr, rb, use, obj, START.x, START.y, NORTH,
+		plan_native(s_route, wr, rb, use, obj, START.x, START.y, plan::NN,
 		            g.x, g.y, 1, 1);
 		uint32_t took = HAL_GetTick() - t0;
 
@@ -305,7 +315,7 @@ static void act_plan_route(void) {
 			continue;
 		}
 		report_printf("RT,%d,%d\r\n", kind, (int)(s_route.seconds * 1000.0f));
-		int n = plan::route_points(s_route, START.x, START.y, NORTH,
+		int n = plan::route_points(s_route, START.x, START.y, plan::NN,
 		                           plan_emit_point, 0);
 		report_printf("RTE,%d,%d,%d,%d\r\n", n, s_route.cells, s_route.turns, s_route.spins);
 		report_printf("ACT,plan kind=%d %dms cpu=%lums\r\n",
