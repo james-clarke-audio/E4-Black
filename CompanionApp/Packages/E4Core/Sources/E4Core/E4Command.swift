@@ -169,6 +169,8 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case gyroScaleCal = 27
     case btProvision = 28
     case thresholdCal = 29
+    case zigzagTest = 30
+    case planRoute = 31
 
     public var id: Int { rawValue }
 
@@ -203,6 +205,8 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .irSampler:       return "S"
         case .gyroScaleCal:    return "G"
         case .btProvision:     return "B"
+        case .zigzagTest:      return "Z"
+        case .planRoute:       return "P"
         case .thresholdCal:    return "T"
         }
     }
@@ -238,6 +242,8 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .irSampler:       return "IR sampler"
         case .gyroScaleCal:    return "Gyro scale cal"
         case .btProvision:     return "BT provision"
+        case .zigzagTest:      return "Zigzag test"
+        case .planRoute:       return "Plan route"
         case .thresholdCal:    return "Threshold cal"
         }
     }

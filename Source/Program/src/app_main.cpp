@@ -7,6 +7,7 @@
 #include "PWM.h"
 #include "encoders.h"
 #include "maze.h"        // Phase 1: ported flood-fill maze solver
+#include "native.h"      // time-weighted route planner (diagonal lattice)
 #include "profile.h"     // Phase 1: ported trapezoidal motion profiles
 #include "report.h"      // Phase 1: UART maze/telemetry reporting
 #include "bluetooth.h"   // HM-10/HM-18 baud sweep + AT utility
@@ -219,6 +220,98 @@ static void act_zigzag_test(void) {
 	report_printf("ZIG,done gyro=%d expect=%d err=%d dist=%d\r\n",
 	              (int)gyro.angle(), expect, (int)gyro.angle() - expect,
 	              (int)odometry.robot_distance());
+}
+
+// --- Plan a route over the map she is holding ----------------------------
+//
+// The planner in native.cpp answers "least time" where the flood answers
+// "fewest cells". This runs it three ways over the CURRENT map and streams
+// each result to the app, so the three can be laid over the same maze and
+// compared: shortest by cells, quickest orthogonally, and quickest with
+// diagonals.
+//
+// Points go out in HALF-CELLS. That is the unit the lattice works in, and it
+// is what lets a diagonal be just another line segment as far as the app is
+// concerned -- cell centres land on odd coordinates, wall midpoints on mixed,
+// and the app needs to know nothing about parity or which wall is which.
+//
+//   RT,<kind>,<ms>                  kind 0 shortest, 1 quickest, 2 diagonal
+//   RP,<u>,<v>,<move>               a vertex; move is plan::Move
+//   RTE,<points>,<cells>,<turns>,<spins>
+//
+// No motors. Works on an injected maze, a remembered one, or one she has just
+// explored -- so a whole run can be rehearsed at the bench before she drives.
+static plan::Route s_route;      // 1.2 KB: static, never on the stack
+
+static bool plan_wall_is_exit(const void *, int x, int y, int h) {
+	if (x < 0 || x >= MAZE_WIDTH || y < 0 || y >= MAZE_HEIGHT) return false;
+	return maze.is_exit(Location((uint8_t)x, (uint8_t)y), (Heading)h);
+}
+static void plan_emit_point(void *, int u, int v, int mv) {
+	report_printf("RP,%d,%d,%d\r\n", u, v, mv);
+}
+
+static void act_plan_route(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+
+	// Plan against what she KNOWS, not what she hopes: unknown walls closed.
+	MazeMask save = maze.get_mask();
+	maze.set_mask(MASK_CLOSED);
+
+	plan::Robot rb;
+	rb.straight.v_max = SEARCH_SPEED;
+	rb.straight.accel = SEARCH_ACCELERATION;
+	rb.straight.decel = SEARCH_ACCELERATION;
+	{
+		const TurnParameters &t = turn_params[SS90L];
+		rb.arc90_speed = (float)t.speed; rb.arc90_offset = (float)t.entry_offset;
+		rb.arc90_omega = t.omega;        rb.arc90_alpha  = t.alpha;
+	}
+	{
+		const TurnParameters &t = turn_params[SS180L];
+		rb.arc180_speed = (float)t.speed; rb.arc180_offset = (float)t.entry_offset;
+		rb.arc180_omega = t.omega;        rb.arc180_alpha  = t.alpha;
+	}
+	rb.spin_omega = OMEGA_SPIN_TURN;
+	rb.spin_alpha = ALPHA_SPIN_TURN;
+
+	plan::DiagTurns dt;
+	{
+		const TurnParameters &t = turn_params[SD45L];
+		dt.sd45_speed = (float)t.speed; dt.sd45_offset = (float)t.entry_offset;
+		dt.sd45_omega = t.omega;        dt.sd45_alpha  = t.alpha;
+	}
+	{
+		const TurnParameters &t = turn_params[DS45L];
+		dt.ds45_speed = (float)t.speed; dt.ds45_offset = (float)t.entry_offset;
+		dt.ds45_omega = t.omega;        dt.ds45_alpha  = t.alpha;
+	}
+	dt.diag_v_max = SEARCH_SPEED;
+
+	const Location g = maze.goal();
+	plan::DiagTurns off = dt; off.enabled = false;
+
+	for (int kind = 0; kind < 3; kind++) {
+		const plan::Objective obj = (kind == 0) ? plan::SHORTEST : plan::QUICKEST;
+		const plan::DiagTurns &use = (kind == 2) ? dt : off;
+		const plan::WallReader wr = { &plan_wall_is_exit, 0 };
+		uint32_t t0 = HAL_GetTick();
+		plan_native(s_route, wr, rb, use, obj, START.x, START.y, NORTH,
+		            g.x, g.y, 1, 1);
+		uint32_t took = HAL_GetTick() - t0;
+
+		if (!s_route.ok) {
+			report_printf("RT,%d,-1\r\nRTE,0,0,0,0\r\n", kind);
+			continue;
+		}
+		report_printf("RT,%d,%d\r\n", kind, (int)(s_route.seconds * 1000.0f));
+		int n = plan::route_points(s_route, START.x, START.y, NORTH,
+		                           plan_emit_point, 0);
+		report_printf("RTE,%d,%d,%d,%d\r\n", n, s_route.cells, s_route.turns, s_route.spins);
+		report_printf("ACT,plan kind=%d %dms cpu=%lums\r\n",
+		              kind, (int)(s_route.seconds * 1000.0f), (unsigned long)took);
+	}
+	maze.set_mask(save);
 }
 
 // Launch the ported search brain against the injected/seeded ground-truth
@@ -1118,6 +1211,7 @@ static const MenuItem MENU[] = {
 	/*28*/ { "BT provision", 'B', act_bt_provision },
 	/*29*/ { "Threshold cal",'T', act_threshold_cal },
 	/*30*/ { "Zigzag test",  'Z', act_zigzag_test   },
+	/*31*/ { "Plan route",   'P', act_plan_route    },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -1131,7 +1225,7 @@ static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set go
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
 static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 28, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, BT provision, Emitter hold, Firmware ver
 static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
-static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
+static const uint8_t CAT_SOLVE[]  = { 7, 21, 22, 31 };     // Explore, Speed run*, Resume saved*, Plan route
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
 	/*0*/ { "Calibration", CAT_CAL,    7 },
@@ -1140,7 +1234,7 @@ static const Category CAT[] = {
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
 	/*4*/ { "Diagnostics", CAT_DIAG,   9 },
 	/*5*/ { "Wall follow", CAT_WALL,   1 },
-	/*6*/ { "Maze solver", CAT_SOLVE,  3 },
+	/*6*/ { "Maze solver", CAT_SOLVE,  4 },
 	/*7*/ { "Run options", CAT_RUNOPT, 1 },
 };
 

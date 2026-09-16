@@ -56,6 +56,20 @@ public enum E4MessageDecoder {
             guard let x = int(fields, 1), let y = int(fields, 2) else { break }
             return .solutionCell(x: x, y: y)
 
+        case "RT":
+            guard let k = int(fields, 1), let kind = E4RouteKind(rawValue: k),
+                  let ms = int(fields, 2) else { break }
+            return .routeBegin(kind: kind, milliseconds: ms)
+
+        case "RP":
+            guard let u = int(fields, 1), let v = int(fields, 2) else { break }
+            return .routePoint(u: u, v: v, move: int(fields, 3) ?? 0)
+
+        case "RTE":
+            guard let n = int(fields, 1), let c = int(fields, 2),
+                  let t = int(fields, 3), let sp = int(fields, 4) else { break }
+            return .routeEnd(points: n, cells: c, turns: t, spins: sp)
+
         case "SOLVED":
             guard let ms = int(fields, 1), let steps = int(fields, 2) else { break }
             return .solved(milliseconds: ms, steps: steps)

@@ -114,6 +114,30 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.21 — 16 Sep 2026 · The planner reaches the app**
+`Plan route` (Maze solver, or `P`) runs the planner three ways over the map she
+is currently holding — shortest, quickest, quickest-with-diagonals — and streams
+each to the companion apps, which draw all three over the same maze. No motors,
+so it works on an injected maze, a remembered one, or one she has just explored:
+a whole run can be rehearsed at the bench before she drives a cell of it.
+
+Points go out in **half-cells**, which is the unit the planner's lattice already
+works in. Cell centres land on odd coordinates and wall midpoints on mixed ones,
+so a diagonal arrives at the app as an ordinary pair of points — neither
+companion has to know about the lattice, the parity rule, or which wall a point
+sits on. Draw a polyline through them and it is right.
+
+    RT,<kind>,<ms>                      kind 0 shortest, 1 quickest, 2 diagonal
+    RP,<u>,<v>,<move>                   a vertex in half-cells
+    RTE,<points>,<cells>,<turns>,<spins>
+
+The firmware carries only `native.cpp`: with diagonals disabled it *is* the
+orthogonal planner, and `tools/planner-bench/xcheck` confirms the two agree in
+shape on all 392 mazes. That keeps `planner.cpp`'s 36 KB out of the build.
+
+Both apps also gain **Zigzag test** and the `ZIG,turns,mode,first` setup, so the
+chained-arc question can be settled without the OLED.
+
 **0.20 — 16 Sep 2026 · Diagonals, searched rather than substituted**
 `native.cpp` puts the diagonal moves into the graph and searches, instead of
 planning orthogonally and rewriting afterwards. Work in half-cells and parity

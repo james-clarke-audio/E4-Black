@@ -6,3 +6,6 @@ plan: main.cpp ../../Source/Program/src/planner.cpp ../../Source/Program/src/dia
 clean:
 	rm -f plan
 .PHONY: clean
+
+xcheck: xcheck.cpp ../../Source/Program/src/planner.cpp ../../Source/Program/src/diagonal.cpp ../../Source/Program/src/native.cpp
+	$(CXX) $(CXXFLAGS) -o $@ $^

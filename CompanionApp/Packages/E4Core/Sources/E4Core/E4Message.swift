@@ -6,6 +6,22 @@ import Foundation
 /// does not recognise lands in `.text`. Nothing is ever dropped, because the
 /// raw log is a first-class diagnostic — several bench sessions have been
 /// rescued by reading lines the app didn't understand.
+/// Which question the planner was asked. The firmware sends all three for the
+/// same map, so they can be laid over one another and compared.
+public enum E4RouteKind: Int, Sendable, Equatable, CaseIterable {
+    case shortest = 0     // fewest cells
+    case quickest = 1     // least time, orthogonal only
+    case diagonal = 2     // least time, diagonals allowed
+
+    public var title: String {
+        switch self {
+        case .shortest: return "shortest"
+        case .quickest: return "quickest"
+        case .diagonal: return "diagonal"
+        }
+    }
+}
+
 public enum E4Message: Sendable, Equatable {
 
     // MARK: Position and maze
@@ -33,6 +49,16 @@ public enum E4Message: Sendable, Equatable {
 
     /// `SOLVED,<ms>,<steps>`
     case solved(milliseconds: Int, steps: Int)
+
+    // --- planned routes ---------------------------------------------------
+    // Points arrive in HALF-CELLS, which is the unit the planner's lattice
+    // works in: cell centres land on odd coordinates, wall midpoints on mixed.
+    // That is deliberate, and it is what lets a diagonal be just another line
+    // segment here -- this end never has to know about the lattice, the parity
+    // rule, or which wall a point sits on.
+    case routeBegin(kind: E4RouteKind, milliseconds: Int)
+    case routePoint(u: Int, v: Int, move: Int)
+    case routeEnd(points: Int, cells: Int, turns: Int, spins: Int)
 
     /// `RST` — clear the maze model.
     case resetMaze

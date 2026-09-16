@@ -43,6 +43,7 @@ enum Palette {
         static let faint = Color(hex: 0x4B5563)
         static let sent  = Color(hex: 0x4AA3FF)
         static let warn  = Color(hex: 0xF0A04B)
+        static let good  = Color(hex: 0x7EE787)   // planned diagonal route
     }
 }
 

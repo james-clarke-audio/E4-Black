@@ -28,6 +28,25 @@ final class E4Maze {
     private(set) var goals: Set<Cell> = []
     private(set) var solution: [Cell] = []
 
+    /// A planned route, in HALF-CELLS. That unit is the whole point: the
+    /// planner's lattice puts cell centres on odd coordinates and wall
+    /// midpoints on mixed ones, so a diagonal arrives here as an ordinary pair
+    /// of points and this end never has to know about parity or which wall a
+    /// point sits on. Draw a polyline through them and it is correct.
+    struct Route: Equatable {
+        var milliseconds: Int = 0
+        var points: [(u: Int, v: Int, move: Int)] = []
+        var cells = 0, turns = 0, spins = 0
+        var isEmpty: Bool { points.count < 2 }
+        static func == (a: Route, b: Route) -> Bool {
+            a.milliseconds == b.milliseconds && a.cells == b.cells
+                && a.turns == b.turns && a.spins == b.spins
+                && a.points.count == b.points.count
+        }
+    }
+    private(set) var routes: [E4RouteKind: Route] = [:]
+    private var routeKind: E4RouteKind?
+
     private(set) var pose: Pose?
     private(set) var cell: Cell?
     private(set) var heading: E4Heading = .north
@@ -98,6 +117,21 @@ final class E4Maze {
         case .solutionCell(let x, let y):
             solution.append(Cell(x: x, y: y))
 
+        case .routeBegin(let kind, let ms):
+            routeKind = kind
+            routes[kind] = ms < 0 ? nil : Route(milliseconds: ms)
+
+        case .routePoint(let u, let v, let move):
+            if let k = routeKind { routes[k]?.points.append((u: u, v: v, move: move)) }
+
+        case .routeEnd(_, let cells, let turns, let spins):
+            if let k = routeKind {
+                routes[k]?.cells = cells
+                routes[k]?.turns = turns
+                routes[k]?.spins = spins
+            }
+            routeKind = nil
+
         case .solved(let ms, let steps):
             solvedMilliseconds = ms
             solvedSteps = steps
@@ -157,6 +191,8 @@ final class E4Maze {
 
     /// The parts that belong to one run, keeping the discovered map.
     private func clearRun() {
+        routes = [:]
+        routeKind = nil
         solution = []
         trail = []
         solvedMilliseconds = nil

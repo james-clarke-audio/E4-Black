@@ -280,6 +280,7 @@
         <label class="chk"><input type="checkbox" id="v_cost" checked> Costs</label>
         <label class="chk"><input type="checkbox" id="v_trail" checked> Trail</label>
         <label class="chk"><input type="checkbox" id="v_body" checked> Footprint</label>
+        <label class="chk"><input type="checkbox" id="v_routes" checked> Routes</label>
       </div>
       <div class="row">
         <span style="color:var(--dim)">Cell</span>
@@ -321,6 +322,22 @@
         <button class="cmd" data-cmd="x">Sim explore</button>
         <button class="cmd" data-cmd="m">Recall maze</button>
       </div>
+      <div style="color:var(--faint);font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin:8px 0 3px">Bench</div>
+      <div class="cmdgrid">
+        <button class="cmd" data-cmd="P">Plan route</button>
+        <button class="cmd" data-cmd="Z">Zigzag test</button>
+      </div>
+      <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center">
+        <span style="color:var(--faint);font-size:11px">zigzag</span>
+        <input type="number" id="zigTurns" min="1" max="8" value="3" style="width:52px" title="how many alternating 90s">
+        <select id="zigMode" title="what to drive them as">
+          <option value="0">chained arcs</option>
+          <option value="1">stop-and-spin</option>
+        </select>
+        <select id="zigFirst"><option value="1">first R</option><option value="0">first L</option></select>
+        <button id="zigSet">Set</button>
+      </div>
+      <div id="routeInfo" style="color:var(--faint);font-size:11px;margin-top:8px"></div>
       <div style="color:var(--faint);font-size:11px;margin-top:8px">Sends over Bluetooth · only acts while she’s in the menu (not mid-move)</div>
     </div>
 
@@ -488,6 +505,7 @@ function resetMaze(){
   state.walls.fill(0); state.known.fill(0); state.cost.fill(-1);
   state.goals.clear(); state.trail.length=0; state.mouse.has=false; state.mouse.hasPos=false; state.mouse.cell=null;
   state.solution.length=0; state.solveMs=0; state.solveSteps=0; state.arena=null;
+  state.routes=[null,null,null]; state.routeKind=-1;
   [[7,7],[8,7],[7,8],[8,8]].forEach(([x,y])=>state.goals.add(idx(x,y)));
   needsDraw=true;
 }
@@ -546,6 +564,18 @@ function parseLine(line){
     case 'SENS':{ const mm=raw.match(/thr\(s(\d+) f(\d+)\)\s*(\w+)/);
       if(mm){ state.sensThr={side:+mm[1],front:+mm[2]}; state.sensReal=(mm[3]==='REAL'); }
       updateSensors(); break; }
+    // Planned routes. Points arrive in HALF-CELLS, so a diagonal is just
+    // another line segment and this end needs to know nothing about the
+    // lattice: cell centres land on odd coordinates, wall midpoints on mixed.
+    //   RT,<kind>,<ms>   RP,<u>,<v>,<move>   RTE,<pts>,<cells>,<turns>,<spins>
+    case 'RT': { const k=+p[1];
+      if(k>=0&&k<3){ state.routeKind=k; state.routes[k]={ms:+p[2],pts:[],cells:0,turns:0,spins:0}; }
+      break; }
+    case 'RP': { const r=state.routes[state.routeKind];
+      if(r) r.pts.push([+p[1],+p[2],+p[3]]); break; }
+    case 'RTE': { const r=state.routes[state.routeKind];
+      if(r){ r.cells=+p[2]; r.turns=+p[3]; r.spins=+p[4]; }
+      state.routeKind=-1; routeInfo(); needsDraw=true; break; }
     case 'SOLVE': state.solution=[]; break;
     case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
@@ -591,7 +621,23 @@ function pushTrail(){const t=state.trail,m=state.mouse,l=t[t.length-1];
 //---------------- rendering (mm-space + view transform) ----------------
 const cv=document.getElementById('maze'), ctx=cv.getContext('2d');
 let needsDraw=true;
-const opts={cost:true, trail:true, body:true};
+const opts={cost:true, trail:true, body:true, routes:true};
+// kind 0 shortest, 1 quickest, 2 diagonal -- drawn in that order so the
+// diagonal, which is the one worth looking at, ends up on top.
+const ROUTE_NAME=['shortest','quickest','diagonal'];
+const ROUTE_STYLE=[
+  {col:'rgba(110,160,220,.60)', w:2.0, dash:[6,5], dots:false},
+  {col:'rgba(230,179,74,.85)',  w:2.6, dash:null,  dots:false},
+  {col:'rgba(126,231,135,.95)', w:3.0, dash:null,  dots:true },
+];
+function routeInfo(){
+  const el=document.getElementById('routeInfo'); if(!el) return;
+  const bits=[];
+  for(let k=0;k<3;k++){ const r=state.routes&&state.routes[k]; if(!r) continue;
+    bits.push(r.ms<0 ? ROUTE_NAME[k]+' — no route'
+      : ROUTE_NAME[k]+' '+(r.ms/1000).toFixed(2)+'s · '+r.cells+'c · '+r.turns+'a/'+r.spins+'s'); }
+  el.innerHTML = bits.length ? bits.join('<br>') : '';
+}
 const view={zoom:3.2, panx:null, pany:null, follow:true};
 let T=null;
 function transform(){
@@ -637,6 +683,28 @@ function draw(){
     state.trail.forEach(([mx,my],i)=>{const a=PX(mx),b=PY(my); i?ctx.lineTo(a,b):ctx.moveTo(a,b);});
     ctx.stroke();
   }
+  // planned routes (Plan route). Half-cell coordinates: u,v are in units of
+  // half a cell, so the same code draws an orthogonal leg and a 45 degree one
+  // without knowing the difference.
+  if(opts.routes){
+    const hc=state.cellmm/2;
+    ROUTE_STYLE.forEach((st,k)=>{
+      const r=state.routes&&state.routes[k];
+      if(!r||r.pts.length<2) return;
+      ctx.save();
+      ctx.strokeStyle=st.col; ctx.lineWidth=st.w; ctx.lineJoin='round'; ctx.lineCap='round';
+      if(st.dash) ctx.setLineDash(st.dash);
+      ctx.beginPath();
+      r.pts.forEach(([u,v],i)=>{const a=PX(u*hc),b=PY(v*hc); i?ctx.lineTo(a,b):ctx.moveTo(a,b);});
+      ctx.stroke();
+      ctx.restore();
+      // a dot at every turn, so the shape of the route reads at a glance
+      if(st.dots){ ctx.fillStyle=st.col;
+        r.pts.forEach(([u,v,mv])=>{ if(mv===0||mv===13) return;
+          ctx.beginPath(); ctx.arc(PX(u*hc),PY(v*hc),st.w*0.9,0,7); ctx.fill(); }); }
+    });
+  }
+
   // solution route (from the mouse's solve)
   if(state.solution.length>1){
     const cc=state.cellmm;
@@ -847,6 +915,12 @@ async function sendCmd(s){
 }
 document.querySelectorAll('.cmd').forEach(b=>{ b.onclick=()=>sendCmd(b.dataset.cmd); });
 
+// Zigzag bench test. Sets up the next run; the Z button launches it.
+document.getElementById('zigSet').onclick=()=>{
+  const t=Math.max(1,Math.min(8,parseInt(document.getElementById('zigTurns').value,10)||3));
+  sendCmd('ZIG,'+t+','+document.getElementById('zigMode').value+','+document.getElementById('zigFirst').value);
+};
+
 // Gyro-scale calibration. Everything except "Enter cal" only does anything once
 // she is inside the action - 'S' at the menu level toggles the IR sampler.
 const gcNum=id=>{ const e=document.getElementById(id); const v=parseFloat(e&&e.value); return isFinite(v)?v:null; };
@@ -1036,6 +1110,7 @@ document.getElementById('fitBtn').onclick=()=>{view.follow=false; followEl.check
 document.getElementById('v_cost').onchange=e=>{opts.cost=e.target.checked;needsDraw=true;};
 document.getElementById('v_trail').onchange=e=>{opts.trail=e.target.checked;needsDraw=true;};
 document.getElementById('v_body').onchange=e=>{opts.body=e.target.checked;needsDraw=true;};
+document.getElementById('v_routes').onchange=e=>{opts.routes=e.target.checked;needsDraw=true;};
 document.getElementById('cellmm').onchange=e=>{state.cellmm=Math.max(1,+e.target.value||180);needsDraw=true;updateReadouts();};
 document.getElementById('clearBtn').onclick=()=>{ state.ref.fill(0); parseLine('RST'); };
 cv.addEventListener('wheel',e=>{e.preventDefault(); view.zoom=Math.max(1,Math.min(10,view.zoom*(e.deltaY<0?1.12:0.89)));

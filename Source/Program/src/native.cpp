@@ -457,4 +457,54 @@ int route_check(const Route &rt, const WallReader &maze,
   return 0;   // ran out of steps without a GOAL: still structurally fine
 }
 
+int route_points(const Route &rt, int sx, int sy, Head start_head,
+                 RoutePointFn fn, void *ctx) {
+  if (!rt.ok) return -1;
+  int u = 2 * sx + 1, v = 2 * sy + 1;
+  int h = (int)start_head, dd = 0;
+  bool on_diag = false;
+  int n = 0;
+
+  fn(ctx, u, v, (int)MV_START); ++n;
+
+  for (int i = 0; i < rt.count; ++i) {
+    const Step &s = rt.steps[i];
+    if (s.diag) { u += s.cells * DXd[dd];     v += s.cells * DYd[dd]; }
+    else        { u += s.cells * 2 * HX[h];   v += s.cells * 2 * HY[h]; }
+
+    switch (s.move) {
+      case MV_ARC_L: case MV_SPIN_L:  h = (h + 3) & 3; break;
+      case MV_ARC_R: case MV_SPIN_R:  h = (h + 1) & 3; break;
+      case MV_ARC_180: case MV_SPIN_180: h = (h + 2) & 3; break;
+      case MV_SD45_L: case MV_SD45_R: {
+        const int nd = (s.move == MV_SD45_L) ? ((h + 3) & 3) : h;
+        // Emit the centre BEFORE the shift, then the point on the diagonal:
+        // an SD45 moves her sideways as well as turning her, and drawing it as
+        // a single vertex would hide that.
+        fn(ctx, u, v, (int)s.move); ++n;
+        u += DXd[nd] - HX[h];
+        v += DYd[nd] - HY[h];
+        dd = nd; on_diag = true;
+        fn(ctx, u, v, (int)MV_START); ++n;
+        continue;
+      }
+      case MV_DS45_L: case MV_DS45_R: {
+        const int nh = (s.move == MV_DS45_L) ? (int)diag_ccw(Diag(dd)) : (int)diag_cw(Diag(dd));
+        fn(ctx, u, v, (int)s.move); ++n;
+        u += HX[nh]; v += HY[nh];
+        h = nh; on_diag = false;
+        fn(ctx, u, v, (int)MV_START); ++n;
+        continue;
+      }
+      case MV_DD90_L: dd = (dd + 3) & 3; break;
+      case MV_DD90_R: dd = (dd + 1) & 3; break;
+      case MV_GOAL:   fn(ctx, u, v, (int)MV_GOAL); return n + 1;
+      default: return -1;
+    }
+    fn(ctx, u, v, (int)s.move); ++n;
+  }
+  (void)on_diag;
+  return n;
+}
+
 }  // namespace plan

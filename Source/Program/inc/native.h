@@ -75,4 +75,16 @@ void plan_native(Route &out, const WallReader &maze, const Robot &r,
 int route_check(const Route &rt, const WallReader &maze,
                 int sx, int sy, Head start_head, int gx, int gy, int gw, int gh);
 
+/// Walk a route and hand back its vertices in HALF-CELLS, with the move made
+/// at each. Half-cells are the natural unit to send to a companion app: a
+/// diagonal is then just another line segment between two points, and the app
+/// needs to know nothing about the lattice, the parity rule or which wall is
+/// which. Cell centres come out on odd coordinates, wall midpoints on mixed.
+///
+/// `fn` is called for the start, for every turn, and for the goal. Returns the
+/// number of points emitted, or -1 if the route is not walkable.
+typedef void (*RoutePointFn)(void *ctx, int u, int v, int move);
+int route_points(const Route &rt, int sx, int sy, Head start_head,
+                 RoutePointFn fn, void *ctx);
+
 }  // namespace plan

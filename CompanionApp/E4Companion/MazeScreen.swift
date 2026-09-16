@@ -385,6 +385,28 @@ struct MazeCanvas: View {
             context.stroke(wallPath, with: .color(Palette.Dark.dim),
                            style: StrokeStyle(lineWidth: max(2, cell * 0.09), lineCap: .square))
 
+            // Planned routes. Points are in half-cells, so the same two lines
+            // draw an orthogonal leg and a 45 degree one without distinguishing
+            // them. Shortest first, diagonal last, so the interesting one lands
+            // on top.
+            for kind in [E4RouteKind.shortest, .quickest, .diagonal] {
+                guard let r = maze.routes[kind], !r.isEmpty else { continue }
+                var path = Path()
+                for (i, pt) in r.points.enumerated() {
+                    let p = point(cellX: Double(pt.u) / 2.0, cellY: Double(pt.v) / 2.0)
+                    i == 0 ? path.move(to: p) : path.addLine(to: p)
+                }
+                let style: (Color, Double, [CGFloat])
+                switch kind {
+                case .shortest: style = (Palette.Dark.dim,  0.045, [cell * 0.14, cell * 0.14])
+                case .quickest: style = (Palette.Dark.warn, 0.060, [])
+                case .diagonal: style = (Palette.Dark.good, 0.075, [])
+                }
+                context.stroke(path, with: .color(style.0),
+                               style: StrokeStyle(lineWidth: max(1.5, cell * style.1),
+                                                  lineJoin: .round, dash: style.2))
+            }
+
             // Solved path
             if maze.solution.count > 1 {
                 var path = Path()
