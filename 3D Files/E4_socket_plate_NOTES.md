@@ -79,9 +79,9 @@ The lesson, written down so it stays written down: **this is an optical mount an
 not a solid.** Trace rays and lead paths against the plate *and* the parts standing in it, and
 check every foot against the parsed outline, never a remembered one. And put it in the slicer.
 
-## Process: MJF PA11 nylon, dyed black — not FDM
+## Process: MJF PA11 nylon, black — not FDM
 
-Made by JLCPCB's 3D service. HP Multi Jet Fusion, **PA11-HP nylon**, dyed black. A powder bed, not FDM.
+Made by JLCPCB's 3D service. HP Multi Jet Fusion, **PA11-HP nylon**, black. A powder bed, not FDM.
 
 ### The order, definitively
 
@@ -89,10 +89,21 @@ Made by JLCPCB's 3D service. HP Multi Jet Fusion, **PA11-HP nylon**, dyed black.
 |---|---|---|
 | 3D Technology | **MJF (Nylon)** | Black through the bulk, tough, no orientation or support decisions |
 | Material | **PA11-HP Nylon** | **Not the pre-selected PA12-HP.** Isotropic, 50% elongation in every orientation, 1.7× the notched impact, same stiffness, better strength |
-| Color | **Black** | Grey likely performs the same at 940 nm, but black is free and kills visible stray light |
-| Surface Finish | **Dyeing — Dyed Black, and nothing else** | **No sanding, no polishing.** Dyeing is a bath and harmless. Abrasion is not — four pockets set the sensor azimuth and there are two optical trenches, and sanding goes for edges and corners first |
+| Color | **Black** | PA11 lists black as a *material* colour, not a finish — the part arrives black with nothing added |
+| Surface Finish | **No** | The colour is already black. Anything here *adds* to a part whose pockets are dimensionally critical — see below |
 | Thread | **No** | All five holes are M2 clearance, not tapped |
 | Quantity | **3** | A crash spare and one for the second board |
+
+**Surface Finish must be No, and it will not be.** Choosing PA11 changes what that row offers —
+dyeing is how PA12 gets its black, but PA11 *is* black, so the row switches to **Spray Painting** and
+pre-fills **Matte / Sky Blue / Exterior Only**. Paint is wrong here twice over: a coat of unknown
+thickness onto four pockets sized to 0.50 mm and into two optical trenches whose floors are doing a
+job, on a part that is already the colour you want. Turn the row off.
+
+> **Unless the torch test fails.** If the part passes 940 nm — hold it between an emitter and a phone
+> camera — then **Matte Black spray, exterior only** is the fix on the next order: paint is
+> carbon-pigmented and genuinely opaque where a dye may not be. That is a response to a measurement,
+> not a default. A matte coat is tens of microns a side, so drop `FIT` to 0.55–0.60 on a painted order.
 
 **None of this is the default.** A freshly uploaded model lands on **SLA (Resin) / 9600 Resin /
 White / Sanding** every time — wrong process, wrong colour, and the one post-process that must not
@@ -196,10 +207,10 @@ FDM number if a different process is ever used.
   3.0 × 6.4 mm arm deflects further but bends and returns rather than snapping.
 - **The foot creeps rather than cracks.** Nylon under sustained clamp load goes slack slowly instead
   of splitting. Re-check the mount bolts after the first few runs.
-- **The black is a dye over a grey bulk.** MJF nylon comes off the machine grey (carbon
-  black from the fusing agent, through the bulk); the dye sits on top. A dye that looks black in
-  daylight need not absorb at 940 nm, so the grey bulk does the real work and the dye is mostly
-  cosmetic. **Torch test on arrival:** hold the part between an emitter and a phone camera — phone
+- **The black sits over a grey bulk.** MJF nylon comes off the machine grey (carbon black from the
+  fusing agent, through the bulk); PA11's black is a supplier colour on top of that rather than
+  pigment mixed into the powder. A black that looks black in daylight need not absorb at 940 nm, so
+  the grey bulk may be doing most of the real work. **Torch test on arrival:** hold the part between an emitter and a phone camera — phone
   sensors see 940 nm — and see if it glows.
 
 ## Printing and fitting

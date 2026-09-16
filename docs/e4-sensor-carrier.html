@@ -243,7 +243,7 @@
 
   <h2 class="sec">It is not being printed in PLA</h2>
 
-  <p>The production part is <b>MJF in PA11 nylon, dyed black</b>, from JLCPCB's 3D service &mdash; HP Multi Jet Fusion, a powder bed, not FDM. Three things about this part were reasoned in the wrong material.</p>
+  <p>The production part is <b>MJF in PA11 nylon, black</b>, from JLCPCB's 3D service &mdash; HP Multi Jet Fusion, a powder bed, not FDM. Three things about this part were reasoned in the wrong material.</p>
 
   <div class="bad">
     <b>The pocket clearance had to be opened.</b> <code>FIT</code> was <b>0.30&nbsp;mm</b> on both axes, chosen for FDM. JLC hold <b>&plusmn;0.3&nbsp;mm within 100&nbsp;mm</b> on MJF, so 0.30 nominal has a worst case of zero &mdash; a pocket a housing will not enter without filing, four times over, after a three-day turnaround. It is now <b>0.50&nbsp;mm</b>: 0.2 at the tight end and assemblable, 0.8 at the loose end and held by the epoxy. It is the tight end that has no recovery.
@@ -290,7 +290,7 @@
   </div>
 
   <div class="note">
-    <b>Worth a torch test when it arrives.</b> MJF nylon comes off the machine grey &mdash; carbon black from the fusing agent, through the bulk &mdash; and the black is a <em>dye</em> on top of that. A dye chosen to look black in daylight need not absorb anything at 940&nbsp;nm, so the grey bulk is doing the real work and the dye is largely cosmetic. 6.4&nbsp;mm of nylon will attenuate a great deal regardless, and the housings do the near-field separation, but the trench floor is described above as a baffle and that claim is untested in this material. Hold the part between an emitter and a phone camera &mdash; phone sensors see 940&nbsp;nm &mdash; and see whether it glows.
+    <b>Worth a torch test when it arrives.</b> MJF nylon comes off the machine grey &mdash; carbon black from the fusing agent, through the bulk &mdash; and PA11's black is a supplier colour on top of that rather than pigment mixed into the powder. A black chosen to look black in daylight need not absorb anything at 940&nbsp;nm, so the grey bulk may be doing most of the real work. 6.4&nbsp;mm of nylon will attenuate a great deal regardless, and the housings do the near-field separation, but the trench floor is described above as a baffle and that claim is untested in this material. Hold the part between an emitter and a phone camera &mdash; phone sensors see 940&nbsp;nm &mdash; and see whether it glows.
   </div>
 
   <h2 class="sec">The order, definitively</h2>
@@ -300,8 +300,8 @@
     <tr><th>field</th><th>setting</th><th>why</th></tr>
     <tr><td class="t">3D Technology</td><td class="v">MJF (Nylon)</td><td class="t">Black through the bulk, tough, no orientation or support decisions.</td></tr>
     <tr><td class="t">Material</td><td class="v">PA11-HP Nylon</td><td class="t"><b>Not the pre-selected PA12-HP.</b> Isotropic, 50% elongation in every orientation, 1.7&times; the notched impact, same stiffness, better strength.</td></tr>
-    <tr><td class="t">Color</td><td class="v">Black</td><td class="t">Grey would probably perform the same at 940 nm, but black costs nothing extra and kills visible stray light.</td></tr>
-    <tr><td class="t">Surface Finish</td><td class="v">Dyeing &mdash; Dyed Black, and <b>nothing else</b></td><td class="t"><b>Do not add sanding or polishing.</b> Dyeing is a bath and harmless. Abrasion is not: this part has four pockets that set the sensor azimuth and two optical trenches, and sanding goes for edges and corners first.</td></tr>
+    <tr><td class="t">Color</td><td class="v">Black</td><td class="t">PA11 lists black as a <em>material</em> colour, not a finish, so the part arrives black with nothing added to it.</td></tr>
+    <tr><td class="t">Surface Finish</td><td class="v"><b>No</b></td><td class="t">The colour is already black. Anything here <em>adds</em> to a part whose pockets are dimensionally critical &mdash; see below.</td></tr>
     <tr><td class="t">Thread</td><td class="v">No</td><td class="t">All five holes are M2 clearance, not tapped.</td></tr>
     <tr><td class="t">Quantity</td><td class="v">3</td><td class="t">A crash spare and one for the second board. PA11 has no weak build direction, so there is no orientation lottery to buy extra tickets against.</td></tr>
   </table>
@@ -309,6 +309,14 @@
 
   <div class="bad">
     <b>None of this is the default.</b> A freshly uploaded model lands on <b>SLA (Resin) / 9600 Resin / White / Sanding</b> every time &mdash; the wrong process, in the wrong colour, with the one post-process that must not touch this part. Switching to MJF then pre-selects <b>PA12-HP</b>, which is the wrong nylon. Every field in the table above has to be set by hand on every upload. Treat it as a checklist, not a preference.
+  </div>
+
+  <div class="bad">
+    <b>Surface Finish must be No, and it will not be.</b> Choosing PA11 changes what that row offers &mdash; dyeing is how PA12 gets its black, but PA11 <em>is</em> black, so the row switches to <b>Spray Painting</b> and pre-fills <b>Matte / Sky Blue / Exterior Only</b>. Paint is the wrong answer here twice over: it is a coat of unknown thickness going onto four pockets sized to 0.50&nbsp;mm and into two optical trenches whose floors are doing a job, and the part is already the colour you want. Turn the row off.
+  </div>
+
+  <div class="note">
+    <b>Unless the torch test fails.</b> If the part turns out to pass 940&nbsp;nm &mdash; hold it between an emitter and a phone camera &mdash; then <b>Matte Black spray, exterior only</b> is the fix on the next order, because paint is carbon-pigmented and genuinely opaque where a dye may not be. That is a considered response to a measurement, not a default. A matte coat is tens of microns a side, so it would come off the pocket clearance: drop <code>FIT</code> to 0.55&ndash;0.60 on any painted order.
   </div>
 
   <p class="dimc">No change to the model is needed for this supplier: their MJF tolerance is the &plusmn;0.3&nbsp;mm the 0.50&nbsp;mm <code>FIT</code> was already sized against, their 1.0&nbsp;mm minimum wall is met by the 1.6&nbsp;mm foot and 3.0&nbsp;mm arm, and there are no enclosed voids to trap powder.</p>
