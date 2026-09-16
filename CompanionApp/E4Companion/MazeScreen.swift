@@ -129,6 +129,20 @@ struct MazeScreen: View {
 
                     Divider()
 
+                    // Belongs beside the maze rather than only in Actions: the
+                    // three routes are drawn on the canvas to the left, so the
+                    // button that produces them should be within sight of them.
+                    Button("Plan route") { session.send(.action(.planRoute)) }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .touchTarget()
+
+                    Text("Plans all three from the map she is holding — explore or simulate first, or she will plan across walls she has never seen.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.faint)
+
+                    Divider()
+
                     Button("Reset pose") { session.send(.action(.resetPose)) }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
@@ -137,6 +151,17 @@ struct MazeScreen: View {
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity)
                         .touchTarget()
+                }
+
+                if !maze.routes.isEmpty {
+                    Card("Routes") {
+                        ForEach(E4RouteKind.allCases, id: \.self) { kind in
+                            routeRow(kind)
+                        }
+                        Text("Times are her own model — what the planner believes, not what the wheels did.")
+                            .font(.caption)
+                            .foregroundStyle(Palette.faint)
+                    }
                 }
             }
             .padding(16)
@@ -248,6 +273,40 @@ struct MazeScreen: View {
                 .font(.caption)
                 .foregroundStyle(Palette.bad)
         }
+    }
+
+    /// One planned route. The swatch is the colour that route is drawn in on
+    /// the canvas, in the canvas's own palette — a legend in a different shade
+    /// to the line it describes is worse than no legend.
+    @ViewBuilder
+    private func routeRow(_ kind: E4RouteKind) -> some View {
+        let swatch: Color = {
+            switch kind {
+            case .shortest: return Palette.Dark.dim
+            case .quickest: return Palette.Dark.warn
+            case .diagonal: return Palette.Dark.good
+            }
+        }()
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(swatch)
+                .frame(width: 14, height: 3)
+            if let r = maze.routes[kind], !r.isEmpty {
+                Text(kind.title).foregroundStyle(Palette.dim)
+                Spacer()
+                Text(String(format: "%.2f s", Double(r.milliseconds) / 1000.0))
+                    .foregroundStyle(Palette.ink)
+                Text("\(r.cells)c \(r.turns)t\(r.spins > 0 ? " \(r.spins)s" : "")")
+                    .foregroundStyle(Palette.faint)
+            } else {
+                Text(kind.title).foregroundStyle(Palette.faint)
+                Spacer()
+                Text(maze.routes[kind] == nil ? "—" : "no route")
+                    .foregroundStyle(Palette.faint)
+            }
+        }
+        .font(.caption.monospaced())
+        .monospacedDigit()
     }
 
     private func uploadLine(_ text: String, _ tint: Color) -> some View {
