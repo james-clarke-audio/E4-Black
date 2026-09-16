@@ -7,7 +7,7 @@
 
 using namespace plan;
 
-struct MazeFile : WallReader {
+struct MazeFile {
   uint8_t cell[16][16] = {};   // bit0 N, bit1 E, bit2 S, bit3 W  (1 = wall)
   bool load(const char *path) {
     FILE *f = fopen(path, "rb");
@@ -20,11 +20,15 @@ struct MazeFile : WallReader {
       for (int y = 0; y < 16; ++y) cell[x][y] = buf[x * 16 + y];
     return true;
   }
-  bool is_exit(int x, int y, int h) const override {
+  static bool exit_fn(const void *ctx, int x, int y, int h) {
+    const MazeFile *m = (const MazeFile *)ctx;
     if (x < 0 || x > 15 || y < 0 || y > 15) return false;
-    return (cell[x][y] & (1 << h)) == 0;
+    return (m->cell[x][y] & (1 << h)) == 0;
   }
+  WallReader reader() const { return WallReader{&MazeFile::exit_fn, this}; }
 };
+
+static Route g_short, g_quick;   // 1.2 KB each -- static, not on the stack
 
 static const char *mv_name(Move m) {
   switch (m) {
@@ -66,8 +70,10 @@ int main(int argc, char **argv) {
     MazeFile m;
     if (!m.load(f.c_str())) { printf("%-26s  (unreadable)\n", f.c_str()); continue; }
 
-    Route s = plan_route(m, r, SHORTEST, 0, 0, NN, 7, 7, 2, 2);
-    Route q = plan_route(m, r, QUICKEST, 0, 0, NN, 7, 7, 2, 2);
+    const WallReader wr = m.reader();
+    plan_route(g_short, wr, r, SHORTEST, 0, 0, NN, 7, 7, 2, 2);
+    plan_route(g_quick, wr, r, QUICKEST, 0, 0, NN, 7, 7, 2, 2);
+    const Route &s = g_short; const Route &q = g_quick;
 
     std::string name = f.substr(f.find_last_of('/') + 1);
     if (!s.ok || !q.ok) { printf("%-26s  NO ROUTE (short %d quick %d)\n", name.c_str(), s.ok, q.ok); continue; }

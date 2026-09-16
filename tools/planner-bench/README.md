@@ -3,7 +3,7 @@
 Scores routes over the `.maz` files in `mazefiles/binary/` using the same
 `planner.cpp` the firmware builds. No robot involved.
 
-    make -f build.mk
+    make
     ./plan ../../mazefiles/binary/*.maz
 
 Options:
@@ -14,6 +14,11 @@ Options:
 | `--vmax=N` | straight-line top speed, mm/s |
 | `--accel=N` | forward acceleration, mm/s² (also sets decel) |
 | `--no180` | forbid SS180, leaving stop-and-spin for a reversal |
+
+Built and run natively; `planner.cpp` is also verified to cross-compile clean
+for the target (`cortex-m4 / fpv4-sp-d16 / hard float`, `-fno-exceptions
+-fno-rtti`) pulling in nothing but `sqrtf`, `lroundf` and `memset` -- no heap,
+no exception machinery.
 
 ## What it is for
 

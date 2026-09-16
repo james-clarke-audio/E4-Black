@@ -58,8 +58,12 @@ static int16_t  s_parent[NNODES];
 static uint8_t  s_pmove[NNODES];
 static uint8_t  s_pcells[NNODES];
 static uint8_t  s_done[(NNODES + 7) / 8];
-// ~36 KB of .bss: 8 KB bucket heads, 4 KB each next/prev/inb/parent, 8 KB dist,
-// 2 KB each move/cells, 256 B done. Nothing on the stack, nothing on the heap.
+// 36.3 KB of .bss, measured on the target, not estimated:
+//   s_bucket 8192  s_dist 8192  s_next/prev/inb/parent 4096 each
+//   s_pmove/s_pcells 2048 each  s_done 256
+// plus 3.7 KB of .text. That is 28% of the F411's RAM -- but each array gets
+// its own section under -fdata-sections, so --gc-sections drops the lot if
+// nothing calls plan_route. It costs nothing until it is used.
 
 static inline bool is_done(int n) { return (s_done[n >> 3] >> (n & 7)) & 1; }
 static inline void set_done(int n) { s_done[n >> 3] |= (uint8_t)(1u << (n & 7)); }
@@ -139,10 +143,10 @@ static inline int edge_key(Objective obj, float t, int cells) {
   return k;
 }
 
-Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
-                 int sx, int sy, Head start_head,
-                 int gx, int gy, int gw, int gh) {
-  Route route;
+void plan_route(Route &route, const WallReader &maze, const Robot &r, Objective obj,
+                int sx, int sy, Head start_head,
+                int gx, int gy, int gw, int gh) {
+  route = Route();
 
   for (int i = 0; i < NNODES; ++i) {
     s_dist[i] = COST_INF; s_parent[i] = -1;
@@ -195,7 +199,7 @@ Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
 
     int cx = x, cy = y;
     for (int n = 1; n <= W + H; ++n) {
-      if (!maze.is_exit(cx, cy, h)) break;
+      if (!maze.is_exit(maze.ctx, cx, cy, h)) break;
       cx += DX[h];
       cy += DY[h];
       if (cx < 0 || cx >= W || cy < 0 || cy >= H) break;
@@ -224,7 +228,7 @@ Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
           const TurnSpec &o = opt[k];
           // A smooth arc has to leave the cell it turns in, so that exit must be
           // open. A spin turns on the spot and does not care.
-          if (o.speed > 0.0f && !maze.is_exit(cx, cy, h2)) continue;
+          if (o.speed > 0.0f && !maze.is_exit(maze.ctx, cx, cy, h2)) continue;
 
           const float d = n * 180.0f - off_out - o.offset;
           float t = timing::straight_time(r.straight, d, v_out, o.speed);
@@ -245,37 +249,39 @@ Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
     }
   }
 
-  if (best_goal_node < 0) return route;
-  if (s_key_overflow) { route.overflow = true; return route; }
+  if (best_goal_node < 0) return;
+  if (s_key_overflow) { route.overflow = true; return; }
 
-  // --- walk the parents back, then reverse in place ------------------------
-  Step tmp[MAX_STEPS];
+  // --- walk the parents back straight into route.steps, then reverse in place
+  // No scratch array: a second Step[MAX_STEPS] would be another 1 KB of stack,
+  // which a Cortex-M does not have going spare.
+  Step *st = route.steps;
   int nt = 0;
-  tmp[nt].move = MV_GOAL; tmp[nt].cells = (uint8_t)best_goal_cells;
-  tmp[nt].x = (uint8_t)gx; tmp[nt].y = (uint8_t)gy;
-  tmp[nt].heading = NN;    tmp[nt].t = best_goal_t; ++nt;
+  st[nt].move = MV_GOAL; st[nt].cells = (uint8_t)best_goal_cells;
+  st[nt].x = (uint8_t)gx; st[nt].y = (uint8_t)gy;
+  st[nt].heading = NN;    st[nt].t = best_goal_t; ++nt;
 
   int cur = best_goal_node;
   while (cur != start_id && cur >= 0 && nt < MAX_STEPS) {
     const int h = (cur / NSPEED) % NHEAD;
     const int c = cur / (NSPEED * NHEAD);
-    tmp[nt].move    = (Move)s_pmove[cur];
-    tmp[nt].cells   = s_pcells[cur];
-    tmp[nt].x       = (uint8_t)(c % W);
-    tmp[nt].y       = (uint8_t)(c / W);
-    tmp[nt].heading = (Head)h;
-    tmp[nt].t       = 0.0f;               // filled below from the cost deltas
+    st[nt].move    = (Move)s_pmove[cur];
+    st[nt].cells   = s_pcells[cur];
+    st[nt].x       = (uint8_t)(c % W);
+    st[nt].y       = (uint8_t)(c / W);
+    st[nt].heading = (Head)h;
+    st[nt].t       = 0.0f;
     ++nt;
     cur = s_parent[cur];
   }
-  if (nt >= MAX_STEPS) route.truncated = true;
+  if (nt >= MAX_STEPS) { route.truncated = true; return; }
+  for (int i = 0, j = nt - 1; i < j; ++i, --j) { Step t2 = st[i]; st[i] = st[j]; st[j] = t2; }
 
   // Per-step time: for QUICKEST the key IS centiseconds, so differences along
   // the chain give each step back exactly. For SHORTEST the key is packed, so
   // only the total is meaningful and per-step is left at zero.
   route.ok = true;
   route.count = nt;
-  for (int i = 0; i < nt; ++i) route.steps[i] = tmp[nt - 1 - i];
   for (int i = 0; i < nt; ++i) {
     const Step &st = route.steps[i];
     route.cells += st.cells;
@@ -311,7 +317,6 @@ Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
       }
     }
   }
-  return route;
 }
 
 }  // namespace plan

@@ -25,10 +25,13 @@
  * correctly comes out as stop-and-spin, and it is what keeps the planner honest
  * when an arc simply cannot be entered in the space available.
  *
- * NO HEAP, NO RECURSION, FIXED FOOTPRINT. Everything lives in file-static
- * arrays in planner.cpp -- about 28 KB, listed there. Nothing is allocated and
- * nothing goes on the stack, so this is safe to call from the mouse as well as
- * from the bench harness.
+ * NO HEAP, NO RECURSION, NO VTABLES, ALMOST NO STACK. The working set lives in
+ * file-static arrays in planner.cpp (~36 KB, listed there). The Route is
+ * supplied BY THE CALLER rather than returned by value -- it is 1.2 KB, which
+ * is more than a default Cortex-M stack has to spare, so on the robot it wants
+ * to be a static or a member, not a local. The wall accessor is a function
+ * pointer rather than a virtual, because a virtual destructor drags in
+ * operator delete and that does not link on a no-heap build.
  *****************************************************************************/
 #pragma once
 
@@ -42,7 +45,7 @@ constexpr int H = 16;
 constexpr int NHEAD = 4;          // N, E, S, W
 constexpr int NSPEED = 2;         // 0 = stopped (spin), 1 = smooth arc speed
 constexpr int NNODES = W * H * NHEAD * NSPEED;   // 2048
-constexpr int MAX_STEPS = 96;     // turns in one route; a 16x16 never approaches this
+constexpr int MAX_STEPS = 80;     // turns in one route; the worst real maze uses ~51
 
 enum Head : uint8_t { NN = 0, EE = 1, SS = 2, WW = 3 };
 inline Head right_of(Head h) { return Head((h + 1) & 3); }
@@ -86,11 +89,13 @@ struct Robot {
   float goal_runout = 270.0f;
 };
 
-/// The only thing the planner asks of a map. Keeps it independent of Maze, so
-/// it builds in a native harness and the drop-in on the robot is one adapter.
+/// The only thing the planner asks of a map: "is this wall an exit?". A plain
+/// function pointer and a context, deliberately -- an abstract base class would
+/// be tidier to read and would put a vtable and an operator delete reference in
+/// a build that has neither.
 struct WallReader {
-  virtual ~WallReader() {}
-  virtual bool is_exit(int x, int y, int heading) const = 0;
+  bool (*is_exit)(const void *ctx, int x, int y, int heading);
+  const void *ctx;
 };
 
 enum Move : uint8_t { MV_START, MV_ARC_L, MV_ARC_R, MV_ARC_180,
@@ -118,12 +123,15 @@ struct Route {
 
 enum Objective { SHORTEST, QUICKEST };
 
-/// Plan from (sx,sy) heading start_head to any cell of the goal box.
-/// SHORTEST minimises cells, breaking ties on time. QUICKEST minimises time.
-/// Same graph and same code path, so the two are directly comparable -- which
-/// is the point, because with v_max == turn speed they are the same route.
-Route plan_route(const WallReader &maze, const Robot &r, Objective obj,
-                 int sx, int sy, Head start_head,
-                 int gx, int gy, int gw = 2, int gh = 2);
+/// Plan from (sx,sy) heading start_head to any cell of the goal box, writing
+/// the answer into `out`. SHORTEST minimises cells, breaking ties on time;
+/// QUICKEST minimises time. Same graph and same code path, so the two are
+/// directly comparable -- which is the point, because with v_max == turn speed
+/// they come out as the same route.
+///
+/// `out` is ~1.2 KB. Give it static storage; do not make it a local.
+void plan_route(Route &out, const WallReader &maze, const Robot &r, Objective obj,
+                int sx, int sy, Head start_head,
+                int gx, int gy, int gw = 2, int gh = 2);
 
 }  // namespace plan
