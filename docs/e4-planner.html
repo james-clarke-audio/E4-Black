@@ -128,7 +128,11 @@
 
   <h2 class="sec">At her current numbers there is nothing to find</h2>
 
-  <p>The first thing the bench reported was that the whole exercise is worth nothing as she stands. <code>SEARCH_SPEED</code> is 300&nbsp;mm/s and <code>SEARCH_TURN_SPEED</code> is 300&nbsp;mm/s. <b>She travels exactly as fast down a straight as she does round a corner.</b> When that is true, every route of equal length takes equal time and there is no &ldquo;quickest&rdquo; to find &mdash; the weighted planner is an expensive way to reproduce the flood.</p>
+  <p>The first thing the bench reported was that the whole exercise is worth little as she stands. <code>SEARCH_SPEED</code> is 300&nbsp;mm/s and <code>SEARCH_TURN_SPEED</code> is 300&nbsp;mm/s. <b>She travels exactly as fast down a straight as she does round a corner.</b> The only lever left is turn count, and <code>SHORTEST</code>&rsquo;s tie-break already prefers fewer spins &mdash; so the two answers collapse onto each other on most mazes and the weighted planner is an expensive way to reproduce the flood.</p>
+
+  <div class="note bad">
+    <b>An earlier version of this page said more than that</b> &mdash; that with equal speeds &ldquo;every route of equal length takes equal time and there is no quickest to find&rdquo;. That is not true, and the bench says so: a turn costs <em>time</em> whatever forward speed she holds through it, so two routes of the same cell count but different turn counts do not tie. At <code>v_max</code> 300 on <code>tricky.maz</code> the two objectives already separate, 67.830&nbsp;s against 66.100&nbsp;s. Equal speeds make the gap <em>small</em>; they do not make it zero.
+  </div>
 
   <p>Ramp the straights and it separates:</p>
 
@@ -299,6 +303,74 @@
 
   <p class="dimc">The firmware carries only <code>native.cpp</code>. With diagonals disabled it <em>is</em> the orthogonal planner, and <code>tools/planner-bench/xcheck</code> confirms the two agree in shape on all 392 mazes, so <code>planner.cpp</code> stays out of the build and the working set is about 46&nbsp;KB rather than 82. <code>planner.cpp</code> remains in the repository as the simpler reference the bench cross-checks against.</p>
 
+  <h2 class="sec">The search speed was the wrong speed</h2>
+
+  <p>When <code>Plan route</code> first ran on the mouse it returned <b>27.245&nbsp;s for shortest and 27.245&nbsp;s for quickest</b>, with byte-identical point lists. The cause was not subtle and it was mine: <code>act_plan_route</code> built its <code>Robot</code> from <code>SEARCH_SPEED</code> and <code>SEARCH_ACCELERATION</code>, so it was planning <em>the fast run at search speed</em>.</p>
+
+  <p>They are not the same number and should never have shared one. <b>Search speed is bounded by sensing</b> &mdash; she reads walls and decides where to go once per cell, so how fast she may explore is a sensor question settled at the bench. <b>The fast run has no such limit</b>, because the map is already known. 0.22 splits them:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>constant</th><th>default</th><th>why</th></tr>
+    <tr><td class="t"><code>RUN_SPEED</code></td><td class="n">600&nbsp;mm/s</td><td class="t">twice the search speed &mdash; a deliberately timid opening bid</td></tr>
+    <tr><td class="t"><code>RUN_ACCELERATION</code></td><td class="n">2000&nbsp;mm/s&sup2;</td><td class="t">as the search, until it is measured</td></tr>
+    <tr><td class="t"><code>RUN_DIAG_SPEED</code></td><td class="n">300&nbsp;mm/s</td><td class="t">110.3&nbsp;mm between posts against 168 down a cell. She threads it</td></tr>
+  </table>
+  </div>
+
+  <p>The <b>arc</b> speeds are untouched and stay as the turn table holds them. They are independent: she can run a six-cell straight flat out and still take every SS90 at the speed its row was tuned at, and that independence is the entire mechanism by which a longer, straighter line starts to beat a shorter, twistier one.</p>
+
+  <p>Sweeping the straight speed across the full competition mazes then says something more useful than the split itself &mdash; it says where her lap time actually lives:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>maze</th><th>v_max 300</th><th>600</th><th>1000</th><th>1500</th></tr>
+    <tr><td class="t">tricky.maz</td><td class="n">67.830</td><td class="n">51.933</td><td class="n">47.873</td><td class="n">46.802</td></tr>
+    <tr><td class="t">APEC2017.maz</td><td class="n">71.969</td><td class="n">52.385</td><td class="n">46.927</td><td class="n">45.021</td></tr>
+    <tr><td class="t">Japan2013ef.maz</td><td class="n">68.753</td><td class="n">46.122</td><td class="n">39.432</td><td class="n">37.085</td></tr>
+  </table>
+  </div>
+
+  <p class="dimc">Quickest, seconds, arcs held at 300&nbsp;mm/s throughout.</p>
+
+  <div class="note">
+    <b>300&nbsp;&rarr;&nbsp;600 buys 23%. 600&nbsp;&rarr;&nbsp;1500 &mdash; two and a half times the straight speed &mdash; buys another 10%.</b> These routes are <em>turn-dominated</em>: sixteen arcs at 300&nbsp;mm/s swamp anything the straights can save. Past about 1000&nbsp;mm/s <code>RUN_SPEED</code> is close to free money that is not there, and <b>the turn table is worth more bench time than the straight-line number</b>.
+  </div>
+
+  <p class="dimc">Runtime rather than <code>const</code>, like the turn table and the spin dynamics &mdash; <code>SPD?</code> and <code>SPD,v,a,diag</code> over BT, persisted as config block <b>v6</b>. Nothing drives on them yet, so a wrong value costs an estimate and not a mouse.</p>
+
+  <h2 class="sec">How much of the route is still guesswork</h2>
+
+  <p>&ldquo;Have I explored enough?&rdquo; had no answer but a feeling. It has one now, and it is a <em>proof</em> rather than a percentage &mdash; which matters, because a percentage here would have been invented and this is not.</p>
+
+  <p><code>act_plan_route</code> already flips the wall mask, so the second plan is nearly free. Run the same search twice with opposite assumptions:</p>
+
+  <ul class="tight">
+    <li><code>MASK_CLOSED</code> &mdash; an unseen wall <em>is</em> a wall. The best route she can <b>prove</b>.</li>
+    <li><code>MASK_OPEN</code> &mdash; an unseen wall is an opening. The best route that could <b>possibly</b> exist.</li>
+  </ul>
+
+  <p>The second is a true lower bound, because the real maze has at least as many walls as the optimistic view of it and adding walls can never make a route faster. So <b>the gap between them is the most that is still out there to find</b>, and when it closes her route is not probably the best, it <em>is</em> the best and no further exploring can change that.</p>
+
+  <div class="note">
+    <b>And it sharpens &ldquo;what is left to explore&rdquo; into something much smaller.</b> The cells worth driving to are exactly the not-yet-fully-seen cells <em>on</em> the optimistic route. An unknown cell that no optimistic route passes through cannot change the answer, however blank it looks on the screen.
+  </div>
+
+  <p>The case that makes this concrete is a long corridor along the bottom of the map. Driving the row above it, she reads its north walls and learns nothing at all of its east&ndash;west state, so every cell in it is &ldquo;unvisited&rdquo; by <code>cell_is_visited()</code>, which is true only when all four walls have been seen. Whether any of that matters is not a judgement call: it is decided by whether the best possible line wants to go down there. If it does not, those cells are dead ground and she should never spend a second on them.</p>
+
+  <p>On the wire, alongside the three <code>RT</code>/<code>RP</code>/<code>RTE</code> answers:</p>
+
+  <pre>RB,&lt;kind&gt;,&lt;ms&gt;,&lt;unknown cells on that route&gt;
+RU,&lt;x&gt;,&lt;y&gt;  &hellip;  RUE,&lt;total&gt;        the union &mdash; and only these matter</pre>
+
+  <p>The union is taken across all three kinds deliberately. It is a superset of what an orthogonal-only run needs, which is the safe direction to be wrong in while the diagonal arcs are untuned. The OLED shows known, best possible and the unseen count, and reads <code>PROVED</code> when there is nothing left; both apps draw the unseen cells as dashed amber squares <em>under</em> the route lines, so the count and the place agree.</p>
+
+  <div class="note">
+    <b><code>route_cells()</code> is not <code>route_points()</code>.</b> Points are the corners you would draw; cells are the ground she covers, and the two sets differ. A six-cell straight is two points and six cells. A diagonal step is no point at all, but it does cross one cell corner to corner &mdash; and the cell it crosses is <code>(u+u2)&gt;&gt;2</code>, not <code>(u+u2-1)&gt;&gt;1</code>, which lands on the neighbour. That arithmetic cost an evening once, so the new walker shares <code>diag_step()</code>&rsquo;s expression rather than deriving its own.
+  </div>
+
+  <p class="dimc">Cost is one extra plan per kind, about 100&nbsp;ms each on the F411, so roughly 600&nbsp;ms added to a press of <code>P</code>.</p>
+
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">
@@ -306,7 +378,8 @@
     <li><b>Every figure is only as good as the turn table</b>, and by <a href="e4-turns.html">Ch&nbsp;10</a> only the SS90E pair and the spins have met a floor. The planner will confidently choose a wrong route if the table lies to it, so the arcs want <em>measuring</em>, not eyeballing &mdash; entry speed, exit speed and duration, per turn.</li>
     <li><b>The planner and <code>turn_smooth()</code> still disagree about chained arcs.</b> At R&nbsp;=&nbsp;v/&omega;&nbsp;&asymp;&nbsp;101&nbsp;mm two 90s one cell apart need 202&nbsp;mm and have 180, so the planner refuses and emits stop-and-spin &mdash; while the firmware relabels the frame past the next turn point and simply runs the arcs back to back. <b>Zigzag test</b> (Calibration, or <code>Z</code>) drives that case deliberately. Whichever way it comes out, one of the two is wrong, and the diagonal figures move with it.</li>
     <li><b>The goal run-out is assumed at 270&nbsp;mm.</b> It depends on which cell of the goal box she enters and from where; a tighter entry would cap her lower.</li>
-    <li><b>Exploration is not planned yet.</b> The agreed shape &mdash; search to goal, search home, then plan on the optimistic map and go resolve only the unknown cells the planned route crosses &mdash; is not built. The stopping rule falls out for free: if the planned route crosses no unknown cell, it is provably optimal and nothing else is worth exploring.</li>
+    <li><b>Exploration is measured but not yet driven.</b> 0.23 answers <em>how much is left</em> &mdash; the optimistic bound and the unseen cells on it &mdash; and that is the stopping rule already in hand: explore until the optimistic route crosses no unseen cell, at which point the two times have converged by construction. What is missing is the second objective that acts on it: flood to the nearest useful unseen cell rather than to the goal, drive there, repeat. <code>maze.cell_is_visited()</code> gives the target set for free; <code>act_resume_saved</code> is still a stub.</li>
+    <li><b>Her explored map may hold only one route.</b> <code>Plan route</code> uses <code>MASK_CLOSED</code>, so after a single explore the world she can plan in is the corridor she drove and nothing else &mdash; and all three objectives must then return the same thing, because there is nothing else to return. That is not a flat cost model, it is an empty choice, and it is why <code>Resume</code> matters before any of these figures mean much on the real mouse.</li>
   </ul>
 
   <footer>

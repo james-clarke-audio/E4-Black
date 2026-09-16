@@ -114,6 +114,87 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.23 — 16 Sep 2026 · How much of the route is still guesswork**
+"Have I explored enough?" had no answer but a feeling. It has one now, and it is
+a proof rather than a percentage.
+
+`act_plan_route` already flips the wall mask, so the second plan is nearly free.
+`MASK_CLOSED` treats an unseen wall as a wall and yields the best route she can
+**prove**. `MASK_OPEN` treats it as an opening and yields the best route that
+could **possibly** exist — a true lower bound, because the real maze has at
+least as many walls as the optimistic view of it. The gap between them is the
+most that is still out there to find, and when it closes her route is not
+probably the best, it **is** the best and no further exploring can change it.
+
+The cells worth driving to are exactly the not-yet-fully-seen cells *on* the
+optimistic route. That is the sharp version of "explore what is left": an
+unknown cell no optimistic route passes through cannot change the answer,
+however blank it looks on the screen. A long corridor whose north walls she
+learned from driving the row above, and whose east–west state she knows nothing
+of, only matters if the best possible line wants to go down it.
+
+    RB,<kind>,<ms>,<unknown cells on that route>
+    RU,<x>,<y>  …  RUE,<total>        the union — and only these matter
+
+The union is taken across all three kinds deliberately: it is a superset of what
+an orthogonal-only run needs, which is the safe direction to be wrong in while
+the diagonal arcs are untuned.
+
+`route_cells()` in `native.cpp` walks a route and emits every **cell** it
+covers, which is a different set from `route_points()`' corners — a six-cell
+straight is two points and six cells, and a diagonal step is no point at all but
+does cross one cell. The OLED shows known, best possible and the unseen count,
+and reads `PROVED` when there is nothing left; both apps draw the unseen cells
+as dashed amber squares under the route lines.
+
+**0.22 — 16 Sep 2026 · Fast-run speeds, separate from the search speeds**
+`act_plan_route` built its `Robot` from `SEARCH_SPEED` and `SEARCH_ACCELERATION`,
+so it was planning the **fast run at search speed**. That is why `SHORTEST` and
+`QUICKEST` came back at 27.245 s each with identical point lists on the bench
+mouse: told that a straight is no quicker than a corner, the planner has nothing
+to choose between.
+
+Search speed is bounded by sensing — she reads walls and decides where to go
+once per cell — and is settled at the bench. The fast run has no such limit,
+because the map is already known.
+
+    RUN_SPEED         600 mm/s     twice the search speed, a timid opening bid
+    RUN_ACCELERATION  2000 mm/s²   as the search, until it is measured
+    RUN_DIAG_SPEED    300 mm/s     the diagonal corridor is 110.3 mm between
+                                   posts against 168 down a cell — about 14 mm
+                                   a side with the plate on. She threads it.
+
+The **arc** speeds are untouched and stay as the turn table holds them. They are
+independent: she can run a six-cell straight flat out and still take every SS90
+at the speed its row was tuned at, and that independence is the whole mechanism
+by which a longer, straighter line starts to beat a shorter, twistier one.
+
+Runtime rather than `const`, like the turn table and the spin dynamics — `SPD?`
+and `SPD,v,a,diag` over BT, persisted as config block **v6**. Nothing drives on
+them yet (`act_speed_run` is still a stub), so a wrong value costs an estimate,
+not a mouse.
+
+Sweeping the straight speed across the full competition mazes says where her lap
+time actually lives:
+
+| `v_max` | 300 | 600 | 1000 | 1500 |
+|---|---|---|---|---|
+| tricky.maz | 67.83 s | 51.93 s | 47.87 s | 46.80 s |
+| APEC2017.maz | 71.97 s | 52.39 s | 46.93 s | 45.02 s |
+
+300 → 600 buys 23%. 600 → 1500 — two and a half times the straight speed — buys
+another 10%. The routes are **turn-dominated**: sixteen arcs at 300 mm/s swamp
+what the straights can save, so the turn table is worth more bench time than the
+straight-line number.
+
+Two fixes landed with it. `act_plan_route` was planning to a **1×1 goal** when
+the goal is a 2×2 room, so she drove *through* two goal cells to reach the one
+square she had been told to reach — work done after the clock had already
+stopped. And the app was never sent the **perimeter**: `maze.initialise()` walls
+the outside of the arena before a single sensor reading, but `W` lines are only
+sent for cells she stands in, so the border was known at both ends of the link
+and sent over neither.
+
 **0.21 — 16 Sep 2026 · The planner reaches the app**
 `Plan route` (Maze solver, or `P`) runs the planner three ways over the map she
 is currently holding — shortest, quickest, quickest-with-diagonals — and streams
