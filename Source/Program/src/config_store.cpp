@@ -42,7 +42,19 @@ typedef struct {
   /* because the checksum covers the bytes, not their meaning.             */
   int16_t spin_omega;            /* 2 */
   int16_t spin_alpha;            /* 2 */
-} ConfigV5;                      /* 176 */
+  /* APPENDED again. The spin gate below had to change with this: it read
+   * "len >= sizeof(the struct)", which was the right test only while spin was
+   * the last field. Left alone it would have demanded 182 bytes to load a
+   * value that lives at byte 176, and every v5 block on every chip would have
+   * quietly dropped its spin dynamics back to the compiled defaults. That is
+   * the exact failure this file's header warns about, and it still nearly got
+   * me -- so the gates are offsetof() now, which cannot go stale. */
+  int16_t run_speed;             /* 2  mm/s along a straight   */
+  int16_t run_accel;             /* 2  mm/s/s                  */
+  int16_t run_diag_speed;        /* 2  mm/s along a diagonal   */
+} ConfigV6;                      /* 182 */
+
+static int s_run_loaded = 0;
 
 static uint8_t sum8(const uint8_t *p, uint16_t n) {
   uint8_t s = 0;
@@ -85,7 +97,7 @@ void config_store_begin(void) {
 
   // Load what this build understands; a shorter (older) payload leaves the
   // remaining fields at their defaults, a longer (newer) one is truncated.
-  ConfigV5 c;
+  ConfigV6 c;
   memset(&c, 0, sizeof(c));
   memcpy(&c, buf, len < sizeof(c) ? len : sizeof(c));
 
@@ -123,7 +135,7 @@ void config_store_begin(void) {
   // Gated on the bytes the TURNS need, NOT on sizeof the whole struct - a v5
   // build must still load a v4 block's turns. Getting this wrong is how
   // appending a field silently discards everything that came before it.
-  if (len >= (int)offsetof(ConfigV5, spin_omega)) {
+  if (len >= (int)offsetof(ConfigV6, spin_omega)) {
     int sane = 1;
     for (int i = 0; i < TURN_COUNT; i++) {
       if (c.turn[i][0] < 0   || c.turn[i][0] > 500)   sane = 0;   // entry
@@ -151,7 +163,7 @@ void config_store_begin(void) {
 
   // Spin dynamics, appended after the turns.
   int spin_loaded = 0;
-  if (len >= (int)sizeof(ConfigV5)) {
+  if (len >= (int)offsetof(ConfigV6, run_speed)) {
     if (c.spin_omega > 0 && c.spin_omega < 2000 &&
         c.spin_alpha > 0 && c.spin_alpha < 32000) {
       OMEGA_SPIN_TURN = (float)c.spin_omega;
@@ -162,6 +174,22 @@ void config_store_begin(void) {
     }
   }
 
+  // Fast-run speeds, appended after the spin dynamics.
+  int run_loaded = 0;
+  if (len >= (int)sizeof(ConfigV6)) {
+    if (c.run_speed  >= 100 && c.run_speed  <= 3000 &&
+        c.run_accel  >= 100 && c.run_accel  <= 32000 &&
+        c.run_diag_speed >= 100 && c.run_diag_speed <= 3000) {
+      RUN_SPEED        = (float)c.run_speed;
+      RUN_ACCELERATION = (float)c.run_accel;
+      RUN_DIAG_SPEED   = (float)c.run_diag_speed;
+      run_loaded = 1;
+    } else {
+      report_write("CFG,run speeds out of range, ignored\r\n");
+    }
+  }
+
+  s_run_loaded  = run_loaded;
   s_loaded      = 1;
   s_version     = ver;
   s_thr_loaded  = thr_loaded;
@@ -188,6 +216,9 @@ void config_store_report(int full) {
   report_printf("CFG,spin w=%d al=%d %s\r\n",
                 (int)OMEGA_SPIN_TURN, (int)ALPHA_SPIN_TURN,
                 s_spin_loaded ? "(eeprom)" : "(defaults)");
+  report_printf("CFG,run v=%d a=%d diag=%d %s\r\n",
+                (int)RUN_SPEED, (int)RUN_ACCELERATION, (int)RUN_DIAG_SPEED,
+                s_run_loaded ? "(eeprom)" : "(defaults)");
   report_printf("CFG,turn in=%d out=%d w=%d al=%d %s\r\n",
                 turn_params[1].entry_offset, turn_params[1].lead_out,
                 (int)turn_params[1].omega, (int)turn_params[1].alpha,
@@ -209,7 +240,7 @@ void config_store_report(int full) {
 int config_store_save(void) {
   if (!s_present) return 0;
 
-  ConfigV5 c;
+  ConfigV6 c;
   memset(&c, 0, sizeof(c));
   c.gyro_scale   = GYRO_SCALE;
   c.thresh_left  = (int16_t)WALL_THRESH_LEFT;
@@ -227,10 +258,14 @@ int config_store_save(void) {
   c.spin_omega = (int16_t)OMEGA_SPIN_TURN;
   c.spin_alpha = (int16_t)ALPHA_SPIN_TURN;
 
-  uint8_t blk[6 + sizeof(ConfigV5) + 1];
+  c.run_speed      = (int16_t)RUN_SPEED;
+  c.run_accel      = (int16_t)RUN_ACCELERATION;
+  c.run_diag_speed = (int16_t)RUN_DIAG_SPEED;
+
+  uint8_t blk[6 + sizeof(ConfigV6) + 1];
   blk[0] = 'E'; blk[1] = '4'; blk[2] = 'C'; blk[3] = '1';
   blk[4] = (uint8_t)CONFIG_VERSION;
-  blk[5] = (uint8_t)sizeof(ConfigV5);
+  blk[5] = (uint8_t)sizeof(ConfigV6);
   memcpy(&blk[6], &c, sizeof(c));
   blk[6 + sizeof(c)] = (uint8_t)(blk[4] + blk[5] + sum8(&blk[6], sizeof(c)));
 

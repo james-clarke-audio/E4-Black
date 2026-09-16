@@ -268,10 +268,19 @@ static void act_plan_route(void) {
 	MazeMask save = maze.get_mask();
 	maze.set_mask(MASK_CLOSED);
 
+	// The FAST-RUN speeds, not the search ones. She explores at SEARCH_SPEED
+	// because she is reading walls a cell at a time; she runs the known map at
+	// RUN_SPEED. Planning the fast run at search speed was why SHORTEST and
+	// QUICKEST came back identical to the millisecond -- told that a straight
+	// is no quicker than a corner, the planner had nothing to choose between.
+	//
+	// The ARC speeds below stay as the turn table holds them. They are two
+	// different things: she can run a six-cell straight flat out and still take
+	// every SS90 at the speed that row was tuned at.
 	plan::Robot rb;
-	rb.straight.v_max = SEARCH_SPEED;
-	rb.straight.accel = SEARCH_ACCELERATION;
-	rb.straight.decel = SEARCH_ACCELERATION;
+	rb.straight.v_max = RUN_SPEED;
+	rb.straight.accel = RUN_ACCELERATION;
+	rb.straight.decel = RUN_ACCELERATION;
 	{
 		const TurnParameters &t = turn_params[SS90L];
 		rb.arc90_speed = (float)t.speed; rb.arc90_offset = (float)t.entry_offset;
@@ -296,7 +305,7 @@ static void act_plan_route(void) {
 		dt.ds45_speed = (float)t.speed; dt.ds45_offset = (float)t.entry_offset;
 		dt.ds45_omega = t.omega;        dt.ds45_alpha  = t.alpha;
 	}
-	dt.diag_v_max = SEARCH_SPEED;
+	dt.diag_v_max = RUN_DIAG_SPEED;   // the narrow corridor, not the straight
 
 	// The clock stops on ENTERING the goal, and the goal is a 2x2 room -- so any
 	// of its four cells ends the run. Planning to maze.goal() as a single cell
@@ -1486,6 +1495,29 @@ void app_main()
 							} else {
 								report_write("THR,rejected (expect 1..4095, front 1..8191)\r\n");
 							}
+						}
+					}
+					else if (strncmp(bt_line, "SPD?", 4) == 0) {
+						report_printf("SPD,now v=%d a=%d diag=%d\r\n",
+						              (int)RUN_SPEED, (int)RUN_ACCELERATION, (int)RUN_DIAG_SPEED);
+					}
+					else if (strncmp(bt_line, "SPD,", 4) == 0) {
+						// Fast-run speeds, swept from the app the way the turn table is.
+						// Seeded from the live values so a short command changes only
+						// what it names. Nothing drives on these yet -- they are what the
+						// planner believes she can do, so a bad one costs an estimate.
+						float v[3] = { RUN_SPEED, RUN_ACCELERATION, RUN_DIAG_SPEED };
+						tt_parse_floats(bt_line + 4, v, 3);
+						if (v[0] >= 100.0f && v[0] <= 3000.0f &&
+						    v[1] >= 100.0f && v[1] <= 32000.0f &&
+						    v[2] >= 100.0f && v[2] <= 3000.0f) {
+							RUN_SPEED = v[0]; RUN_ACCELERATION = v[1]; RUN_DIAG_SPEED = v[2];
+							int ok = config_store_save();
+							report_printf("SPD,set v=%d a=%d diag=%d saved=%d\r\n",
+							              (int)RUN_SPEED, (int)RUN_ACCELERATION,
+							              (int)RUN_DIAG_SPEED, ok);
+						} else {
+							report_write("SPD,rejected (v 100..3000, a 100..32000, diag 100..3000)\r\n");
 						}
 					}
 					else if (strncmp(bt_line, "ZIG,", 4) == 0) {

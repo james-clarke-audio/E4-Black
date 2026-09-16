@@ -21,6 +21,7 @@
  *
  * v4 payload: turn[] widened to all 16 turn types                  (172 bytes)
  * v5 payload: + int16 spin_omega, spin_alpha                       (176 bytes)
+ * v6 payload: + int16 run_speed, run_accel, run_diag_speed         (182 bytes)
  *
  * ALWAYS APPEND, NEVER INSERT. The load is length-driven and reads by struct
  * offset, so a field added in the middle shifts everything after it and an
@@ -49,7 +50,7 @@
 #include <stdint.h>
 
 #define CONFIG_ADDR      512u   /* clear of the maze store, 64-byte page aligned */
-#define CONFIG_VERSION   5u
+#define CONFIG_VERSION   6u
 
 #ifdef __cplusplus
 extern "C" {

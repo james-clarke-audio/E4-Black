@@ -33,6 +33,35 @@ const float SEARCH_SPEED        = 300.0f;
 const float SEARCH_ACCELERATION = 2000.0f;
 const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smooth turn
 
+// --- Fast-run speeds (mm/s, mm/s/s) ---------------------------------------
+// The SEARCH values above are what she explores at, and they are bounded by
+// something real: she reads walls and decides where to go once per cell, so
+// how fast she may search is a sensor question settled at the bench. The fast
+// run has no such limit -- the map is already known -- and these are its
+// numbers.
+//
+// Keeping them apart is what gives the planner a question to answer. While
+// v_max equalled the turn speed she went as fast down a straight as round a
+// corner, so SHORTEST and QUICKEST returned the same route to the millisecond
+// and there was no "quickest" to find. Only when a straight can outrun a turn
+// does a longer, straighter line start to beat a shorter, twistier one.
+//
+// RUN_DIAG_SPEED is deliberately lower. The diagonal corridor is 110.3 mm
+// between posts against 168 mm down a cell, which leaves her about 14 mm a
+// side with the plate and housings fitted rather than 43. She threads it; she
+// does not charge it.
+//
+// NOT const: like the turn table and the spin dynamics these are measured, not
+// chosen. Defined once in mouse.cpp, settable over BT with SPD, persisted in
+// the EEPROM config block. The values there are the fallback.
+//
+// Nothing drives on these yet -- act_speed_run is still a stub. Today they are
+// read by the planner alone, which is why a wrong value here costs a wrong
+// estimate and not a wrecked mouse.
+extern float RUN_SPEED;
+extern float RUN_ACCELERATION;
+extern float RUN_DIAG_SPEED;
+
 // --- In-place (spin) turn dynamics (deg/s, deg/s/s) ------------------------
 // NOT const, for the same reason the arcs are not: these are measured against
 // a floor, not chosen. Defined once in mouse.cpp, written by the tuner,

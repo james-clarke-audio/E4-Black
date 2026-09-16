@@ -12,6 +12,14 @@ Mouse mouse;
 float OMEGA_SPIN_TURN = 360.0f;    // deg/s
 float ALPHA_SPIN_TURN = 3600.0f;   // deg/s/s
 
+// Fast-run speeds. One definition, same as the turns and the spin. 600 is a
+// deliberately timid opening bid -- twice the search speed, so the planner has
+// a real gap between straight and turn to work with, and slow enough that the
+// first fast run is survivable. Raise it once the turn table has met a floor.
+float RUN_SPEED       = 600.0f;    // mm/s along a straight
+float RUN_ACCELERATION = 2000.0f;  // mm/s/s, same as the search until measured
+float RUN_DIAG_SPEED  = 300.0f;    // mm/s along a diagonal -- the narrow corridor
+
 TurnParameters turn_params[TURN_COUNT] = {
     // speed, entry, exit, lead_out, angle, omega, alpha, trigger
     //
