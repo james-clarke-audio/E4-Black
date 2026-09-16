@@ -79,13 +79,55 @@ The lesson, written down so it stays written down: **this is an optical mount an
 not a solid.** Trace rays and lead paths against the plate *and* the parts standing in it, and
 check every foot against the parsed outline, never a remembered one. And put it in the slicer.
 
+## Process: MJF PA12 nylon, dyed black — not FDM
+
+The production part is HP Multi Jet Fusion, PA12-HP nylon, dyed black. A powder bed, not FDM.
+
+| MJF PA12 guideline | value | this part |
+|---|---|---|
+| Dimensional accuracy | ±0.3%, lower limit ±0.3 mm | — |
+| Clearance between assembled parts | **≥ 0.6 mm** | `FIT` is **0.30** — see below |
+| Minimum wall | 1 mm | 1.6 mm foot, 3.0 mm arm — ok |
+| Minimum hole | 2 mm | 2.3 and 2.5 mm — ok |
+| Minimum detail | 0.25 mm | ok |
+| Layer | 0.08 mm | — |
+| Tensile / modulus / elongation (XY) | 50 MPa / 1750 MPa / 19% | — |
+
+**`FIT` = 0.30 mm is below the process guideline and is the one thing to decide before ordering.**
+It was chosen for FDM. At ±0.3 mm the worst case is a zero-clearance pocket that will not take a
+housing without filing, four times, after a three-day turnaround.
+
+Opening it costs azimuth: slack *c* over the housing's 8.025 mm grip allows about `atan(c/8.025)` of
+rotation — 2.1° at 0.30, 3.6° at 0.50, 4.3° at 0.60. That is not free at 70° on the sides, where 65°
+already catches the post's edge. It is survivable only because **the angle is set at glue-up**: the
+pocket holds the housing square while the epoxy goes off, and the aim comes from sighting the emitter
+on a phone camera and peaking the detector on a live reading.
+
+On that reading **0.50 mm** is the number for an MJF order — worst case 0.2 and assemblable, best
+case 0.8 and held by the epoxy. It is the tight end that has no recovery. Change `FIT` in the source.
+
+**Other MJF consequences:**
+
+- **Orientation and supports are not ours to choose.** A powder bed needs neither. The "feet down,
+  no supports, 0.0 mm² overhang" notes apply to a home FDM test print and nothing else.
+- **PA12 is about half as stiff as PLA** (1750 MPa vs ~3500) at similar strength and far greater
+  toughness. The 3.0 × 6.4 mm arm deflects about twice as far under the same load, but bends and
+  returns rather than snapping. Five bolted fixings and short arms keep it small.
+- **The foot creeps rather than cracks.** Nylon under sustained clamp load goes slack slowly instead
+  of splitting. Re-check the mount bolts after the first few runs.
+- **The black is a dye, not pigment through the bulk.** MJF PA12 comes off the machine mid-grey
+  (L* ≈ 55). A dye that looks black in daylight need not absorb at 940 nm. 6.4 mm of nylon will
+  attenuate a lot regardless and the housings do the near-field separation, but the trench floor is
+  claimed above as a baffle and that is untested in this material. **Torch test on arrival:** hold
+  the part between an emitter and a phone camera — phone sensors see 940 nm — and see if it glows.
+- No enclosed voids, so no trapped powder.
+
 ## Printing and fitting
 
-- **Orientation:** feet down, flat on the bed. The plate body's 2 mm underside is standoff over the
-  SMDs, not material.
-- **Supports:** none.
-- **Perimeters:** at least four. Black PLA blocks 940 nm well, but FDM light-pipes along layer
-  boundaries.
+- **MJF:** nothing to specify — no orientation choice, no supports, no perimeters.
+- **FDM test print:** feet down flat on the bed (the plate body's 2 mm underside is standoff over the
+  SMDs, not material), no supports, at least four perimeters. Black PLA blocks 940 nm well, but FDM
+  light-pipes along layer boundaries.
 
 1. Take the four nuts out from under the motor mounts, lift the mounts off the studs.
 2. Lay the plate on, feet over the studs, apex M2 at (38.5, 98) with a nut under the board.
@@ -101,7 +143,7 @@ steel nut used to. If it crushes, the axles dip and the sensor height goes with 
 - **Detector leads are the binding constraint.** SL uses 12.2 mm of a 12.70 mm minimum. Bend right
   at the housing's rear face and trim only after the lead is formed.
 - Pads sit **0.4–2 mm behind** the rear face. Enough for the lead to drop, not enough to be casual.
-- Pocket clearance is 0.30 mm on both axes — change `FIT` in the source if your prints run tight.
+- Pocket clearance `FIT` is 0.30 mm on both axes — **below the MJF guideline of 0.6, see above.**
 - The arm is **3.0 mm wide × 6.4 mm tall** at the Black Pill pinch. That is the governing section.
 - Free tilt inside the housing bores (±4–6° emitter, ±8° detector, Ch 5) is unchanged. The plate
   fixes the housing's angle, not the part's angle within it.
