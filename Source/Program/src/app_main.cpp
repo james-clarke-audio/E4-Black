@@ -298,7 +298,23 @@ static void act_plan_route(void) {
 	}
 	dt.diag_v_max = SEARCH_SPEED;
 
+	// The clock stops on ENTERING the goal, and the goal is a 2x2 room -- so any
+	// of its four cells ends the run. Planning to maze.goal() as a single cell
+	// makes her drive to one named square, which when the approach arrives from
+	// the far side means crossing the room to reach it: cells and turns spent
+	// after she has already finished. On the maze this was first seen on she
+	// drove through (8,8) and (8,7), both goal cells, to turn into (7,7).
+	//
+	// The room only applies when her goal actually sits inside it. The corner
+	// presets from 'Set goal' are single cells and must stay single, or she
+	// would plan to a 2x2 block hanging off the edge of the arena.
 	const Location g = maze.goal();
+	const bool goal_is_room = (g.x == GOAL_ROOM_X0 || g.x == GOAL_ROOM_X0 + 1) &&
+	                          (g.y == GOAL_ROOM_Y0 || g.y == GOAL_ROOM_Y0 + 1);
+	const int gx = goal_is_room ? GOAL_ROOM_X0 : (int)g.x;
+	const int gy = goal_is_room ? GOAL_ROOM_Y0 : (int)g.y;
+	const int gw = goal_is_room ? 2 : 1;
+	const int gh = goal_is_room ? 2 : 1;
 	plan::DiagTurns off = dt; off.enabled = false;
 
 	for (int kind = 0; kind < 3; kind++) {
@@ -307,7 +323,7 @@ static void act_plan_route(void) {
 		const plan::WallReader wr = { &plan_wall_is_exit, 0 };
 		uint32_t t0 = HAL_GetTick();
 		plan_native(s_route, wr, rb, use, obj, START.x, START.y, plan::NN,
-		            g.x, g.y, 1, 1);
+		            gx, gy, gw, gh);
 		uint32_t took = HAL_GetTick() - t0;
 
 		if (!s_route.ok) {
