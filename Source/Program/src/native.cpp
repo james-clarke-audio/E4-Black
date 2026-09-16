@@ -384,6 +384,66 @@ void plan_native(Route &out, const WallReader &maze, const Robot &r,
   out.seconds = route_time(out, r, d, start_head);
 }
 
+int route_cells(const Route &rt, int sx, int sy, Head start_head,
+                RouteCellFn fn, void *ctx) {
+  if (!rt.ok) return -1;
+  int u = 2 * sx + 1, v = 2 * sy + 1;
+  int h = (int)start_head, dd = 0;
+  int n = 0;
+
+  fn(ctx, sx, sy); ++n;
+
+  for (int i = 0; i < rt.count; ++i) {
+    const Step &s = rt.steps[i];
+
+    if (s.diag) {
+      // A diagonal step is one cell corner to corner, and the cell it crosses
+      // is the one containing the midpoint -- (u+u2)>>2, not (u+u2-1)>>1,
+      // which lands on the neighbour. That arithmetic cost a whole evening
+      // once; it is the same expression diag_step() uses, deliberately.
+      for (int k = 0; k < s.cells; ++k) {
+        const int u2 = u + DXd[dd], v2 = v + DYd[dd];
+        fn(ctx, (u + u2) >> 2, (v + v2) >> 2); ++n;
+        u = u2; v = v2;
+      }
+    } else {
+      for (int k = 0; k < s.cells; ++k) {
+        u += 2 * HX[h]; v += 2 * HY[h];
+        fn(ctx, (u - 1) >> 1, (v - 1) >> 1); ++n;
+      }
+    }
+
+    switch (s.move) {
+      case MV_ARC_L: case MV_SPIN_L:     h = (h + 3) & 3; break;
+      case MV_ARC_R: case MV_SPIN_R:     h = (h + 1) & 3; break;
+      case MV_ARC_180: case MV_SPIN_180: h = (h + 2) & 3; break;
+      case MV_SD45_L: case MV_SD45_R: {
+        // Onto the diagonal. She shifts to a wall midpoint of the cell she is
+        // already standing in, so this enters no new cell and emits nothing.
+        const int nd = (s.move == MV_SD45_L) ? ((h + 3) & 3) : h;
+        u += DXd[nd] - HX[h];
+        v += DYd[nd] - HY[h];
+        dd = nd;
+        break;
+      }
+      case MV_DS45_L: case MV_DS45_R: {
+        // Off it, into the centre of the NEXT cell -- not the one the last
+        // diagonal step crossed, so this one does count.
+        const int nh = (s.move == MV_DS45_L) ? (int)diag_ccw(Diag(dd)) : (int)diag_cw(Diag(dd));
+        u += HX[nh]; v += HY[nh];
+        h = nh;
+        fn(ctx, (u - 1) >> 1, (v - 1) >> 1); ++n;
+        break;
+      }
+      case MV_DD90_L: dd = (dd + 3) & 3; break;
+      case MV_DD90_R: dd = (dd + 1) & 3; break;
+      case MV_GOAL:   return n;
+      default:        return -1;
+    }
+  }
+  return n;
+}
+
 int route_check(const Route &rt, const WallReader &maze,
                 int sx, int sy, Head start_head, int gx, int gy, int gw, int gh) {
   if (!rt.ok) return -1;

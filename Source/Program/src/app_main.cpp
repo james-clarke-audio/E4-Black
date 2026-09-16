@@ -253,6 +253,41 @@ static_assert((int)EAST  == (int)plan::EE, "Heading/plan::Head disagree on EAST"
 static_assert((int)SOUTH == (int)plan::SS, "Heading/plan::Head disagree on SOUTH");
 static_assert((int)WEST  == (int)plan::WW, "Heading/plan::Head disagree on WEST");
 
+// How much of the line she would fly does she still not know?
+//
+// Two plans, same maze, opposite assumptions. MASK_CLOSED treats an unseen
+// wall as a wall, so it yields the best route she can PROVE. MASK_OPEN treats
+// it as an opening, so it yields the best route that could possibly exist --
+// a true lower bound, because the real maze has at least as many walls as the
+// optimistic view of it.
+//
+// The gap between them is the most that is still out there to find, and when
+// it closes to nothing her route is not "probably" the best, it IS the best
+// and no further exploring can change that. The cells worth driving to are
+// exactly the not-yet-fully-seen cells ON the optimistic route: an unknown
+// cell the optimistic route does not want is an unknown that cannot matter,
+// however blank it looks on the screen.
+#define UNK_BYTES ((MAZE_WIDTH * MAZE_HEIGHT + 7) / 8)
+static uint8_t s_unk_union[UNK_BYTES];    // across all three kinds
+static uint8_t s_unk_route[UNK_BYTES];    // this kind alone
+static int     s_unk_per   = 0;
+static int     s_unk_total = 0;
+
+static inline bool unk_mark(uint8_t *bits, int i) {
+	const uint8_t m = (uint8_t)(1u << (i & 7));
+	if (bits[i >> 3] & m) return false;
+	bits[i >> 3] |= m;
+	return true;
+}
+
+static void plan_scan_cell(void *, int x, int y) {
+	if (x < 0 || x >= MAZE_WIDTH || y < 0 || y >= MAZE_HEIGHT) return;
+	if (maze.cell_is_visited(Location((uint8_t)x, (uint8_t)y))) return;
+	const int i = y * MAZE_WIDTH + x;
+	if (unk_mark(s_unk_route, i)) ++s_unk_per;
+	if (unk_mark(s_unk_union, i)) ++s_unk_total;
+}
+
 static bool plan_wall_is_exit(const void *, int x, int y, int h) {
 	if (x < 0 || x >= MAZE_WIDTH || y < 0 || y >= MAZE_HEIGHT) return false;
 	return maze.is_exit(Location((uint8_t)x, (uint8_t)y), (Heading)h);
@@ -325,6 +360,7 @@ static void act_plan_route(void) {
 	const int gw = goal_is_room ? 2 : 1;
 	const int gh = goal_is_room ? 2 : 1;
 	plan::DiagTurns off = dt; off.enabled = false;
+	int proven_ms[3] = { -1, -1, -1 };
 
 	for (int kind = 0; kind < 3; kind++) {
 		const plan::Objective obj = (kind == 0) ? plan::SHORTEST : plan::QUICKEST;
@@ -345,8 +381,63 @@ static void act_plan_route(void) {
 		report_printf("RTE,%d,%d,%d,%d\r\n", n, s_route.cells, s_route.turns, s_route.spins);
 		report_printf("ACT,plan kind=%d %dms cpu=%lums\r\n",
 		              kind, (int)(s_route.seconds * 1000.0f), (unsigned long)took);
+		proven_ms[kind] = (int)(s_route.seconds * 1000.0f);
 	}
+
+	// --- the same three plans again, with every unseen wall assumed open ---
+	maze.set_mask(MASK_OPEN);
+	memset(s_unk_union, 0, sizeof(s_unk_union));
+	s_unk_total = 0;
+	int best_ms = -1;
+
+	for (int kind = 0; kind < 3; kind++) {
+		const plan::Objective obj = (kind == 0) ? plan::SHORTEST : plan::QUICKEST;
+		const plan::DiagTurns &use = (kind == 2) ? dt : off;
+		const plan::WallReader wr = { &plan_wall_is_exit, 0 };
+		plan_native(s_route, wr, rb, use, obj, START.x, START.y, plan::NN,
+		            gx, gy, gw, gh);
+		if (!s_route.ok) { report_printf("RB,%d,-1,0\r\n", kind); continue; }
+
+		memset(s_unk_route, 0, sizeof(s_unk_route));
+		s_unk_per = 0;
+		plan::route_cells(s_route, START.x, START.y, plan::NN, plan_scan_cell, 0);
+
+		const int ms = (int)(s_route.seconds * 1000.0f);
+		if (kind == 2) best_ms = ms;
+		report_printf("RB,%d,%d,%d\r\n", kind, ms, s_unk_per);
+	}
+
+	// The union: every cell any optimistic route wants and she has not fully
+	// seen. This is the exploring still worth doing, and nothing else is.
+	for (int y = 0; y < MAZE_HEIGHT; y++)
+		for (int x = 0; x < MAZE_WIDTH; x++) {
+			const int i = y * MAZE_WIDTH + x;
+			if (s_unk_union[i >> 3] & (1u << (i & 7))) report_printf("RU,%d,%d\r\n", x, y);
+		}
+	report_printf("RUE,%d\r\n", s_unk_total);
+
 	maze.set_mask(save);
+
+	if (s_haveOled) {
+		char l[24];
+		SSD1306_Fill(SSD1306_COLOR_BLACK);
+		SSD1306_GotoXY(0, OLED_TITLE_Y);
+		SSD1306_Puts(s_unk_total ? "Plan: more to see" : "Plan: PROVED",
+		             &Font_7x10, SSD1306_COLOR_WHITE);
+		snprintf(l, sizeof(l), "known %d.%02ds", proven_ms[2] / 1000, (proven_ms[2] % 1000) / 10);
+		SSD1306_GotoXY(0, OLED_LIST_Y0);              SSD1306_Puts(l, &Font_7x10, SSD1306_COLOR_WHITE);
+		snprintf(l, sizeof(l), "best  %d.%02ds", best_ms / 1000, (best_ms % 1000) / 10);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + OLED_ROW_H); SSD1306_Puts(l, &Font_7x10, SSD1306_COLOR_WHITE);
+		snprintf(l, sizeof(l), "unknown %d cells", s_unk_total);
+		SSD1306_GotoXY(0, OLED_LIST_Y0 + 2*OLED_ROW_H); SSD1306_Puts(l, &Font_7x10, SSD1306_COLOR_WHITE);
+		SSD1306_UpdateScreen();
+	}
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	uint8_t junk; while (bt_rx_pop(&junk)) { }
+	while (!(SWITCH_LEFT() || SWITCH_RIGHT())) {
+		if (bt_rx_pop(&junk)) break;
+		HAL_Delay(10);
+	}
 }
 
 // Launch the ported search brain against the injected/seeded ground-truth

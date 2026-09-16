@@ -498,11 +498,13 @@ const state={
   goals:new Set(), mouse:{x:90,y:90,deg:0,has:false,hasPos:false,cell:null}, trail:[],
   sensors:[0,0,0,0], tel:{}, stateLabel:'IDLE', battMin:null, arena:null,
   solution:[], solveMs:0, solveSteps:0,
+  bounds:[], unknown:new Set(), unknownPending:null,
 };
 const idx=(x,y)=>y*N+x;
 const inb=(x,y)=>x>=0&&x<N&&y>=0&&y<N;
 function resetMaze(){
   state.walls.fill(0); state.known.fill(0); state.cost.fill(-1);
+  state.bounds.length=0; state.unknown=new Set(); state.unknownPending=null;
   state.goals.clear(); state.trail.length=0; state.mouse.has=false; state.mouse.hasPos=false; state.mouse.cell=null;
   state.solution.length=0; state.solveMs=0; state.solveSteps=0; state.arena=null;
   state.routes=[null,null,null]; state.routeKind=-1;
@@ -576,6 +578,20 @@ function parseLine(line){
     case 'RTE': { const r=state.routes[state.routeKind];
       if(r){ r.cells=+p[2]; r.turns=+p[3]; r.spins=+p[4]; }
       state.routeKind=-1; routeInfo(); needsDraw=true; break; }
+    // The optimistic twin of each plan: the same search with every UNSEEN wall
+    // assumed open. That is a true lower bound -- the real maze has at least as
+    // many walls as the optimistic view of it -- so the gap to the proven route
+    // is the most that is still out there to find. When it closes, her route is
+    // not probably best, it is provably best.
+    //   RB,<kind>,<ms>,<unknown cells on that route>
+    //   RU,<x>,<y>  ... RUE,<total>   the union, and the only cells worth driving to
+    case 'RB': { const k=+p[1];
+      if(k>=0&&k<3){ state.bounds[k]={ms:+p[2],unk:+p[3]};
+        if(k===0) state.unknownPending=new Set(); }
+      routeInfo(); break; }
+    case 'RU': if(state.unknownPending&&inb(+p[1],+p[2])) state.unknownPending.add(idx(+p[1],+p[2])); break;
+    case 'RUE': state.unknown=state.unknownPending||new Set(); state.unknownPending=null;
+      routeInfo(); needsDraw=true; break;
     case 'SOLVE': state.solution=[]; break;
     case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
@@ -636,6 +652,18 @@ function routeInfo(){
   for(let k=0;k<3;k++){ const r=state.routes&&state.routes[k]; if(!r) continue;
     bits.push(r.ms<0 ? ROUTE_NAME[k]+' — no route'
       : ROUTE_NAME[k]+' '+(r.ms/1000).toFixed(2)+'s · '+r.cells+'c · '+r.turns+'a/'+r.spins+'s'); }
+  const b=state.bounds&&state.bounds[2];
+  if(b && b.ms>=0){
+    const known=state.routes&&state.routes[2]&&state.routes[2].ms;
+    const n=state.unknown?state.unknown.size:0;
+    if(n===0 && known>=0 && b.ms>=known-1){
+      bits.push('<span style="color:var(--good)">route PROVED optimal — nothing left to explore</span>');
+    } else {
+      const gap=(known>=0)?((known-b.ms)/1000).toFixed(2):'?';
+      bits.push('best possible '+(b.ms/1000).toFixed(2)+'s · up to '+gap+'s still to find · '
+                +n+' unknown cell'+(n===1?'':'s')+' on it');
+    }
+  }
   el.innerHTML = bits.length ? bits.join('<br>') : '';
 }
 const view={zoom:3.2, panx:null, pany:null, follow:true};
@@ -682,6 +710,19 @@ function draw(){
     ctx.strokeStyle='rgba(74,163,255,.65)'; ctx.lineWidth=1.8; ctx.lineJoin='round'; ctx.beginPath();
     state.trail.forEach(([mx,my],i)=>{const a=PX(mx),b=PY(my); i?ctx.lineTo(a,b):ctx.moveTo(a,b);});
     ctx.stroke();
+  }
+  // Cells the best-possible route wants and she has not fully seen. Drawn
+  // under the route lines so the lines stay readable on top of them.
+  if(opts.routes && state.unknown && state.unknown.size){
+    ctx.save();
+    ctx.fillStyle='rgba(240,160,75,.20)';
+    ctx.strokeStyle='rgba(240,160,75,.75)'; ctx.lineWidth=1.2; ctx.setLineDash([4,3]);
+    state.unknown.forEach(i=>{
+      const x=i%N, y=(i/N)|0, c=state.cellmm;
+      ctx.fillRect(PX(x*c),PY((y+1)*c),c*T.scale,c*T.scale);
+      ctx.strokeRect(PX(x*c),PY((y+1)*c),c*T.scale,c*T.scale);
+    });
+    ctx.restore();
   }
   // planned routes (Plan route). Half-cell coordinates: u,v are in units of
   // half a cell, so the same code draws an orthogonal leg and a 45 degree one

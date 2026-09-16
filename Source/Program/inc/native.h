@@ -87,4 +87,21 @@ typedef void (*RoutePointFn)(void *ctx, int u, int v, int move);
 int route_points(const Route &rt, int sx, int sy, Head start_head,
                  RoutePointFn fn, void *ctx);
 
+/// Every CELL a route passes through, in order, start and goal included.
+///
+/// route_points() gives the corners you would draw; this gives the ground she
+/// covers, which is a different set. A six-cell straight is two points and six
+/// cells, and a diagonal step is no point at all but does cross one cell
+/// corner to corner. Cells may repeat where a route doubles back, so a caller
+/// that wants a SET must mark them off itself.
+///
+/// This exists to answer "what does she still not know about the line she
+/// would fly?" -- walk the optimistic route, keep the cells that are not yet
+/// fully seen, and that is the exploring still worth doing.
+///
+/// Returns the number of cells emitted, or -1 on a malformed route.
+typedef void (*RouteCellFn)(void *ctx, int x, int y);
+int route_cells(const Route &rt, int sx, int sy, Head start_head,
+                RouteCellFn fn, void *ctx);
+
 }  // namespace plan

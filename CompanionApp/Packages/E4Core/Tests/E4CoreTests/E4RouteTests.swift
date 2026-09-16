@@ -163,4 +163,48 @@ final class E4MenuActionRouteTests: XCTestCase {
             XCTAssertFalse(a.title.isEmpty, "\(a) has no title")
         }
     }
+
+    // MARK: - the optimistic bound
+
+    func testRouteBoundDecodes() {
+        guard case .routeBound(let kind, let ms, let unknown) =
+                E4MessageDecoder.decode("RB,2,23199,7") else {
+            return XCTFail("RB did not decode")
+        }
+        XCTAssertEqual(kind, .diagonal)
+        XCTAssertEqual(ms, 23199)
+        XCTAssertEqual(unknown, 7)
+    }
+
+    func testRouteBoundWithoutCountDefaultsToZero() {
+        // An older mouse, or a truncated line. Zero unknown cells is the safe
+        // reading: it claims nothing is left to explore only when the times
+        // also agree, and the caller checks both.
+        guard case .routeBound(_, _, let unknown) =
+                E4MessageDecoder.decode("RB,0,27245") else {
+            return XCTFail("short RB did not decode")
+        }
+        XCTAssertEqual(unknown, 0)
+    }
+
+    func testRouteBoundRejectsAnUnknownKind() {
+        if case .routeBound = E4MessageDecoder.decode("RB,9,1000,0") {
+            XCTFail("kind 9 should not decode as a route bound")
+        }
+    }
+
+    func testUnknownCellListDecodes() {
+        guard case .routeUnknownCell(let x, let y) =
+                E4MessageDecoder.decode("RU,12,3") else {
+            return XCTFail("RU did not decode")
+        }
+        XCTAssertEqual(x, 12)
+        XCTAssertEqual(y, 3)
+
+        guard case .routeUnknownEnd(let total) =
+                E4MessageDecoder.decode("RUE,7") else {
+            return XCTFail("RUE did not decode")
+        }
+        XCTAssertEqual(total, 7)
+    }
 }

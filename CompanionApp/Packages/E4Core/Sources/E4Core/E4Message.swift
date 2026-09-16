@@ -60,6 +60,22 @@ public enum E4Message: Sendable, Equatable {
     case routePoint(u: Int, v: Int, move: Int)
     case routeEnd(points: Int, cells: Int, turns: Int, spins: Int)
 
+    /// The optimistic twin of a plan: the same search with every UNSEEN wall
+    /// assumed open. That is a true lower bound -- the real maze has at least
+    /// as many walls as the optimistic view of it -- so the gap to the proven
+    /// route is the most that is still out there to find. `unknownCells` is
+    /// how many cells on that best-possible line she has not fully seen.
+    case routeBound(kind: E4RouteKind, milliseconds: Int, unknownCells: Int)
+
+    /// One cell the best-possible route wants and she has not fully seen.
+    /// These, and only these, are worth driving to: an unknown cell no
+    /// optimistic route passes through cannot change the answer, however
+    /// blank it looks.
+    case routeUnknownCell(x: Int, y: Int)
+
+    /// End of the unknown-cell list, with the total.
+    case routeUnknownEnd(total: Int)
+
     /// `RST` — clear the maze model.
     case resetMaze
 

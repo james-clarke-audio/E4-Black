@@ -158,6 +158,7 @@ struct MazeScreen: View {
                         ForEach(E4RouteKind.allCases, id: \.self) { kind in
                             routeRow(kind)
                         }
+                        boundRow
                         Text("Times are her own model — what the planner believes, not what the wheels did.")
                             .font(.caption)
                             .foregroundStyle(Palette.faint)
@@ -272,6 +273,46 @@ struct MazeScreen: View {
             Text(reason)
                 .font(.caption)
                 .foregroundStyle(Palette.bad)
+        }
+    }
+
+    /// How much better the route could still get.
+    ///
+    /// The mouse plans each route twice: once with unseen walls treated as
+    /// walls, which is the best she can PROVE, and once with them treated as
+    /// openings, which is the best that could possibly exist. The second is a
+    /// real lower bound, so the gap between them is the most that is still out
+    /// there to find -- and when it closes, the route is not probably best, it
+    /// is provably best and there is no reason to keep exploring.
+    @ViewBuilder
+    private var boundRow: some View {
+        if let b = maze.bounds[.diagonal] {
+            let known = maze.routes[.diagonal]?.milliseconds
+            let n = maze.unknownOnBest.count
+            if n == 0, let known, b.milliseconds >= known - 1 {
+                Text("Route proved optimal — nothing left to explore.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.good)
+            } else {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 8) {
+                        RoundedRectangle(cornerRadius: 1.5)
+                            .strokeBorder(Palette.Dark.warn, style: StrokeStyle(lineWidth: 1.2, dash: [3, 2]))
+                            .background(Palette.Dark.warn.opacity(0.20))
+                            .frame(width: 14, height: 10)
+                        Text("could be").foregroundStyle(Palette.dim)
+                        Spacer()
+                        Text(String(format: "%.2f s", Double(b.milliseconds) / 1000.0))
+                            .foregroundStyle(Palette.ink)
+                    }
+                    .font(.caption.monospaced())
+                    .monospacedDigit()
+                    Text(known.map { "Up to \(String(format: "%.2f", Double($0 - b.milliseconds) / 1000.0)) s still to find, across \(n) unseen cell\(n == 1 ? "" : "s") on that line." }
+                         ?? "\(n) unseen cell\(n == 1 ? "" : "s") on the best possible line.")
+                        .font(.caption)
+                        .foregroundStyle(Palette.faint)
+                }
+            }
         }
     }
 
@@ -443,6 +484,21 @@ struct MazeCanvas: View {
             }
             context.stroke(wallPath, with: .color(Palette.Dark.dim),
                            style: StrokeStyle(lineWidth: max(2, cell * 0.09), lineCap: .square))
+
+            // Cells the best-possible route wants and she has not fully seen --
+            // the only exploring still worth doing. Drawn UNDER the route lines
+            // so the lines stay readable across them.
+            if !maze.unknownOnBest.isEmpty {
+                for c in maze.unknownOnBest {
+                    let p0 = point(cellX: Double(c.x), cellY: Double(c.y))
+                    let p1 = point(cellX: Double(c.x) + 1, cellY: Double(c.y) + 1)
+                    let r = CGRect(x: min(p0.x, p1.x), y: min(p0.y, p1.y),
+                                   width: abs(p1.x - p0.x), height: abs(p1.y - p0.y))
+                    context.fill(Path(r), with: .color(Palette.Dark.warn.opacity(0.20)))
+                    context.stroke(Path(r), with: .color(Palette.Dark.warn.opacity(0.75)),
+                                   style: StrokeStyle(lineWidth: 1.2, dash: [4, 3]))
+                }
+            }
 
             // Planned routes. Points are in half-cells, so the same two lines
             // draw an orthogonal leg and a 45 degree one without distinguishing

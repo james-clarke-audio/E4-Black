@@ -42,6 +42,9 @@ final class E4Maze {
         var move: Int   // plan::Move
     }
 
+    /// What the best possible route could be, and how much of it is guesswork.
+    struct RouteBound: Equatable { var milliseconds: Int; var unknownCells: Int }
+
     struct Route: Equatable {
         var milliseconds: Int = 0
         var points: [RoutePoint] = []
@@ -50,6 +53,13 @@ final class E4Maze {
     }
     private(set) var routes: [E4RouteKind: Route] = [:]
     private var routeKind: E4RouteKind?
+
+    /// The best-possible time for each kind, and how much of that line she has
+    /// not seen. When `unknownOnBest` is empty and a bound matches its route,
+    /// that route is provably the best in the maze.
+    private(set) var bounds: [E4RouteKind: RouteBound] = [:]
+    private(set) var unknownOnBest: Set<Cell> = []
+    private var pendingUnknown: Set<Cell>?
 
     private(set) var pose: Pose?
     private(set) var cell: Cell?
@@ -136,6 +146,20 @@ final class E4Maze {
             }
             routeKind = nil
 
+        case .routeBound(let kind, let ms, let unknown):
+            bounds[kind] = ms < 0 ? nil : RouteBound(milliseconds: ms, unknownCells: unknown)
+            // The first bound of a batch opens a fresh list; the mouse sends
+            // them kind 0 upward, so the old set survives until the new one is
+            // complete and the map never flickers between two truths.
+            if kind == .shortest { pendingUnknown = [] }
+
+        case .routeUnknownCell(let x, let y):
+            if pendingUnknown != nil { pendingUnknown?.insert(Cell(x: x, y: y)) }
+
+        case .routeUnknownEnd:
+            unknownOnBest = pendingUnknown ?? []
+            pendingUnknown = nil
+
         case .solved(let ms, let steps):
             solvedMilliseconds = ms
             solvedSteps = steps
@@ -196,6 +220,9 @@ final class E4Maze {
     /// The parts that belong to one run, keeping the discovered map.
     private func clearRun() {
         routes = [:]
+        bounds = [:]
+        unknownOnBest = []
+        pendingUnknown = nil
         routeKind = nil
         solution = []
         trail = []

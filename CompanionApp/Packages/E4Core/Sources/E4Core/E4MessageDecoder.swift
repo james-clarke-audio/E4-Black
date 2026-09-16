@@ -70,6 +70,20 @@ public enum E4MessageDecoder {
                   let t = int(fields, 3), let sp = int(fields, 4) else { break }
             return .routeEnd(points: n, cells: c, turns: t, spins: sp)
 
+        case "RB":
+            guard let k = int(fields, 1), let kind = E4RouteKind(rawValue: k),
+                  let ms = int(fields, 2) else { break }
+            return .routeBound(kind: kind, milliseconds: ms,
+                               unknownCells: int(fields, 3) ?? 0)
+
+        case "RU":
+            guard let x = int(fields, 1), let y = int(fields, 2) else { break }
+            return .routeUnknownCell(x: x, y: y)
+
+        case "RUE":
+            guard let n = int(fields, 1) else { break }
+            return .routeUnknownEnd(total: n)
+
         case "SOLVED":
             guard let ms = int(fields, 1), let steps = int(fields, 2) else { break }
             return .solved(milliseconds: ms, steps: steps)
