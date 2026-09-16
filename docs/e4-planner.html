@@ -278,10 +278,31 @@
 
   <p class="dimc">Run it yourself: <code>cd tools/planner-bench &amp;&amp; make -f build.mk &amp;&amp; ./plan ../../mazefiles/binary/*.maz</code>. Forty-three mazes show native 0.1% &ldquo;slower&rdquo; than orthogonal &mdash; that is the centisecond queue key against a float recompute, not a worse route.</p>
 
+  <h2 class="sec">Watching it on the app</h2>
+
+  <p><b>Plan route</b> &mdash; Maze solver, or <code>P</code> &mdash; runs the planner three ways over the map she is currently holding and streams each answer to the companion apps, which draw all three over the same maze. Shortest dashed, quickest amber, diagonal green on top. No motors are involved, so it works on an injected maze, one recalled from EEPROM, or one she has just finished exploring: <b>a whole run can be rehearsed at the bench before she drives a cell of it.</b></p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>message</th><th></th></tr>
+    <tr><td class="v">RT,&lt;kind&gt;,&lt;ms&gt;</td><td class="t">start of a route &mdash; kind 0 shortest, 1 quickest, 2 diagonal; ms is the predicted time, or &minus;1 for no route</td></tr>
+    <tr><td class="v">RP,&lt;u&gt;,&lt;v&gt;,&lt;move&gt;</td><td class="t">a vertex, in <b>half-cells</b>, with the move made there</td></tr>
+    <tr><td class="v">RTE,&lt;pts&gt;,&lt;cells&gt;,&lt;turns&gt;,&lt;spins&gt;</td><td class="t">end</td></tr>
+  </table>
+  </div>
+
+  <p><b>Half-cells are the reason this was a small change on the app side.</b> They are the unit the lattice already works in, and the parity that makes them useful in the planner makes them useful on the wire too: a cell centre is an odd pair, a wall midpoint is a mixed one, and a diagonal leg is just a line from one point to the next. Neither companion has to know about the lattice, the parity rule, or which wall a point sits on &mdash; draw a polyline through the points and it is right, orthogonal and 45&deg; alike. Sending cells instead would have meant a new message for diagonals and geometry in two apps.</p>
+
+  <div class="note">
+    <b>It reads the live turn table.</b> The planner is handed <code>turn_params</code> as it stands, not a compiled-in copy, so what it costs a turn at is whatever the tuner last wrote. Plan, change a row, plan again, and watch the route move &mdash; which is the quickest way to see whether a turn is worth tuning before spending an evening on it.
+  </div>
+
+  <p class="dimc">The firmware carries only <code>native.cpp</code>. With diagonals disabled it <em>is</em> the orthogonal planner, and <code>tools/planner-bench/xcheck</code> confirms the two agree in shape on all 392 mazes, so <code>planner.cpp</code> stays out of the build and the working set is about 46&nbsp;KB rather than 82. <code>planner.cpp</code> remains in the repository as the simpler reference the bench cross-checks against.</p>
+
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">
-    <li><b>Nothing calls any of it.</b> Both planners compile into the firmware and are dropped whole by <code>--gc-sections</code> until something drives them. There is still no speed run.</li>
+    <li><b>Nothing <em>drives</em> any of it.</b> <code>Plan route</code> runs the planner and draws the answer, but no run mode executes one. The gap between a route on the screen and a route under the wheels is the speed run, and that is the next thing to build.</li>
     <li><b>Every figure is only as good as the turn table</b>, and by <a href="e4-turns.html">Ch&nbsp;10</a> only the SS90E pair and the spins have met a floor. The planner will confidently choose a wrong route if the table lies to it, so the arcs want <em>measuring</em>, not eyeballing &mdash; entry speed, exit speed and duration, per turn.</li>
     <li><b>The planner and <code>turn_smooth()</code> still disagree about chained arcs.</b> At R&nbsp;=&nbsp;v/&omega;&nbsp;&asymp;&nbsp;101&nbsp;mm two 90s one cell apart need 202&nbsp;mm and have 180, so the planner refuses and emits stop-and-spin &mdash; while the firmware relabels the frame past the next turn point and simply runs the arcs back to back. <b>Zigzag test</b> (Calibration, or <code>Z</code>) drives that case deliberately. Whichever way it comes out, one of the two is wrong, and the diagonal figures move with it.</li>
     <li><b>The goal run-out is assumed at 270&nbsp;mm.</b> It depends on which cell of the goal box she enters and from where; a tighter entry would cap her lower.</li>

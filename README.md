@@ -138,6 +138,10 @@ shape on all 392 mazes. That keeps `planner.cpp`'s 36 KB out of the build.
 Both apps also gain **Zigzag test** and the `ZIG,turns,mode,first` setup, so the
 chained-arc question can be settled without the OLED.
 
+Documented in [Ch 12 — Planning the Fast Run](docs/e4-planner.html); the
+[Build Map](docs/e4-build-map.html) now shows the diagonal capstone as half
+done — the planner is shipped, the 45° *motion* is what is left.
+
 **0.20 — 16 Sep 2026 · Diagonals, searched rather than substituted**
 `native.cpp` puts the diagonal moves into the graph and searches, instead of
 planning orthogonally and rewriting afterwards. Work in half-cells and parity
