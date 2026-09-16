@@ -86,16 +86,17 @@ The production part is HP Multi Jet Fusion, PA12-HP nylon, dyed black. A powder 
 | MJF PA12 guideline | value | this part |
 |---|---|---|
 | Dimensional accuracy | ±0.3%, lower limit ±0.3 mm | — |
-| Clearance between assembled parts | **≥ 0.6 mm** | `FIT` is **0.30** — see below |
+| Clearance between assembled parts | **≥ 0.6 mm** | `FIT` is **0.50** — see below |
 | Minimum wall | 1 mm | 1.6 mm foot, 3.0 mm arm — ok |
 | Minimum hole | 2 mm | 2.3 and 2.5 mm — ok |
 | Minimum detail | 0.25 mm | ok |
 | Layer | 0.08 mm | — |
 | Tensile / modulus / elongation (XY) | 50 MPa / 1750 MPa / 19% | — |
 
-**`FIT` = 0.30 mm is below the process guideline and is the one thing to decide before ordering.**
-It was chosen for FDM. At ±0.3 mm the worst case is a zero-clearance pocket that will not take a
-housing without filing, four times, after a three-day turnaround.
+**`FIT` is 0.50 mm, opened from the 0.30 that was chosen for FDM.** At ±0.3 mm process tolerance,
+0.30 nominal has a worst case of zero — four pockets that will not take a housing without filing,
+after a three-day turnaround. 0.50 gives 0.2 at the tight end (assemblable) and 0.8 at the loose
+end (held by the epoxy). It is the tight end that has no recovery.
 
 Opening it costs azimuth: slack *c* over the housing's 8.025 mm grip allows about `atan(c/8.025)` of
 rotation — 2.1° at 0.30, 3.6° at 0.50, 4.3° at 0.60. That is not free at 70° on the sides, where 65°
@@ -103,8 +104,8 @@ already catches the post's edge. It is survivable only because **the angle is se
 pocket holds the housing square while the epoxy goes off, and the aim comes from sighting the emitter
 on a phone camera and peaking the detector on a live reading.
 
-On that reading **0.50 mm** is the number for an MJF order — worst case 0.2 and assemblable, best
-case 0.8 and held by the epoxy. It is the tight end that has no recovery. Change `FIT` in the source.
+So the pocket is a fixture, not a datum, and 0.50 is the right trade. Change `FIT` in the source if
+a different process is ever used — 0.30 is the FDM number.
 
 **Other MJF consequences:**
 
@@ -143,7 +144,7 @@ steel nut used to. If it crushes, the axles dip and the sensor height goes with 
 - **Detector leads are the binding constraint.** SL uses 12.2 mm of a 12.70 mm minimum. Bend right
   at the housing's rear face and trim only after the lead is formed.
 - Pads sit **0.4–2 mm behind** the rear face. Enough for the lead to drop, not enough to be casual.
-- Pocket clearance `FIT` is 0.30 mm on both axes — **below the MJF guideline of 0.6, see above.**
+- Pocket clearance `FIT` is **0.50 mm** on both axes, set for MJF. 0.30 is the FDM number.
 - The arm is **3.0 mm wide × 6.4 mm tall** at the Black Pill pinch. That is the governing section.
 - Free tilt inside the housing bores (±4–6° emitter, ±8° detector, Ch 5) is unchanged. The plate
   fixes the housing's angle, not the part's angle within it.

@@ -8,7 +8,7 @@ from shapely.geometry import Polygon, MultiPoint
 from trimesh.creation import extrude_polygon, box, cylinder
 S=json.load(open('sockets_v2.json'))
 CX,CY,R=38.5,61.5,38.5; PCB_T=1.6
-HW,HD=6.893,8.025; FIT=0.30
+HW,HD=6.893,8.025; FIT=0.50   # MJF: +-0.3 mm, guideline asks >=0.6 between mating parts
 Z0,Z1=2.00,8.40
 PAD_Z=2.00                      # rear pads: 2 mm on the board, under the daughterboard
 RIN,ROUT=31.6,40.5; TH0,TH1=1.5,178.5
