@@ -282,8 +282,10 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         switch self {
         case .forward180, .right90, .left90, .spin180, .motionTest,
              .search, .explore, .recalGyro, .turnTuning, .wallFollower,
-             .speedRun, .resumeSaved, .gyroScaleCal:
+             .speedRun, .resumeSaved, .gyroScaleCal,
+             .zigzagTest:              // drives a zigzag across three cells
             return true
+        // planRoute is deliberately NOT here: it plans and streams, no motors.
         default:
             return false
         }

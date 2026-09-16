@@ -33,16 +33,20 @@ final class E4Maze {
     /// midpoints on mixed ones, so a diagonal arrives here as an ordinary pair
     /// of points and this end never has to know about parity or which wall a
     /// point sits on. Draw a polyline through them and it is correct.
+    /// A point on the route. A STRUCT, not a tuple: a tuple property blocks
+    /// Equatable synthesis, and hand-writing == to work round that gives you an
+    /// equality that quietly ignores the field you forgot.
+    struct RoutePoint: Equatable {
+        var u: Int      // half-cells
+        var v: Int
+        var move: Int   // plan::Move
+    }
+
     struct Route: Equatable {
         var milliseconds: Int = 0
-        var points: [(u: Int, v: Int, move: Int)] = []
+        var points: [RoutePoint] = []
         var cells = 0, turns = 0, spins = 0
         var isEmpty: Bool { points.count < 2 }
-        static func == (a: Route, b: Route) -> Bool {
-            a.milliseconds == b.milliseconds && a.cells == b.cells
-                && a.turns == b.turns && a.spins == b.spins
-                && a.points.count == b.points.count
-        }
     }
     private(set) var routes: [E4RouteKind: Route] = [:]
     private var routeKind: E4RouteKind?
@@ -122,7 +126,7 @@ final class E4Maze {
             routes[kind] = ms < 0 ? nil : Route(milliseconds: ms)
 
         case .routePoint(let u, let v, let move):
-            if let k = routeKind { routes[k]?.points.append((u: u, v: v, move: move)) }
+            if let k = routeKind { routes[k]?.points.append(RoutePoint(u: u, v: v, move: move)) }
 
         case .routeEnd(_, let cells, let turns, let spins):
             if let k = routeKind {
