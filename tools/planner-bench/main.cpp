@@ -1,6 +1,7 @@
 // Native harness: load a competition .maz, plan SHORTEST and QUICKEST, compare.
 #include "planner.h"
 #include "diagonal.h"
+#include "native.h"
 #include <cstdio>
 #include <cstring>
 #include <string>
@@ -69,9 +70,15 @@ int main(int argc, char **argv) {
          r.straight.v_max, r.straight.accel, r.arc90_speed, r.arc90_omega, r.arc90_alpha,
          r.spin_omega, r.spin_alpha);
 
-  printf("%-22s %8s %8s %8s %6s %6s\n",
-         "maze", "short_s", "quick_s", "diag_s", "subs", "saved");
-  printf("%s\n", std::string(64, '-').c_str());
+  bool summary = (files.size() > 12);
+  int  n_ok = 0, n_bad_c = 0, n_bad_n = 0, n_subs = 0, n_worse = 0;
+  double sum_q = 0, sum_d = 0, sum_n = 0, best = 0, worst = 1e9;
+  std::string best_m, worst_m;
+  if (!summary) {
+    printf("%-22s %8s %8s %8s %8s %6s %7s\n",
+           "maze", "short_s", "quick_s", "diag_s", "nativ_s", "subs", "n vs d");
+    printf("%s\n", std::string(76, '-').c_str());
+  }
 
   for (const std::string &f : files) {
     MazeFile m;
@@ -91,15 +98,51 @@ int main(int argc, char **argv) {
     const int subs = diagonalise(g_diag, r, dt, NN);
     const float t_diag = route_time(g_diag, r, dt, NN);
 
-    printf("%-22s %8.3f %8.3f %8.3f %6d %5.1f%%\n",
-           name.c_str(), s.seconds, q.seconds, t_diag, subs,
-           100.0 * (q.seconds - t_diag) / q.seconds);
+    static Route g_nat;
+    plan_native(g_nat, wr, r, dt, QUICKEST, 0, 0, NN, 7, 7, 2, 2);
+    const double tn = g_nat.ok ? g_nat.seconds : -1.0;
+
+    const int cd = route_check(g_diag, m.reader(), 0, 0, NN, 7, 7, 2, 2);
+    const int cn = route_check(g_nat,  m.reader(), 0, 0, NN, 7, 7, 2, 2);
+    char flag[64]; flag[0] = 0;
+    if (cd) snprintf(flag, sizeof(flag), "  CLASSIC BAD @step %d", cd);
+    else if (cn) snprintf(flag, sizeof(flag), "  NATIVE BAD @step %d", cn);
+    else if (tn > 0 && tn > t_diag + 1e-3) snprintf(flag, sizeof(flag), "  native worse");
+
+    if (summary) {
+      if (!g_nat.ok) { printf("%-22s  NATIVE NO ROUTE\n", name.c_str()); continue; }
+      if (cd) ++n_bad_c;
+      if (cn) { ++n_bad_n; printf("%-22s  NATIVE BAD @step %d\n", name.c_str(), cn); }
+      ++n_ok; n_subs += subs;
+      sum_q += q.seconds; sum_d += t_diag; sum_n += tn;
+      const double gain = 100.0 * (q.seconds - tn) / q.seconds;
+      if (tn > q.seconds + 1e-3) ++n_worse;
+      if (gain > best)  { best = gain;  best_m = name; }
+      if (gain < worst) { worst = gain; worst_m = name; }
+      continue;
+    }
+    printf("%-22s %8.3f %8.3f %8.3f %8.3f %6d %6.1f%%%s\n",
+           name.c_str(), s.seconds, q.seconds, t_diag, tn, subs,
+           tn > 0 ? 100.0 * (t_diag - tn) / t_diag : 0.0,
+           flag);
 
     if (verbose) {
       printf("   DIAGONAL route:\n");
       for (int i=0;i<g_diag.count;++i) { const Step &st=g_diag.steps[i];
         printf("      %-9s %-5s %2d  -> (%2d,%2d)\n", mv_name(st.move), st.diag?"diag":"cells", st.cells, st.x, st.y); }
     }
+  }
+  if (summary) {
+    printf("\n%d mazes planned\n", n_ok);
+    printf("  native routes failing the validator : %d\n", n_bad_n);
+    printf("  classic routes failing it           : %d\n", n_bad_c);
+    printf("  classic substitutions made, total   : %d\n", n_subs);
+    printf("  native slower than orthogonal       : %d\n", n_worse);
+    printf("\n  mean orthogonal  %7.3f s\n", sum_q / n_ok);
+    printf("  mean classic     %7.3f s  (%+.1f%%)\n", sum_d / n_ok, 100.0*(sum_d-sum_q)/sum_q);
+    printf("  mean native      %7.3f s  (%+.1f%%)\n", sum_n / n_ok, 100.0*(sum_n-sum_q)/sum_q);
+    printf("\n  best  %+6.1f%%  %s\n", best, best_m.c_str());
+    printf("  worst %+6.1f%%  %s\n", worst, worst_m.c_str());
   }
   return 0;
 }

@@ -129,8 +129,9 @@ rather than clamping if an edge outgrows the ring.
 
 `diagonal.cpp` does classic diagonal substitution on the result, costing every
 candidate both ways and substituting only when the diagonal actually wins.
-Worth 8–10% at the as-built speeds on real competition mazes, up to 18% once
-the straights are quick.
+**Worth 3.4%** across 392 real competition mazes. An earlier version of this
+entry claimed 8–10%; that figure came from routes she could not have driven,
+and is corrected in 0.20.
 
 **Zigzag test** (Calibration, or `Z`) drives N alternating 90s in consecutive
 cells with no straight between, ending stopped at a cell centre so the offset
