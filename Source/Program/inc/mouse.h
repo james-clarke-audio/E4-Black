@@ -288,6 +288,7 @@ class Mouse {
     control_run_begin();
     control_pose_reset();
     report_write("RST\r\n");
+    report_known_map();          // the perimeter, before she has seen a thing
     sensors.set_steering_mode(STEERING_OFF);
     motion.move(BACK_WALL_TO_CENTER, SEARCH_SPEED, SEARCH_SPEED, SEARCH_ACCELERATION);
     motion.set_position(HALF_CELL);
@@ -421,6 +422,7 @@ class Mouse {
     control_pose_set(START.x * FULL_CELL + HALF_CELL, START.y * FULL_CELL + HALF_CELL, 0.0f);
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
     uint32_t t0 = HAL_GetTick();
     sim_search_to(maze.goal());
@@ -440,6 +442,7 @@ class Mouse {
     control_pose_set(START.x * FULL_CELL + HALF_CELL, START.y * FULL_CELL + HALF_CELL, 0.0f);
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
     uint32_t t0 = HAL_GetTick();
     sim_search_to(maze.goal());
@@ -463,6 +466,7 @@ class Mouse {
     uint32_t t0 = HAL_GetTick();
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SEARCH\r\n");
     search_to(maze.goal());
     report_solution(HAL_GetTick() - t0);   // route + run time back to the app
@@ -483,6 +487,7 @@ class Mouse {
     uint32_t t0 = HAL_GetTick();
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SEARCH\r\n");
 
     search_to(maze.goal());
@@ -503,6 +508,28 @@ class Mouse {
     return 0;
   }
 
+  //---- stream the map she is holding to the app ----------------------------
+  // maze.initialise() gives her the perimeter and the start cell's east wall
+  // before a single sensor reading -- she does not discover the outside of the
+  // arena, she is born knowing it. The app, though, starts from RST with
+  // nothing and only learns a wall when a W line arrives, and W lines are only
+  // sent for cells she actually stands in. So the border of the maze never
+  // reached the app at all: it was known at both ends of the link and sent
+  // over neither.
+  //
+  // Called straight after RST by everything that begins from a fresh map, so
+  // what the app draws is what she believes, from the first frame rather than
+  // from the first cell she visits.
+  void report_known_map() {
+    for (int x = 0; x < maze.width(); x++)
+      for (int y = 0; y < maze.height(); y++) {
+        WallInfo w = maze.walls(Location((uint8_t)x, (uint8_t)y));
+        int m = (w.north == WALL ? 1 : 0) | (w.east == WALL ? 2 : 0) |
+                (w.south == WALL ? 4 : 0) | (w.west == WALL ? 8 : 0);
+        if (m) report_printf("W,%d,%d,%d\r\n", x, y, m);
+      }
+  }
+
   //---- recall the last explored maze from EEPROM (no motors) ----------------
   // Loads the saved map, redraws it in the app (known walls) and reports the
   // optimal route - proving the maze survived power-off without re-exploring.
@@ -511,13 +538,7 @@ class Mouse {
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_write("STATE,RECALL\r\n");
-    for (int x = 0; x < MAZE_WIDTH; x++)
-      for (int y = 0; y < MAZE_HEIGHT; y++) {
-        WallInfo w = maze.walls(Location(x, y));
-        int m = (w.north == WALL ? 1 : 0) | (w.east == WALL ? 2 : 0) |
-                (w.south == WALL ? 4 : 0) | (w.west == WALL ? 8 : 0);
-        if (m) report_printf("W,%d,%d,%d\r\n", x, y, m);   // stream known walls
-      }
+    report_known_map();
     report_best_route(0);   // optimal route from the remembered map
     report_write("STATE,IDLE\r\n");
   }
@@ -530,13 +551,7 @@ class Mouse {
     report_write("RST\r\n");
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_printf("SIZE,%d,%d\r\n", maze.width(), maze.height());
-    for (int x = 0; x < maze.width(); x++)
-      for (int y = 0; y < maze.height(); y++) {
-        WallInfo w = maze.walls(Location(x, y));
-        int m = (w.north == WALL ? 1 : 0) | (w.east == WALL ? 2 : 0) |
-                (w.south == WALL ? 4 : 0) | (w.west == WALL ? 8 : 0);
-        if (m) report_printf("W,%d,%d,%d\r\n", x, y, m);
-      }
+    report_known_map();
     report_write("STATE,IDLE\r\n");
   }
 
