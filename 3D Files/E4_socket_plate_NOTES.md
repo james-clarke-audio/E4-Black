@@ -79,52 +79,71 @@ The lesson, written down so it stays written down: **this is an optical mount an
 not a solid.** Trace rays and lead paths against the plate *and* the parts standing in it, and
 check every foot against the parsed outline, never a remembered one. And put it in the slicer.
 
-## Process: MJF PA12 nylon, dyed black — not FDM
+## Process: MJF PA11 nylon, dyed black — not FDM
 
-Made by JLCPCB's 3D service. HP Multi Jet Fusion, PA12S-HP nylon, dyed black. A powder bed, not FDM.
+Made by JLCPCB's 3D service. HP Multi Jet Fusion, **PA11-HP nylon**, dyed black. A powder bed, not FDM.
 
 ### The order, definitively
 
 | field | setting | why |
 |---|---|---|
 | 3D Technology | **MJF (Nylon)** | Black through the bulk, tough, no orientation or support decisions |
-| Material | **PA12S-HP Nylon** | The only nylon on the menu |
+| Material | **PA11-HP Nylon** | **Not the pre-selected PA12-HP.** Isotropic, 50% elongation in every orientation, 1.7× the notched impact, same stiffness, better strength |
 | Color | **Black** | Grey likely performs the same at 940 nm, but black is free and kills visible stray light |
 | Surface Finish | **Dyeing — Dyed Black, and nothing else** | **No sanding, no polishing.** Dyeing is a bath and harmless. Abrasion is not — four pockets set the sensor azimuth and there are two optical trenches, and sanding goes for edges and corners first |
 | Thread | **No** | All five holes are M2 clearance, not tapped |
-| Quantity | **3 or more** | ~£1 each. Covers the Z-direction lottery, a breakage, and the spare board |
+| Quantity | **3** | A crash spare and one for the second board |
 
 **None of this is the default.** A freshly uploaded model lands on **SLA (Resin) / 9600 Resin /
 White / Sanding** every time — wrong process, wrong colour, and the one post-process that must not
-touch this part. Change every field by hand on every upload. It is a checklist, not a preference.
+touch this part. Switching to MJF then pre-selects **PA12-HP**, the wrong nylon. Set every field by
+hand on every upload. It is a checklist, not a preference.
 
-### Process limits vs this part
+### Which nylon
 
-| JLC MJF PA12S-HP | value | this part |
-|---|---|---|
-| Dimensional tolerance | ±0.3 mm (<100 mm), ±0.4% above | `FIT` 0.50 sized against it |
-| Minimum wall | > 1.0 mm | 1.6 mm foot, 3.0 mm arm — ok |
-| Tensile (XY / Z) | 45 / 43 MPa | — |
-| Elongation (XY / Z) | 12% / **5%** | see below |
-| Modulus | 1700 MPa | — |
-| Notched impact | 2.5 / 2.0 kJ/m² | — |
-| Heat deflection | 175 °C | — |
-| Build time | from 72 h | — |
+| | PA12-HP *(pre-selected)* | **PA11-HP** | PA12S-HP | PAC-HP |
+|---|---|---|---|---|
+| Colour | Natural gray, dyed black | **Black, natural gray** | Black, gray | Full colour |
+| Tensile | 48 MPa | **52 MPa, XY and Z** | 45 / 43 MPa | not published |
+| Elongation at break | 20% | **50%, all orientations** | 12% XY, 5% Z | not published |
+| Tensile modulus | 1800 MPa | 1800 MPa | 1700 MPa | not published |
+| Notched Izod | 3.6 kJ/m² | **6 / 5 kJ/m²** | 2.5 / 2.0 kJ/m² | not published |
+| Tolerance (<100 mm) | ±0.3 mm | ±0.3 mm | ±0.3 mm | ±0.3 mm |
+| Minimum wall | 1.0 mm | 1.0 mm | 1.0 mm | **2.0 mm** |
+| Sold for | structural, mounting hardware | structural, **snap-fits**, housings | — | toys, craft prototypes |
 
-No enclosed voids, so no trapped powder. No model change needed for this supplier.
+**PA11-HP wins on every mechanical axis and one that matters more than all of them: it is
+isotropic.** 52 MPa in XY *and* Z, 50% elongation in all orientations, 6 and 5 kJ/m² notched.
+PA12-HP publishes no split, but HP's own datasheet puts PA12 at 19% in plane and 12% across the
+build axis; PA12S collapses to 5%. On a powder bed the supplier nests the parts — orientation is not
+a field on the order form — so with PA12 every copy is a roll of the dice as to whether a 3 mm arm
+lands with its weak direction loaded. With PA11 there is no weak direction.
+
+It is also 2.5× the elongation and 1.7× the notched impact of the default, at the same stiffness and
+better strength, in a material sold for snap-fits. For a part that will be driven into walls, that is
+the whole argument.
+
+**PAC-HP is out twice over:** it is the full-colour decorative grade sold for toys, and its **2 mm
+minimum wall would reject the 1.6 mm foot outright**. PA12S-HP, despite the "New" badge, is the
+weakest of the three engineering nylons on every published figure.
+
+> **PA11 costs more and drinks more.** Bio-based, from castor oil, and typically priced above PA12 —
+> irrelevant on a 7 g part, worth a glance on the quote. It absorbs somewhat more moisture than PA12,
+> so expect marginally more dimensional drift with humidity, and being more ductile it will creep a
+> little more under the foot's clamp load. Neither changes the recommendation.
 
 ### Why nylon and not resin
 
 The same supplier offers SLA and on paper the engineering resins look better — tighter, stiffer,
 sold for exactly this kind of bracket:
 
-| | MJF PA12S-HP | SLA 9000HE |
+| | MJF PA11-HP | SLA 9000HE |
 |---|---|---|
-| Colour | **Black**; grey | White |
+| Colour | **Black**; natural gray | White |
 | Tolerance (<100 mm) | ±0.3 mm | ±0.2 mm |
-| Tensile | 45 / 43 MPa | 41–61 MPa |
-| Elongation at break | 12% XY, **5% Z** | 7–12% |
-| Modulus | 1700 MPa | 2705–2875 MPa flexural |
+| Tensile | 52 MPa | 41–61 MPa |
+| Elongation at break | **50%** | 7–12% |
+| Modulus | 1800 MPa | 2705–2875 MPa flexural |
 | Minimum wall | > 1.0 mm | > 0.8 mm |
 
 **Colour settles it.** The engineering resins are white. A white plate wrapped around four IR optics
@@ -141,6 +160,19 @@ stiffer**, a real benefit for a 40 mm cantilever. If this part tolerated white, 
 The rest: SLS is the same nylon family with no advantage unless cheaper. WJP is fine-detail and
 brittle. FDM gets nothing a home printer does not. SLM and BJ are metal — 7 g of nylon becomes ~20 g
 of aluminium or ~55 g of steel, and a specular reflector next to the sensors.
+
+### Process limits vs this part
+
+| JLC MJF PA11-HP | value | this part |
+|---|---|---|
+| Dimensional tolerance | ±0.3 mm (<100 mm), ±0.4% above | `FIT` 0.50 sized against it |
+| Minimum wall | > 1.0 mm | 1.6 mm foot, 3.0 mm arm — ok |
+| Tensile (XY / Z) | 52 / 52 MPa | — |
+| Elongation | 50%, all orientations | — |
+| Modulus | 1800 MPa | — |
+| Notched Izod (XY / Z) | 6 / 5 kJ/m² | — |
+
+No enclosed voids, so no trapped powder. No model change needed for this supplier or material.
 
 ### Pocket clearance
 
@@ -160,14 +192,11 @@ FDM number if a different process is ever used.
 
 - **Orientation and supports are not ours to choose.** A powder bed needs neither. The "feet down,
   no supports, 0.0 mm² overhang" notes apply to a home FDM test print and nothing else.
-- **Watch the Z direction.** PA12 falls to 5% elongation across the build axis against 12% in plane,
-  and the supplier nests the parts — orientation is not a field on the order form. If an arm lands
-  with its long axis vertical, the weak direction is the loaded one. A reason to order several.
-- **PA12 is about two thirds the stiffness of PLA** (1700 MPa vs ~3500) at similar strength. The
+- **The nylons are about half the stiffness of PLA** (1800 MPa vs ~3500) at similar strength. The
   3.0 × 6.4 mm arm deflects further but bends and returns rather than snapping.
 - **The foot creeps rather than cracks.** Nylon under sustained clamp load goes slack slowly instead
   of splitting. Re-check the mount bolts after the first few runs.
-- **The black is a dye over a grey bulk.** MJF PA12 comes off the machine mid-grey (L* ≈ 55, carbon
+- **The black is a dye over a grey bulk.** MJF nylon comes off the machine grey (carbon
   black from the fusing agent, through the bulk); the dye sits on top. A dye that looks black in
   daylight need not absorb at 940 nm, so the grey bulk does the real work and the dye is mostly
   cosmetic. **Torch test on arrival:** hold the part between an emitter and a phone camera — phone

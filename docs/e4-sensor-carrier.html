@@ -243,7 +243,7 @@
 
   <h2 class="sec">It is not being printed in PLA</h2>
 
-  <p>The production part is <b>MJF in PA12 nylon, dyed black</b>, from JLCPCB's 3D service &mdash; HP Multi Jet Fusion, a powder bed, not FDM. Three things about this part were reasoned in the wrong material.</p>
+  <p>The production part is <b>MJF in PA11 nylon, dyed black</b>, from JLCPCB's 3D service &mdash; HP Multi Jet Fusion, a powder bed, not FDM. Three things about this part were reasoned in the wrong material.</p>
 
   <div class="bad">
     <b>The pocket clearance had to be opened.</b> <code>FIT</code> was <b>0.30&nbsp;mm</b> on both axes, chosen for FDM. JLC hold <b>&plusmn;0.3&nbsp;mm within 100&nbsp;mm</b> on MJF, so 0.30 nominal has a worst case of zero &mdash; a pocket a housing will not enter without filing, four times over, after a three-day turnaround. It is now <b>0.50&nbsp;mm</b>: 0.2 at the tight end and assemblable, 0.8 at the loose end and held by the epoxy. It is the tight end that has no recovery.
@@ -251,36 +251,46 @@
 
   <p>Opening it is not free: the pocket is what fixes the azimuth. Slack <i>c</i> across a pocket that grips over the housing's 8.025&nbsp;mm depth allows about <code>atan(c/8.025)</code> of rotation &mdash; 2.1&deg; at 0.30, 3.6&deg; at 0.50, 4.3&deg; at 0.60. At 70&deg; on the sides that is real: 65&deg; already catches the post's edge. Which is survivable only because <b>the angle is set at glue-up, not by the pocket</b>. The pocket holds the housing roughly right and square while the epoxy goes off; the aim comes from sighting the emitter on a phone camera and peaking the detector on a live reading. Read that way the pocket is a fixture, not a datum.</p>
 
-  <p>The other two are smaller. <b>Orientation and supports are not ours to choose</b> &mdash; a powder bed needs neither, so the 0.0&nbsp;mm&sup2; overhang figure and the &ldquo;feet down on the bed&rdquo; note apply to a home FDM test print and to nothing else. And PA12 is <b>about two thirds the stiffness of PLA</b> (1700&nbsp;MPa against roughly 3500) at similar strength, so the 3.0&nbsp;&times;&nbsp;6.4&nbsp;mm arm deflects further under the same load &mdash; but bends and returns rather than snapping. Five bolted fixings and short arms keep the deflection small.</p>
+  <p>The other two are smaller. <b>Orientation and supports are not ours to choose</b> &mdash; a powder bed needs neither, so the 0.0&nbsp;mm&sup2; overhang figure and the &ldquo;feet down on the bed&rdquo; note apply to a home FDM test print and to nothing else. And the nylons are <b>about half the stiffness of PLA</b> (1800&nbsp;MPa against roughly 3500) at similar strength, so the 3.0&nbsp;&times;&nbsp;6.4&nbsp;mm arm deflects further under the same load &mdash; but bends and returns rather than snapping. Five bolted fixings and short arms keep the deflection small.</p>
 
   <h2 class="sec">Why nylon and not resin</h2>
 
-  <p>The same supplier offers SLA, and on paper the engineering resins look like the better part: tighter, stiffer, and sold for exactly this kind of bracket. Their own numbers, side by side:</p>
+  <p>The same supplier offers SLA, and on paper the engineering resins look like the better part: tighter, stiffer, and sold for exactly this kind of bracket. <b>Colour settles it.</b> The engineering resins &mdash; 9600 and 9000HE &mdash; are white. A white plate wrapped around four IR optics is a diffuse reflector at 940&nbsp;nm sitting millimetres from every detector, cross-talk that cannot be fixed afterwards short of painting it, and paint puts thickness back into pockets just paid for in accuracy. Black resins exist in the same catalogue, but they are the general-purpose and fine-detail grades, not the engineering ones. <b>The tough resins are not black and the black resins are not tough.</b></p>
 
-  <div class="tblwrap">
-  <table>
-    <tr><th></th><th>MJF PA12S-HP</th><th>SLA 9000HE</th></tr>
-    <tr><td class="t">Colour</td><td class="n ok">Black; grey</td><td class="n dis">White</td></tr>
-    <tr><td class="t">Tolerance, &lt;&nbsp;100&nbsp;mm</td><td class="n">&plusmn;0.3 mm</td><td class="n">&plusmn;0.2 mm</td></tr>
-    <tr><td class="t">Tensile</td><td class="n">45 / 43 MPa (XY / Z)</td><td class="n">41&ndash;61 MPa</td></tr>
-    <tr><td class="t">Elongation at break</td><td class="n">12% XY, <b>5% Z</b></td><td class="n">7&ndash;12%</td></tr>
-    <tr><td class="t">Modulus</td><td class="n">1700 MPa</td><td class="n">2705&ndash;2875 MPa flexural</td></tr>
-    <tr><td class="t">Minimum wall</td><td class="n">&gt; 1.0 mm</td><td class="n">&gt; 0.8 mm</td></tr>
-  </table>
-  </div>
-
-  <p><b>Colour settles it.</b> The engineering resins are white. A white plate wrapped around four IR optics is a diffuse reflector at 940&nbsp;nm sitting millimetres from every detector &mdash; cross-talk that cannot be fixed afterwards short of painting it, and paint puts thickness back into pockets just paid for in accuracy. Black resins exist in the same catalogue, but they are the general-purpose and fine-detail grades, not the engineering ones. <b>The tough resins are not black and the black resins are not tough.</b></p>
-
-  <p>Nothing else in the comparison is decisive, and two entries are worth being honest about. The tolerance gap is <b>0.1&nbsp;mm</b>, not the order of magnitude a generic SLA-versus-MJF table suggests &mdash; that gap belongs to in-house industrial SLA, not to this supplier. It would buy <code>FIT</code> 0.40 instead of 0.50, about 0.7&deg; of azimuth. And the resin is genuinely <b>1.6&times; stiffer</b>, which for a 40&nbsp;mm cantilever carrying the optics is a real benefit rather than a marginal one. If this part tolerated white, the resin would win.</p>
+  <p>Two entries in that comparison are worth being honest about. The tolerance gap is <b>0.1&nbsp;mm</b> &mdash; &plusmn;0.2 against &plusmn;0.3 &mdash; not the order of magnitude a generic SLA-versus-MJF table suggests; that gap belongs to in-house industrial SLA, not to this supplier. It would buy <code>FIT</code> 0.40 instead of 0.50, about 0.7&deg; of azimuth. And 9000HE is genuinely <b>1.6&times; stiffer</b> (2705&ndash;2875&nbsp;MPa flexural against 1800), which for a 40&nbsp;mm cantilever carrying the optics is a real benefit rather than a marginal one. If this part tolerated white, the resin would win.</p>
 
   <p class="dimc">The remaining processes are quick to dismiss. SLS is the same nylon family with no advantage unless it is cheaper. WJP is fine-detail and brittle. FDM gets nothing a home printer does not. SLM and BJ are metal: 7&nbsp;g of nylon becomes about 20&nbsp;g of aluminium or 55&nbsp;g of steel, and a specular reflector next to the sensors.</p>
 
+  <h2 class="sec">Which nylon &mdash; and it is not the default</h2>
+
+  <p>MJF offers four, and the pre-selected one is not the best of them for a bracket that lives on the nose of a robot whose job involves discovering walls:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th></th><th>PA12-HP<br><span class="dim">(pre-selected)</span></th><th>PA11-HP</th><th>PA12S-HP</th><th>PAC-HP</th></tr>
+    <tr><td class="t">Colour</td><td class="n">Natural gray, dyed black</td><td class="n ok">Black, natural gray</td><td class="n">Black, gray</td><td class="n dis">Full colour</td></tr>
+    <tr><td class="t">Tensile</td><td class="n">48 MPa</td><td class="n ok">52 MPa, XY <b>and Z</b></td><td class="n dis">45 / 43 MPa</td><td class="n dis">not published</td></tr>
+    <tr><td class="t">Elongation at break</td><td class="n">20%</td><td class="n ok"><b>50%, all orientations</b></td><td class="n dis">12% XY, 5% Z</td><td class="n dis">not published</td></tr>
+    <tr><td class="t">Tensile modulus</td><td class="n">1800 MPa</td><td class="n">1800 MPa</td><td class="n">1700 MPa</td><td class="n dis">not published</td></tr>
+    <tr><td class="t">Notched Izod</td><td class="n">3.6 kJ/m&sup2;</td><td class="n ok"><b>6 / 5 kJ/m&sup2;</b></td><td class="n dis">2.5 / 2.0 kJ/m&sup2;</td><td class="n dis">not published</td></tr>
+    <tr><td class="t">Tolerance &lt;&nbsp;100&nbsp;mm</td><td class="n">&plusmn;0.3 mm</td><td class="n">&plusmn;0.3 mm</td><td class="n">&plusmn;0.3 mm</td><td class="n">&plusmn;0.3 mm</td></tr>
+    <tr><td class="t">Minimum wall</td><td class="n">1.0 mm</td><td class="n">1.0 mm</td><td class="n">1.0 mm</td><td class="n dis"><b>2.0 mm</b></td></tr>
+    <tr><td class="t">Sold for</td><td class="t">structural parts, mounting hardware</td><td class="t">structural parts, <b>snap-fits</b>, electronics housings</td><td class="t">&mdash;</td><td class="t dis">toys, craft prototypes</td></tr>
+  </table>
+  </div>
+
+  <p><b>PA11-HP wins on every mechanical axis and one that matters more than any of them: it is isotropic.</b> 52&nbsp;MPa in XY <em>and</em> Z, 50% elongation in all orientations, 6 and 5&nbsp;kJ/m&sup2; notched. PA12-HP does not publish a split, but HP's own datasheet puts PA12 at 19% in plane and 12% across the build axis, and PA12S collapses to 5%. On a powder bed the supplier nests the parts &mdash; orientation is not a field on the order form &mdash; so with PA12 every copy is a roll of the dice as to whether a 3&nbsp;mm arm lands with its weak direction loaded. With PA11 there is no weak direction.</p>
+
+  <p>It is also, simply, <b>2.5&times; the elongation and 1.7&times; the notched impact</b> of the default at the same stiffness and better strength, in a material the supplier sells for snap-fits. For a part that will be driven into walls, that is the whole argument.</p>
+
+  <p class="dimc">PAC-HP is out twice over: it is the full-colour decorative grade sold for toys, and its <b>2&nbsp;mm minimum wall would reject the 1.6&nbsp;mm foot outright</b>. PA12S-HP, despite the &ldquo;New&rdquo; badge, is the weakest of the three engineering nylons on every published figure.</p>
+
   <div class="note">
-    <b>Watch the Z direction.</b> PA12 falls to <b>5%</b> elongation across the build axis against 12% in plane, and on a powder bed the supplier nests the parts &mdash; orientation is not a field on the order form. If an arm lands with its long axis vertical, the weak direction is the loaded one. Nothing to specify; a reason to order several.
+    <b>PA11 costs more and drinks more.</b> It is bio-based, from castor oil, and typically prices above PA12 &mdash; irrelevant on a 7&nbsp;g part, worth a glance on the quote. It also absorbs somewhat more moisture than PA12, so expect marginally more dimensional drift with humidity, and being the more ductile material it will creep a little more under the foot's clamp load. Neither changes the recommendation.
   </div>
 
   <div class="note">
-    <b>Worth a torch test when it arrives.</b> MJF PA12 comes off the machine mid-grey &mdash; L*&nbsp;&asymp;&nbsp;55, carbon black from the fusing agent, through the bulk &mdash; and the black is a <em>dye</em> on top of that. A dye chosen to look black in daylight need not absorb anything at 940&nbsp;nm, so the grey bulk is doing the real work and the dye is mostly cosmetic. 6.4&nbsp;mm of nylon will attenuate a great deal regardless, and the housings do the near-field separation, but the trench floor is described above as a baffle and that claim is untested in this material. Hold the part between an emitter and a phone camera &mdash; phone sensors see 940&nbsp;nm &mdash; and see whether it glows.
+    <b>Worth a torch test when it arrives.</b> MJF nylon comes off the machine grey &mdash; carbon black from the fusing agent, through the bulk &mdash; and the black is a <em>dye</em> on top of that. A dye chosen to look black in daylight need not absorb anything at 940&nbsp;nm, so the grey bulk is doing the real work and the dye is largely cosmetic. 6.4&nbsp;mm of nylon will attenuate a great deal regardless, and the housings do the near-field separation, but the trench floor is described above as a baffle and that claim is untested in this material. Hold the part between an emitter and a phone camera &mdash; phone sensors see 940&nbsp;nm &mdash; and see whether it glows.
   </div>
 
   <h2 class="sec">The order, definitively</h2>
@@ -289,16 +299,16 @@
   <table>
     <tr><th>field</th><th>setting</th><th>why</th></tr>
     <tr><td class="t">3D Technology</td><td class="v">MJF (Nylon)</td><td class="t">Black through the bulk, tough, no orientation or support decisions.</td></tr>
-    <tr><td class="t">Material</td><td class="v">PA12S-HP Nylon</td><td class="t">The only nylon on the menu.</td></tr>
+    <tr><td class="t">Material</td><td class="v">PA11-HP Nylon</td><td class="t"><b>Not the pre-selected PA12-HP.</b> Isotropic, 50% elongation in every orientation, 1.7&times; the notched impact, same stiffness, better strength.</td></tr>
     <tr><td class="t">Color</td><td class="v">Black</td><td class="t">Grey would probably perform the same at 940 nm, but black costs nothing extra and kills visible stray light.</td></tr>
     <tr><td class="t">Surface Finish</td><td class="v">Dyeing &mdash; Dyed Black, and <b>nothing else</b></td><td class="t"><b>Do not add sanding or polishing.</b> Dyeing is a bath and harmless. Abrasion is not: this part has four pockets that set the sensor azimuth and two optical trenches, and sanding goes for edges and corners first.</td></tr>
     <tr><td class="t">Thread</td><td class="v">No</td><td class="t">All five holes are M2 clearance, not tapped.</td></tr>
-    <tr><td class="t">Quantity</td><td class="v">3 or more</td><td class="t">About &pound;1 each. Covers the Z-direction lottery, a breakage, and the spare board.</td></tr>
+    <tr><td class="t">Quantity</td><td class="v">3</td><td class="t">A crash spare and one for the second board. PA11 has no weak build direction, so there is no orientation lottery to buy extra tickets against.</td></tr>
   </table>
   </div>
 
   <div class="bad">
-    <b>None of this is the default.</b> A freshly uploaded model lands on <b>SLA (Resin) / 9600 Resin / White / Sanding</b> every time &mdash; the wrong process, in the wrong colour, with the one post-process that must not touch this part. Every field in the table above has to be changed by hand on every upload. Treat it as a checklist, not a preference.
+    <b>None of this is the default.</b> A freshly uploaded model lands on <b>SLA (Resin) / 9600 Resin / White / Sanding</b> every time &mdash; the wrong process, in the wrong colour, with the one post-process that must not touch this part. Switching to MJF then pre-selects <b>PA12-HP</b>, which is the wrong nylon. Every field in the table above has to be set by hand on every upload. Treat it as a checklist, not a preference.
   </div>
 
   <p class="dimc">No change to the model is needed for this supplier: their MJF tolerance is the &plusmn;0.3&nbsp;mm the 0.50&nbsp;mm <code>FIT</code> was already sized against, their 1.0&nbsp;mm minimum wall is met by the 1.6&nbsp;mm foot and 3.0&nbsp;mm arm, and there are no enclosed voids to trap powder.</p>
