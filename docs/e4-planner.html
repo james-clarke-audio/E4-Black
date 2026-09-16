@@ -52,6 +52,9 @@
   .note b{color:var(--ink);font-weight:600}
   .note.bad{border-left-color:var(--bad)}
   .note.ok{border-left-color:var(--built)}
+  .n.ok{color:var(--built);font-weight:600}
+  .n.bad{color:var(--bad);font-weight:600}
+  .t.dis,.n.dis{opacity:.45;pointer-events:auto}
   ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
   ul.tight li b{color:var(--ink);font-weight:500}
   ol.steps{margin:0 0 16px;padding-left:22px} ol.steps li{margin:0 0 9px;color:var(--dim)}
@@ -86,7 +89,7 @@
 
   <p>The classic flood assigns every cell a cost of one and floods outward from the goal. It is the right tool for the search run: cheap, re-run every cell, and robust to the map changing underneath it. What it cannot express is that some cells are quicker to cross than others &mdash; because in a unit-cost flood, cost is a property of the <em>cell</em>.</p>
 
-  <div class="bad">
+  <div class="note bad">
     <b>Time is not a property of a cell.</b> She accelerates. Four separate one-cell moves and one four-cell straight are not the same journey, and no number written into <code>m_cost[x][y]</code> can say so. The cost of crossing a cell depends on how fast she is going when she reaches it, which depends on how far away the <em>next turn</em> is &mdash; information the cell does not have.
   </div>
 
@@ -166,7 +169,7 @@
 
   <p>A diagonal is a straight line through wall midpoints, stepping (&plusmn;1,&plusmn;1), so the parity alternates between the two wall kinds and it never lands on a post.</p>
 
-  <div class="bad">
+  <div class="note bad">
     <b>It is not the line joining cell centres diagonally.</b> That line passes straight through a post. Running NE out of cell&nbsp;(0,1) she joins <code>y = x + 90</code> &mdash; through (180,270), (270,360), (360,450) &mdash; wall midpoints, one step of 127.28&nbsp;mm apart, clear of every post. The SD45 does not merely turn her 45&deg;; it also shifts her about 64&nbsp;mm sideways off the centreline onto that line.
   </div>
 
@@ -179,17 +182,81 @@
 
   <p class="dimc">where <i>h</i> is the orthogonal heading and <i>d</i> the diagonal one, so (d&nbsp;&minus;&nbsp;h) is the unit orthogonal step 45&deg; from <i>h</i> toward <i>d</i>. Heading N and turning onto NE, (d&nbsp;&minus;&nbsp;h) is E: she joins the diagonal at the <em>east</em> wall of the cell she is in. And a diagonal step crosses one cell corner to corner, so it needs the wall it enters by and the wall it leaves by to both be openings of that cell.</p>
 
+  <h2 class="sec">Corner to corner</h2>
+
+  <p>A diagonal step does not run <em>down</em> a corridor. It cuts <em>across</em> a cell, entering at the midpoint of one wall and leaving at the midpoint of an adjacent one &mdash; never the opposite one, because opposite walls would be a straight. So the rule for whether a step is legal is not about the walls around a corridor, it is about one cell: <b>both the wall she enters by and the wall she leaves by must be openings of the same cell</b>, and that cell is the one containing the midpoint of the step.</p>
+
+  <p class="dimc">In half-cells the arithmetic is <code>cx = (u + u&#8322;) / 4</code>, <code>cy = (v + v&#8322;) / 4</code>. One wall coordinate is always even and the other odd, so the sum is odd and the division floors correctly whichever way she is travelling.</p>
+
+  <div class="note bad">
+    <b>Getting that one line wrong is how the search silently did nothing.</b> The first version computed the cell as <code>(u + u&#8322; &minus; 1) / 2</code>, which lands on the neighbour. Every diagonal step then checked the wrong cell&rsquo;s walls, found itself blocked almost everywhere, and the search quietly returned routes identical to the orthogonal ones. It did not crash and it did not report an error &mdash; it produced a plausible answer with the feature switched off. Only comparing it against classic substitution, which it should have beaten by construction, showed that anything was wrong.
+  </div>
+
+  <h2 class="sec">What she is threading</h2>
+
+  <p>Corner to corner means she passes between posts rather than between walls, and that is a much tighter proposition than it sounds.</p>
+
+  <div style="margin:22px 0;text-align:center">
+  <svg viewBox="0 0 420 400" width="100%" style="max-width:420px;height:auto" role="img" aria-label="A diagonal step cutting across one cell between three posts">
+    <rect x="210" y="30" width="180" height="180" fill="rgba(200,134,47,.07)"/>
+    <g stroke="rgba(148,163,184,.35)" stroke-width="1">
+      <path d="M30 30 H390 M30 210 H390 M30 390 H390 M30 30 V390 M210 30 V390 M390 30 V390"/>
+    </g>
+    <g stroke="rgba(200,134,47,.45)" stroke-width="1" stroke-dasharray="3 4">
+      <path d="M141 111 L291 -39 M219 189 L369 39"/>
+    </g>
+    <line x1="180" y1="150" x2="330" y2="0" stroke="#c8862f" stroke-width="2.4"/>
+    <g fill="#5a6472">
+      <rect x="24" y="24" width="12" height="12"/><rect x="384" y="24" width="12" height="12"/>
+      <rect x="24" y="204" width="12" height="12"/><rect x="384" y="204" width="12" height="12"/>
+      <rect x="24" y="384" width="12" height="12"/><rect x="204" y="384" width="12" height="12"/>
+      <rect x="384" y="384" width="12" height="12"/>
+    </g>
+    <g fill="#d9534f">
+      <rect x="204" y="24" width="12" height="12"/><rect x="204" y="204" width="12" height="12"/>
+      <rect x="384" y="24" width="12" height="12"/>
+    </g>
+    <g fill="#54cc72">
+      <circle cx="210" cy="120" r="4.5"/><circle cx="300" cy="30" r="4.5"/>
+    </g>
+    <g font-family="ui-monospace,monospace" font-size="11" fill="#93a0b1">
+      <text x="300" y="130" text-anchor="middle">the cell she crosses</text>
+      <text x="196" y="124" text-anchor="end">enters here</text>
+      <text x="308" y="22">leaves here</text>
+      <text x="196" y="208" text-anchor="end" fill="#d9534f">posts</text>
+      <text x="150" y="105" text-anchor="end" fill="#c8862f">110.3 mm</text>
+    </g>
+  </svg>
+  </div>
+
+  <p class="dimc">One diagonal step across one cell. Green: the two wall midpoints. Red: the three posts that bound the corridor &mdash; one on the inside of the turn, two on the outside. Dashed: the free corridor.</p>
+
+  <p>The arithmetic is unforgiving. The diagonal passes <b>90/&radic;2 = 63.6&nbsp;mm</b> from each of those three post centres. A post is 12&nbsp;mm square, so its nearest corner sits <b>6&radic;2 = 8.5&nbsp;mm</b> closer. That leaves 55.2&nbsp;mm of free half-width, and a corridor <b>110.3&nbsp;mm</b> wide &mdash; against <b>168&nbsp;mm</b> for a straight one.</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th></th><th>straight corridor</th><th>diagonal corridor</th></tr>
+    <tr><td class="t">clear width</td><td class="n">168.0 mm</td><td class="n">110.3 mm</td></tr>
+    <tr><td class="t">board alone, 77 mm</td><td class="n">45.5 mm a side</td><td class="n">16.7 mm a side</td></tr>
+    <tr><td class="t">with the sensor plate and housings, 81.6 mm</td><td class="n">43.2 mm a side</td><td class="n"><b>14.4 mm a side</b></td></tr>
+  </table>
+  </div>
+
+  <p><b>A third of the clearance.</b> That single number is most of why diagonals are the hard part, and it is worth holding next to <a href="e4-sensor-carrier.html">Ch&nbsp;11</a>: the sensor plate and the side housings stand about 2.3&nbsp;mm proud of the board rim on each side, which costs nothing in a straight and is a sixth of the remaining margin on a diagonal.</p>
+
+  <p>It also changes what the side sensors are looking at. In a corridor they see a continuous wall and steering has something to lock to. On a diagonal they see <em>posts</em> &mdash; a periodic return every 127&nbsp;mm with nothing in between &mdash; so diagonal steering is a different problem from wall-following, not a tuning of it. Nothing in this chapter addresses that; the planner assumes she can hold the line, and holding the line is the part that has not been built.</p>
+
   <h2 class="sec">What the validator found</h2>
 
   <p>The two methods disagreed, and neither could adjudicate &mdash; <b>a planner that scores its own output is only ever as honest as its own model.</b> So <code>route_check()</code> walks a route over the lattice against the map, independently of whichever planner produced it, and returns the first step that is not drivable.</p>
 
   <p>It immediately found that classic substitution was reporting times for routes she could not drive. Two bugs, neither of them visible to any amount of timing arithmetic:</p>
 
-  <div class="bad">
+  <div class="note bad">
     <b>1 &mdash; only one of the two 45s is ever legal.</b> Coming off the diagonal the landing point is (u,v)&nbsp;+&nbsp;h, and it has to be a cell centre. At a vertical-wall midpoint she is on a row centreline but straddling a wall line, so only E or W are available; at a horizontal one, only N or S. The other lands on a post. Classic chose the exit hand by which way the last turn of the zigzag went, which is unrelated to the lattice.
   </div>
 
-  <div class="bad">
+  <div class="note bad">
     <b>2 &mdash; the diagonal does not end where the zigzag ended.</b> A k-turn zigzag finishes its last turn <em>in</em> a cell; the diagonal comes off a cell or so further along. Splice it in without noticing and the straight after it is counted from the wrong place &mdash; she overshoots by exactly one cell, and every wall check from there on is against the wrong cell.
   </div>
 

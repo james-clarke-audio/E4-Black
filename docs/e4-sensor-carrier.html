@@ -52,6 +52,9 @@
   .note b{color:var(--ink);font-weight:600}
   .note.bad{border-left-color:var(--bad)}
   .note.ok{border-left-color:var(--built)}
+  .n.ok{color:var(--built);font-weight:600}
+  .n.bad{color:var(--bad);font-weight:600}
+  .t.dis,.n.dis{opacity:.45;pointer-events:auto}
   ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
   ul.tight li b{color:var(--ink);font-weight:500}
   ol.steps{margin:0 0 16px;padding-left:22px} ol.steps li{margin:0 0 9px;color:var(--dim)}
@@ -219,7 +222,7 @@
 
   <p>The first printed version therefore gripped the board's <em>side edges</em> at y&nbsp;=&nbsp;58, on the reasoning that if the holes were unavailable the rim was the next best anchor. That version was printed and it failed, for a reason no amount of checking the plate against itself would ever have found.</p>
 
-  <div class="bad">
+  <div class="note bad">
     <b>The grippers were in the wheel wells.</b> The board is not a rectangle with a semicircular nose. Between y&nbsp;=&nbsp;14.5 and y&nbsp;=&nbsp;54.5 it steps <em>in</em> to x&nbsp;=&nbsp;11.46 and 65.54 to clear the wheels, and only flares back out above 54.5. The grippers at x&nbsp;=&nbsp;1.0 and 76.0 sat about 8&nbsp;mm inside those wells and fouled the tyres. The plate was checked against the real outline; the <em>feet</em> were placed against a remembered one.
   </div>
 
@@ -245,7 +248,7 @@
 
   <p>The production part is <b>MJF in PA11 nylon, black</b>, from JLCPCB's 3D service &mdash; HP Multi Jet Fusion, a powder bed, not FDM. Three things about this part were reasoned in the wrong material.</p>
 
-  <div class="bad">
+  <div class="note bad">
     <b>The pocket clearance had to be opened.</b> <code>FIT</code> was <b>0.30&nbsp;mm</b> on both axes, chosen for FDM. JLC hold <b>&plusmn;0.3&nbsp;mm within 100&nbsp;mm</b> on MJF, so 0.30 nominal has a worst case of zero &mdash; a pocket a housing will not enter without filing, four times over, after a three-day turnaround. It is now <b>0.50&nbsp;mm</b>: 0.2 at the tight end and assemblable, 0.8 at the loose end and held by the epoxy. It is the tight end that has no recovery.
   </div>
 
@@ -307,11 +310,11 @@
   </table>
   </div>
 
-  <div class="bad">
+  <div class="note bad">
     <b>None of this is the default.</b> A freshly uploaded model lands on <b>SLA (Resin) / 9600 Resin / White / Sanding</b> every time &mdash; the wrong process, in the wrong colour, with the one post-process that must not touch this part. Switching to MJF then pre-selects <b>PA12-HP</b>, which is the wrong nylon. Every field in the table above has to be set by hand on every upload. Treat it as a checklist, not a preference.
   </div>
 
-  <div class="bad">
+  <div class="note bad">
     <b>Surface Finish must be No, and it will not be.</b> Choosing PA11 changes what that row offers &mdash; dyeing is how PA12 gets its black, but PA11 <em>is</em> black, so the row switches to <b>Spray Painting</b> and pre-fills <b>Matte / Sky Blue / Exterior Only</b>. Paint is the wrong answer here twice over: it is a coat of unknown thickness going onto four pockets sized to 0.50&nbsp;mm and into two optical trenches whose floors are doing a job, and the part is already the colour you want. Turn the row off.
   </div>
 
