@@ -15,6 +15,9 @@ Options:
 | `--accel=N` | forward acceleration, mm/s² (also sets decel) |
 | `--no180` | forbid SS180, leaving stop-and-spin for a reversal |
 
+Columns: `short_s` fewest cells, `quick_s` least time orthogonal, `diag_s`
+after classic diagonal substitution, `subs` how many zigzags were replaced.
+
 Built and run natively; `planner.cpp` is also verified to cross-compile clean
 for the target (`cortex-m4 / fpv4-sp-d16 / hard float`, `-fno-exceptions
 -fno-rtti`) pulling in nothing but `sqrtf`, `lroundf` and `memset` -- no heap,
@@ -37,6 +40,11 @@ Two questions that cannot be answered on a bench:
    straights with distance -- on `japan2007ef` the chosen route lengthens from
    71 cells to 82 once speed is worth having, which is something a unit-cost
    flood can never do.
+
+3. **Are diagonals worth the tuning?** Classic substitution alone is worth
+   8-10% at the as-built speeds and up to 18% once the straights are quick,
+   on real competition mazes. That is a number to weigh a weekend of SD45
+   tuning against, before spending it.
 
 Both numbers are only as good as `turn_params`. The planner will confidently
 pick a wrong route if the table lies to it, so the arcs need measuring, not

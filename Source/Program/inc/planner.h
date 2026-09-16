@@ -98,15 +98,24 @@ struct WallReader {
   const void *ctx;
 };
 
-enum Move : uint8_t { MV_START, MV_ARC_L, MV_ARC_R, MV_ARC_180,
-                      MV_SPIN_L, MV_SPIN_R, MV_SPIN_180, MV_GOAL };
+enum Move : uint8_t {
+  MV_START,
+  MV_ARC_L, MV_ARC_R, MV_ARC_180,          // SS90L/R, SS180
+  MV_SPIN_L, MV_SPIN_R, MV_SPIN_180,       // stop and turn on the spot
+  MV_SD45_L, MV_SD45_R,                    // straight ONTO the diagonal
+  MV_DS45_L, MV_DS45_R,                    // diagonal back to straight
+  MV_DD90_L, MV_DD90_R,                    // corner without leaving the diagonal
+  MV_GOAL
+};
 
 struct Step {
-  Move    move;      // the turn taken at the END of this step's straight
-  uint8_t cells;     // cells of straight run before that turn
+  Move    move;      // the turn taken at the END of this step's run
+  uint8_t cells;     // length of the run before that turn
+  uint8_t diag;      // 1 = that run is DIAGONAL, so `cells` counts 127.28 mm
+                     //     steps rather than 180 mm ones
   uint8_t x, y;      // cell the turn happens in
   Head    heading;   // heading after the turn
-  float   t;         // seconds for straight + turn
+  float   t;         // seconds for run + turn
 };
 
 struct Route {

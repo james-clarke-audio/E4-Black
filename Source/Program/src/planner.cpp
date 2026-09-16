@@ -257,7 +257,7 @@ void plan_route(Route &route, const WallReader &maze, const Robot &r, Objective 
   // which a Cortex-M does not have going spare.
   Step *st = route.steps;
   int nt = 0;
-  st[nt].move = MV_GOAL; st[nt].cells = (uint8_t)best_goal_cells;
+  st[nt].move = MV_GOAL; st[nt].cells = (uint8_t)best_goal_cells; st[nt].diag = 0;
   st[nt].x = (uint8_t)gx; st[nt].y = (uint8_t)gy;
   st[nt].heading = NN;    st[nt].t = best_goal_t; ++nt;
 
@@ -267,6 +267,7 @@ void plan_route(Route &route, const WallReader &maze, const Robot &r, Objective 
     const int c = cur / (NSPEED * NHEAD);
     st[nt].move    = (Move)s_pmove[cur];
     st[nt].cells   = s_pcells[cur];
+    st[nt].diag    = 0;
     st[nt].x       = (uint8_t)(c % W);
     st[nt].y       = (uint8_t)(c / W);
     st[nt].heading = (Head)h;
