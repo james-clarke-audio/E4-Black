@@ -81,47 +81,97 @@ check every foot against the parsed outline, never a remembered one. And put it 
 
 ## Process: MJF PA12 nylon, dyed black — not FDM
 
-The production part is HP Multi Jet Fusion, PA12-HP nylon, dyed black. A powder bed, not FDM.
+Made by JLCPCB's 3D service. HP Multi Jet Fusion, PA12S-HP nylon, dyed black. A powder bed, not FDM.
 
-| MJF PA12 guideline | value | this part |
+### The order, definitively
+
+| field | setting | why |
 |---|---|---|
-| Dimensional accuracy | ±0.3%, lower limit ±0.3 mm | — |
-| Clearance between assembled parts | **≥ 0.6 mm** | `FIT` is **0.50** — see below |
-| Minimum wall | 1 mm | 1.6 mm foot, 3.0 mm arm — ok |
-| Minimum hole | 2 mm | 2.3 and 2.5 mm — ok |
-| Minimum detail | 0.25 mm | ok |
-| Layer | 0.08 mm | — |
-| Tensile / modulus / elongation (XY) | 50 MPa / 1750 MPa / 19% | — |
+| 3D Technology | **MJF (Nylon)** | Black through the bulk, tough, no orientation or support decisions |
+| Material | **PA12S-HP Nylon** | The only nylon on the menu |
+| Color | **Black** | Grey likely performs the same at 940 nm, but black is free and kills visible stray light |
+| Surface Finish | **Dyeing — Dyed Black, and nothing else** | **No sanding, no polishing.** Dyeing is a bath and harmless. Abrasion is not — four pockets set the sensor azimuth and there are two optical trenches, and sanding goes for edges and corners first |
+| Thread | **No** | All five holes are M2 clearance, not tapped |
+| Quantity | **3 or more** | ~£1 each. Covers the Z-direction lottery, a breakage, and the spare board |
 
-**`FIT` is 0.50 mm, opened from the 0.30 that was chosen for FDM.** At ±0.3 mm process tolerance,
-0.30 nominal has a worst case of zero — four pockets that will not take a housing without filing,
-after a three-day turnaround. 0.50 gives 0.2 at the tight end (assemblable) and 0.8 at the loose
-end (held by the epoxy). It is the tight end that has no recovery.
+**None of this is the default.** A freshly uploaded model lands on **SLA (Resin) / 9600 Resin /
+White / Sanding** every time — wrong process, wrong colour, and the one post-process that must not
+touch this part. Change every field by hand on every upload. It is a checklist, not a preference.
 
-Opening it costs azimuth: slack *c* over the housing's 8.025 mm grip allows about `atan(c/8.025)` of
-rotation — 2.1° at 0.30, 3.6° at 0.50, 4.3° at 0.60. That is not free at 70° on the sides, where 65°
-already catches the post's edge. It is survivable only because **the angle is set at glue-up**: the
-pocket holds the housing square while the epoxy goes off, and the aim comes from sighting the emitter
-on a phone camera and peaking the detector on a live reading.
+### Process limits vs this part
 
-So the pocket is a fixture, not a datum, and 0.50 is the right trade. Change `FIT` in the source if
-a different process is ever used — 0.30 is the FDM number.
+| JLC MJF PA12S-HP | value | this part |
+|---|---|---|
+| Dimensional tolerance | ±0.3 mm (<100 mm), ±0.4% above | `FIT` 0.50 sized against it |
+| Minimum wall | > 1.0 mm | 1.6 mm foot, 3.0 mm arm — ok |
+| Tensile (XY / Z) | 45 / 43 MPa | — |
+| Elongation (XY / Z) | 12% / **5%** | see below |
+| Modulus | 1700 MPa | — |
+| Notched impact | 2.5 / 2.0 kJ/m² | — |
+| Heat deflection | 175 °C | — |
+| Build time | from 72 h | — |
 
-**Other MJF consequences:**
+No enclosed voids, so no trapped powder. No model change needed for this supplier.
+
+### Why nylon and not resin
+
+The same supplier offers SLA and on paper the engineering resins look better — tighter, stiffer,
+sold for exactly this kind of bracket:
+
+| | MJF PA12S-HP | SLA 9000HE |
+|---|---|---|
+| Colour | **Black**; grey | White |
+| Tolerance (<100 mm) | ±0.3 mm | ±0.2 mm |
+| Tensile | 45 / 43 MPa | 41–61 MPa |
+| Elongation at break | 12% XY, **5% Z** | 7–12% |
+| Modulus | 1700 MPa | 2705–2875 MPa flexural |
+| Minimum wall | > 1.0 mm | > 0.8 mm |
+
+**Colour settles it.** The engineering resins are white. A white plate wrapped around four IR optics
+is a diffuse reflector at 940 nm millimetres from every detector — cross-talk that cannot be fixed
+afterwards short of painting it, and paint puts thickness back into the pockets. Black resins exist
+in the catalogue but they are the general-purpose and fine-detail grades. **The tough resins are not
+black and the black resins are not tough.**
+
+Two entries deserve honesty. The tolerance gap is **0.1 mm**, not the order of magnitude a generic
+SLA-vs-MJF table implies — that gap belongs to in-house industrial SLA, not to this supplier. It
+would buy `FIT` 0.40 instead of 0.50, about 0.7° of azimuth. And the resin is genuinely **1.6×
+stiffer**, a real benefit for a 40 mm cantilever. If this part tolerated white, resin would win.
+
+The rest: SLS is the same nylon family with no advantage unless cheaper. WJP is fine-detail and
+brittle. FDM gets nothing a home printer does not. SLM and BJ are metal — 7 g of nylon becomes ~20 g
+of aluminium or ~55 g of steel, and a specular reflector next to the sensors.
+
+### Pocket clearance
+
+`FIT` is **0.50 mm**, opened from the 0.30 chosen for FDM. At ±0.3 mm process tolerance, 0.30
+nominal has a worst case of zero — four pockets that will not take a housing without filing, after a
+three-day turnaround. 0.50 gives 0.2 at the tight end (assemblable) and 0.8 at the loose end (held
+by the epoxy). It is the tight end that has no recovery.
+
+Opening it costs azimuth: slack *c* over the housing's 8.025 mm grip allows about `atan(c/8.025)` —
+2.1° at 0.30, 3.6° at 0.50, 4.3° at 0.60. Not free at 70° on the sides, where 65° already catches
+the post's edge. Survivable only because **the angle is set at glue-up**: the pocket holds the
+housing square while the epoxy goes off, and the aim comes from sighting the emitter on a phone
+camera and peaking the detector on a live reading. The pocket is a fixture, not a datum. 0.30 is the
+FDM number if a different process is ever used.
+
+### Other MJF consequences
 
 - **Orientation and supports are not ours to choose.** A powder bed needs neither. The "feet down,
   no supports, 0.0 mm² overhang" notes apply to a home FDM test print and nothing else.
-- **PA12 is about half as stiff as PLA** (1750 MPa vs ~3500) at similar strength and far greater
-  toughness. The 3.0 × 6.4 mm arm deflects about twice as far under the same load, but bends and
-  returns rather than snapping. Five bolted fixings and short arms keep it small.
+- **Watch the Z direction.** PA12 falls to 5% elongation across the build axis against 12% in plane,
+  and the supplier nests the parts — orientation is not a field on the order form. If an arm lands
+  with its long axis vertical, the weak direction is the loaded one. A reason to order several.
+- **PA12 is about two thirds the stiffness of PLA** (1700 MPa vs ~3500) at similar strength. The
+  3.0 × 6.4 mm arm deflects further but bends and returns rather than snapping.
 - **The foot creeps rather than cracks.** Nylon under sustained clamp load goes slack slowly instead
   of splitting. Re-check the mount bolts after the first few runs.
-- **The black is a dye, not pigment through the bulk.** MJF PA12 comes off the machine mid-grey
-  (L* ≈ 55). A dye that looks black in daylight need not absorb at 940 nm. 6.4 mm of nylon will
-  attenuate a lot regardless and the housings do the near-field separation, but the trench floor is
-  claimed above as a baffle and that is untested in this material. **Torch test on arrival:** hold
-  the part between an emitter and a phone camera — phone sensors see 940 nm — and see if it glows.
-- No enclosed voids, so no trapped powder.
+- **The black is a dye over a grey bulk.** MJF PA12 comes off the machine mid-grey (L* ≈ 55, carbon
+  black from the fusing agent, through the bulk); the dye sits on top. A dye that looks black in
+  daylight need not absorb at 940 nm, so the grey bulk does the real work and the dye is mostly
+  cosmetic. **Torch test on arrival:** hold the part between an emitter and a phone camera — phone
+  sensors see 940 nm — and see if it glows.
 
 ## Printing and fitting
 
