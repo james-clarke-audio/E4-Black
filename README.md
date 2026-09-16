@@ -114,6 +114,31 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.20 — 16 Sep 2026 · Diagonals, searched rather than substituted**
+`native.cpp` puts the diagonal moves into the graph and searches, instead of
+planning orthogonally and rewriting afterwards. Work in half-cells and parity
+says what a point is — (odd,odd) a cell centre, mixed a wall midpoint,
+(even,even) a post — and a diagonal is a straight line through wall midpoints
+stepping ±1,±1, so it never lands on a post. It is *not* the line joining cell
+centres diagonally: that goes straight through one. Because it searches, it can
+take a **longer** cell route because that route diagonalises better, which is
+the one thing post-processing can never do.
+
+Across 392 real competition mazes, against the orthogonal quickest route:
+classic substitution **−3.4%**, native search **−13.2%**, best −47.6% on
+`quo4`.
+
+`route_check()` walks a route over the lattice against the map, independently
+of whichever planner produced it — because the two disagreed and a planner that
+scores its own output is only as honest as its own model. It found that classic
+was reporting times for routes she could not drive: the exit hand off a
+diagonal is fixed by the lattice rather than by the zigzag, and the diagonal
+does not end in the cell the zigzag ended in. Fixing both took classic from a
+claimed 8–10% to a real 3.4%. Both methods now pass on all 392.
+
+Documented in [Ch 12 — Planning the Fast Run](docs/e4-planner.html). Still
+nothing calls any of it, so there is still no speed run.
+
 **0.19 — 16 Sep 2026 · A route planner, and a test to prove it wrong**
 Two new modules that nothing drives yet, and one bench routine that exists to
 settle an argument between them and the firmware.

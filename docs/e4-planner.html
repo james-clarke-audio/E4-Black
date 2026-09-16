@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E4 Planning the Fast Run</title>
+<meta name="description" content="One printed plate carrying all four E4 sensor housings — why the optics moved rather than the angles, the lead-length constraint that sets every placement, and the four defects caught in a slicer before printing.">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    color-scheme: dark;
+    --bg:#0d1015; --panel:#151a21; --panel2:#1b212b; --line:#262e39; --line2:#333d4a;
+    --ink:#e8eef5; --dim:#93a0b1; --faint:#5c6773;
+    --amber:#e6b34a; --blue:#5aa8ff;
+    --built:#54cc72; --built-bg:rgba(84,204,114,.13);
+    --plan:#9aa2f0;  --plan-bg:rgba(154,162,240,.13);
+    --bad:#e06c75;   --bad-bg:rgba(224,108,117,.13);
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{background:var(--bg)}
+  body{margin:0;color:var(--ink);font-family:var(--sans);line-height:1.58;-webkit-font-smoothing:antialiased;padding:34px 22px 72px}
+  .wrap{max-width:820px;margin:0 auto}
+  a{color:var(--blue)}
+  code{font-family:var(--mono);font-size:.9em;color:var(--dim)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;text-transform:uppercase;color:var(--amber);margin:0 0 10px;display:flex;align-items:center;gap:11px}
+  .eyebrow::before{content:"";width:26px;height:2px;background:var(--amber)}
+  h1{font-size:33px;font-weight:700;letter-spacing:-.02em;margin:0 0 10px;line-height:1.05;text-wrap:balance}
+  .sub{color:var(--dim);font-size:16px;margin:0 0 30px;max-width:64ch}
+  .sub b{color:var(--ink);font-weight:500}
+  h2.sec{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin:38px 0 14px;font-weight:600;display:flex;align-items:center;gap:12px}
+  h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+  p{margin:0 0 14px}
+  .lead{color:var(--ink)} .dimc{color:var(--dim)}
+  .tblwrap{overflow-x:auto;margin:6px 0 18px}
+  table.dim{width:100%;border-collapse:collapse;font-size:13.5px;min-width:660px}
+  table.dim th,table.dim td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.dim th{font-family:var(--mono);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;white-space:nowrap}
+  table.dim td.v{font-family:var(--mono);color:var(--amber);white-space:nowrap}
+  table.dim td.n{font-family:var(--mono);color:var(--dim);white-space:nowrap}
+  table.dim td.t{color:var(--dim);font-size:13px}
+  table.dim tr.grp td{background:var(--panel);font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:6px 9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:15px 18px;margin:0 0 12px}
+  .card h3{margin:0 0 6px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:9px}
+  .card p{margin:0;color:var(--dim);font-size:13.5px;line-height:1.55}
+  .chip{font-family:var(--mono);font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:20px;white-space:nowrap;margin-left:auto}
+  .chip.built{color:var(--built);background:var(--built-bg)}
+  .chip.plan{color:var(--plan);background:var(--plan-bg)}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--amber);border-radius:8px;padding:12px 16px;margin:0 0 14px;font-size:14px;color:var(--dim)}
+  .note b{color:var(--ink);font-weight:600}
+  .note.bad{border-left-color:var(--bad)}
+  .note.ok{border-left-color:var(--built)}
+  ul.tight{margin:0 0 14px;padding-left:20px} ul.tight li{margin:0 0 7px;color:var(--dim)}
+  ul.tight li b{color:var(--ink);font-weight:500}
+  ol.steps{margin:0 0 16px;padding-left:22px} ol.steps li{margin:0 0 9px;color:var(--dim)}
+  ol.steps li b{color:var(--ink);font-weight:500}
+  pre{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 16px;margin:0 0 16px;overflow-x:auto;font-family:var(--mono);font-size:12.5px;line-height:1.62;color:var(--dim)}
+  figure{margin:0 0 18px}
+  figcaption{font-size:12.5px;color:var(--faint);margin-top:8px;font-family:var(--mono);line-height:1.5}
+  svg{display:block;width:100%;height:auto}
+  footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11.5px;color:var(--faint);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+  .e4nav{margin:0 auto;display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:12px 22px 12px;border-bottom:1px solid rgba(200,134,47,.28)}
+  .e4nav a{color:inherit;text-decoration:none;opacity:.7;white-space:nowrap}
+  .e4nav a:hover{opacity:1;color:#c8862f}
+  .e4nav .home{font-weight:600;opacity:.92}
+  .e4nav .ch{color:#c8862f;font-weight:600;opacity:1;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .e4nav .sp{flex:1}
+  .e4nav .dis{opacity:.28;pointer-events:none}
+  @media(max-width:560px){.e4nav .ch{display:none}}
+</style>
+</head>
+<body>
+
+<nav class="e4nav" style="max-width:820px" aria-label="E4 manual"><a class="home" href="index.html">&#9776; E4 Manual</a><span class="ch">Ch. 12 &middot; Planning the Fast Run</span><span class="sp"></span><a href="e4-sensor-carrier.html">&larr; Prev</a><span class="dis">Next &rarr;</span></nav>
+
+<div class="wrap">
+
+  <p class="eyebrow">E4 Micromouse &middot; route planning</p>
+  <h1>Planning the Fast Run</h1>
+
+  <p class="lead">The flood in <code>maze.h</code> answers <em>fewest cells</em>. A fast run needs <em>least time</em>, and those are different questions on a different graph. This is that graph, the two ways to put diagonals on it, and the validator that caught both of them lying.</p>
+
+  <h2 class="sec">Fewest cells is not least time</h2>
+
+  <p>The classic flood assigns every cell a cost of one and floods outward from the goal. It is the right tool for the search run: cheap, re-run every cell, and robust to the map changing underneath it. What it cannot express is that some cells are quicker to cross than others &mdash; because in a unit-cost flood, cost is a property of the <em>cell</em>.</p>
+
+  <div class="bad">
+    <b>Time is not a property of a cell.</b> She accelerates. Four separate one-cell moves and one four-cell straight are not the same journey, and no number written into <code>m_cost[x][y]</code> can say so. The cost of crossing a cell depends on how fast she is going when she reaches it, which depends on how far away the <em>next turn</em> is &mdash; information the cell does not have.
+  </div>
+
+  <p>So a per-cell weighting cannot be rescued by choosing better weights. The graph has to change shape.</p>
+
+  <h2 class="sec">What restores additivity</h2>
+
+  <p>The turn table does, and this is the whole reason the planner is tractable. <b>Every turn in <code>turn_params</code> runs at a constant forward speed.</b> So a straight between two turns has a known entry speed and a known exit speed, and its duration is a closed form of <code>(length, v_in, v_out, v_max, accel)</code>: accelerate, maybe cruise, brake to meet the next turn. Segment costs stop depending on each other, which is exactly the condition a shortest-path search needs.</p>
+
+  <p>That gives the graph its shape:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th></th><th>the flood</th><th>the planner</th></tr>
+    <tr><td class="t">node</td><td class="n">a cell</td><td class="n">a <b>turn</b> &mdash; (cell, outgoing heading, speed class)</td></tr>
+    <tr><td class="t">edge</td><td class="n">one cell step</td><td class="n">run straight N cells, <b>then take the next turn</b></td></tr>
+    <tr><td class="t">cost</td><td class="n">1</td><td class="n">straight time + turn time</td></tr>
+    <tr><td class="t">count</td><td class="n">256</td><td class="n">2048</td></tr>
+  </table>
+  </div>
+
+  <p>Nodes exist only where she changes direction. A six-cell straight is <em>one edge</em>, which is precisely what lets the cost account for acceleration. And every turn offers two implementations &mdash; a smooth arc at the table speed, or stop and spin &mdash; with the search choosing. That matters twice over: it is how a tight section correctly comes out as stop-and-spin, and it is what keeps the planner honest when an arc cannot be entered in the space available.</p>
+
+  <div class="note">
+    <b>The queue had to go too.</b> The old flood used a plain FIFO, which is correct <em>only</em> while every edge costs the same &mdash; that is what unit cost bought, and why an Atmel could get away with it. With real times the edges differ and a FIFO gives wrong answers. It is <b>Dial&rsquo;s algorithm</b> now: a circular bucket queue, still O(E) because the weights are small bounded integers, with a guard that invalidates the plan rather than clamping if an edge ever outgrows the ring.
+  </div>
+
+  <h2 class="sec">Two rules of the competition, worth real time</h2>
+
+  <p>A run is timed from the moment she <em>leaves</em> the start square to the moment she <em>enters</em> the target. Both ends of that are worth something.</p>
+
+  <ul class="tight">
+    <li><b>The run-up inside the start square is free.</b> The clock has not started, so what crosses the line is whatever speed she has built in the 139&nbsp;mm from the back wall &mdash; about <b>745&nbsp;mm/s</b> at 2000&nbsp;mm/s&sup2;, rather than nothing.</li>
+    <li><b>She never has to stop in the goal.</b> The clock stops on entry. She only has to be able to stop within the run-out the goal box offers, roughly 270&nbsp;mm, which caps entry at about <b>1040&nbsp;mm/s</b>. That is a constraint on the route, not a cost in it.</li>
+  </ul>
+
+  <h2 class="sec">At her current numbers there is nothing to find</h2>
+
+  <p>The first thing the bench reported was that the whole exercise is worth nothing as she stands. <code>SEARCH_SPEED</code> is 300&nbsp;mm/s and <code>SEARCH_TURN_SPEED</code> is 300&nbsp;mm/s. <b>She travels exactly as fast down a straight as she does round a corner.</b> When that is true, every route of equal length takes equal time and there is no &ldquo;quickest&rdquo; to find &mdash; the weighted planner is an expensive way to reproduce the flood.</p>
+
+  <p>Ramp the straights and it separates:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>accel</th><th>v_max</th><th>shortest</th><th>quickest</th><th>saved</th><th>route</th></tr>
+    <tr><td class="n">1000</td><td class="n">333</td><td class="n">47.259</td><td class="n">47.259</td><td class="n dis">0.0%</td><td class="t">71 cells</td></tr>
+    <tr><td class="n">2000</td><td class="n">666</td><td class="n">35.303</td><td class="n">35.304</td><td class="n dis">0.0%</td><td class="t">71 cells</td></tr>
+    <tr><td class="n">4000</td><td class="n">1333</td><td class="n">29.406</td><td class="n">28.577</td><td class="n ok">2.8%</td><td class="t"><b>82 cells</b></td></tr>
+    <tr><td class="n">8000</td><td class="n">2666</td><td class="n">25.017</td><td class="n">23.528</td><td class="n ok">6.0%</td><td class="t"><b>82 cells</b></td></tr>
+  </table>
+  </div>
+
+  <p class="dimc"><code>japan2007ef</code>. Note the route <em>lengthens</em> &mdash; 71 cells to 82 &mdash; once speed is worth having. That is the planner buying straights with distance, and it is the thing a unit-cost flood can never do. <b>Raising top speed on the straights is what creates the problem this solves.</b></p>
+
+  <h2 class="sec">Diagonals, two ways</h2>
+
+  <p>A diagonal is worth having because it turns a staircase of 90&deg; turns into one straight line at 45&deg;, and because the pitch along it is 180/&radic;2 = <b>127.28&nbsp;mm</b> rather than 180. There are two ways to get one, and they are not equivalent.</p>
+
+  <ul class="tight">
+    <li><b>Classic substitution.</b> Plan the route on cells as if diagonals did not exist, then find the zigzags and replace each with SD45 onto the diagonal, a diagonal run, DS45 back off. Cheap, and it is what most mice have always done.</li>
+    <li><b>Native search.</b> Put the diagonal moves into the graph and search. Slower to compute, and it can do the one thing substitution cannot: <b>choose a longer cell route because that route diagonalises better</b>. Post-processing can only improve the route it was handed, and the orthogonal planner threw the good one away before it ever ran.</li>
+  </ul>
+
+  <h2 class="sec">The lattice</h2>
+
+  <p>Work in half-cells &mdash; <code>u = x/90</code>, <code>v = y/90</code>, both 0&ndash;32 &mdash; and parity alone says what a point is:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>parity</th><th>what it is</th><th>where</th></tr>
+    <tr><td class="v">odd, odd</td><td class="t">cell centre</td><td class="n">cell (x,y) is at (2x+1, 2y+1)</td></tr>
+    <tr><td class="v">even, odd</td><td class="t">vertical-wall midpoint</td><td class="n">the diagonal runs</td></tr>
+    <tr><td class="v">odd, even</td><td class="t">horizontal-wall midpoint</td><td class="n">through these</td></tr>
+    <tr><td class="v">even, even</td><td class="t dis">a POST &mdash; never occupied</td><td class="n dis">&mdash;</td></tr>
+  </table>
+  </div>
+
+  <p>A diagonal is a straight line through wall midpoints, stepping (&plusmn;1,&plusmn;1), so the parity alternates between the two wall kinds and it never lands on a post.</p>
+
+  <div class="bad">
+    <b>It is not the line joining cell centres diagonally.</b> That line passes straight through a post. Running NE out of cell&nbsp;(0,1) she joins <code>y = x + 90</code> &mdash; through (180,270), (270,360), (360,450) &mdash; wall midpoints, one step of 127.28&nbsp;mm apart, clear of every post. The SD45 does not merely turn her 45&deg;; it also shifts her about 64&nbsp;mm sideways off the centreline onto that line.
+  </div>
+
+  <p>The two transitions are the same offset in each direction, which is the only tidy thing about the geometry:</p>
+
+  <ul class="tight">
+    <li><b>SD45</b> takes a centre at (2x+1, 2y+1) to the wall midpoint at <code>centre + (d &minus; h)</code></li>
+    <li><b>DS45</b> takes a wall midpoint (u,v) to the centre at <code>(u,v) + h</code></li>
+  </ul>
+
+  <p class="dimc">where <i>h</i> is the orthogonal heading and <i>d</i> the diagonal one, so (d&nbsp;&minus;&nbsp;h) is the unit orthogonal step 45&deg; from <i>h</i> toward <i>d</i>. Heading N and turning onto NE, (d&nbsp;&minus;&nbsp;h) is E: she joins the diagonal at the <em>east</em> wall of the cell she is in. And a diagonal step crosses one cell corner to corner, so it needs the wall it enters by and the wall it leaves by to both be openings of that cell.</p>
+
+  <h2 class="sec">What the validator found</h2>
+
+  <p>The two methods disagreed, and neither could adjudicate &mdash; <b>a planner that scores its own output is only ever as honest as its own model.</b> So <code>route_check()</code> walks a route over the lattice against the map, independently of whichever planner produced it, and returns the first step that is not drivable.</p>
+
+  <p>It immediately found that classic substitution was reporting times for routes she could not drive. Two bugs, neither of them visible to any amount of timing arithmetic:</p>
+
+  <div class="bad">
+    <b>1 &mdash; only one of the two 45s is ever legal.</b> Coming off the diagonal the landing point is (u,v)&nbsp;+&nbsp;h, and it has to be a cell centre. At a vertical-wall midpoint she is on a row centreline but straddling a wall line, so only E or W are available; at a horizontal one, only N or S. The other lands on a post. Classic chose the exit hand by which way the last turn of the zigzag went, which is unrelated to the lattice.
+  </div>
+
+  <div class="bad">
+    <b>2 &mdash; the diagonal does not end where the zigzag ended.</b> A k-turn zigzag finishes its last turn <em>in</em> a cell; the diagonal comes off a cell or so further along. Splice it in without noticing and the straight after it is counted from the wrong place &mdash; she overshoots by exactly one cell, and every wall check from there on is against the wrong cell.
+  </div>
+
+  <p>Fixing both, and costing the join with the <em>corrected</em> length, took classic from a claimed 8&ndash;10% to a real <b>3.4%</b>. The earlier figure is in the repository history and in an earlier version of the README; it was wrong, and it was wrong in the direction that flatters the work.</p>
+
+  <h2 class="sec">The numbers</h2>
+
+  <p>392 of the 406 maze files in <code>mazefiles/binary/</code> &mdash; the rest are 5&times;5 and 10&times;5 practice arenas the bench does not size for. Measured against the orthogonal quickest route:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>method</th><th>mean</th><th>vs orthogonal</th><th>best single maze</th></tr>
+    <tr><td class="t">orthogonal, time-weighted</td><td class="n">37.530 s</td><td class="n">&mdash;</td><td class="n">&mdash;</td></tr>
+    <tr><td class="t">classic substitution</td><td class="n">36.273 s</td><td class="n">&minus;3.4%</td><td class="n">&mdash;</td></tr>
+    <tr><td class="t"><b>native diagonal search</b></td><td class="n"><b>32.560 s</b></td><td class="n ok"><b>&minus;13.2%</b></td><td class="n ok">&minus;47.6% (quo4)</td></tr>
+    <tr><td class="t">routes failing <code>route_check</code></td><td class="n ok">0</td><td class="n ok">0</td><td class="n">&mdash;</td></tr>
+  </table>
+  </div>
+
+  <p class="dimc">Run it yourself: <code>cd tools/planner-bench &amp;&amp; make -f build.mk &amp;&amp; ./plan ../../mazefiles/binary/*.maz</code>. Forty-three mazes show native 0.1% &ldquo;slower&rdquo; than orthogonal &mdash; that is the centisecond queue key against a float recompute, not a worse route.</p>
+
+  <h2 class="sec">What this does not settle</h2>
+
+  <ul class="tight">
+    <li><b>Nothing calls any of it.</b> Both planners compile into the firmware and are dropped whole by <code>--gc-sections</code> until something drives them. There is still no speed run.</li>
+    <li><b>Every figure is only as good as the turn table</b>, and by <a href="e4-turns.html">Ch&nbsp;10</a> only the SS90E pair and the spins have met a floor. The planner will confidently choose a wrong route if the table lies to it, so the arcs want <em>measuring</em>, not eyeballing &mdash; entry speed, exit speed and duration, per turn.</li>
+    <li><b>The planner and <code>turn_smooth()</code> still disagree about chained arcs.</b> At R&nbsp;=&nbsp;v/&omega;&nbsp;&asymp;&nbsp;101&nbsp;mm two 90s one cell apart need 202&nbsp;mm and have 180, so the planner refuses and emits stop-and-spin &mdash; while the firmware relabels the frame past the next turn point and simply runs the arcs back to back. <b>Zigzag test</b> (Calibration, or <code>Z</code>) drives that case deliberately. Whichever way it comes out, one of the two is wrong, and the diagonal figures move with it.</li>
+    <li><b>The goal run-out is assumed at 270&nbsp;mm.</b> It depends on which cell of the goal box she enters and from where; a tighter entry would cap her lower.</li>
+    <li><b>Exploration is not planned yet.</b> The agreed shape &mdash; search to goal, search home, then plan on the optimistic map and go resolve only the unknown cells the planned route crosses &mdash; is not built. The stopping rule falls out for free: if the planned route crosses no unknown cell, it is provably optimal and nothing else is worth exploring.</li>
+  </ul>
+
+  <footer>
+    <span>E4 &middot; route planning &middot; time-weighted search, diagonals, and an independent validator</span>
+    <span>companion to Ch 9 Choosing the Path &middot; Ch 10 The Turn Table</span>
+  </footer>
+</div>
+</body>
+</html>
