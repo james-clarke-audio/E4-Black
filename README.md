@@ -78,6 +78,8 @@ chooses her path, the turn table, and the sensor carrier.
 | `CompanionApp/` | Native SwiftUI companion (macOS/iPad) + the `E4Core` package. |
 | `docs/` | The reference manual (`index.html` + chapters). |
 | `3D Files/` | Sensor housings, wheels, mounts, and the sensor socket plate (STL, print notes, and the parametric source that generates and verifies it). |
+| `tools/planner-bench/` | Native build of the route planner, for scoring routes against the maze files without a robot. |
+| `mazefiles/` | 408 real competition mazes, binary and text. |
 | `E4-cell-alignment-A4.pdf` | 1:1 print jig for squaring a test cell. |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the fuller layout and workflow.
@@ -111,6 +113,36 @@ a fix. **1.0.0 is reserved** for the build that goes to the October competition
 Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
+
+**0.19 — 16 Sep 2026 · A route planner, and a test to prove it wrong**
+Two new modules that nothing drives yet, and one bench routine that exists to
+settle an argument between them and the firmware.
+
+`planner.cpp` answers *least time* where the flood in `maze.h` answers *fewest
+cells* — a different graph, not a replacement. Time is not additive per cell
+(she accelerates, so four one-cell moves and one four-cell straight differ), so
+nodes are turns rather than cells and an edge is "run N cells, then turn". The
+FIFO had to go with it: a plain queue is correct only while every edge costs
+the same, which is what unit cost bought. It is Dial's algorithm now — a
+circular bucket queue, still O(E), with a guard that invalidates the plan
+rather than clamping if an edge outgrows the ring.
+
+`diagonal.cpp` does classic diagonal substitution on the result, costing every
+candidate both ways and substituting only when the diagonal actually wins.
+Worth 8–10% at the as-built speeds on real competition mazes, up to 18% once
+the straights are quick.
+
+**Zigzag test** (Calibration, or `Z`) drives N alternating 90s in consecutive
+cells with no straight between, ending stopped at a cell centre so the offset
+can be measured. It is there because the planner and `turn_smooth()` disagree:
+at R = v/ω ≈ 101 mm two arcs one cell apart need 202 mm and have 180, so the
+planner refuses and emits stop-and-spin — while `turn_smooth()` relabels the
+frame past the next turn point and simply runs the arcs back to back. `ZIG,` over
+BT sets turns, mode (chained arcs or spins) and first direction. Whichever way
+it comes out, one of the two is wrong and the 8–10% diagonal figure moves with it.
+
+Neither planner module is called by anything; `--gc-sections` drops all 36 KB
+of the planner's working set until something does.
 
 **0.18 — 13 Sep 2026 · Connecting greets her, not drives her**
 The app asked for the firmware version by *running the menu action*, which

@@ -137,6 +137,90 @@ static void act_motion_test(void) {
 	              (int)gyro.angle(), (int)odometry.robot_distance());
 }
 
+// --- Chained-zigzag test -------------------------------------------------
+//
+// SETTLES AN ARGUMENT between the route planner and the firmware.
+//
+// The planner refuses to chain smooth 90s. Its arithmetic: R = v / omega =
+// 300 / (170 deg/s in rad) = 101 mm, so a 90 degree arc starts ~R before its
+// pivot and ends ~R after it. Two pivots one cell apart are 180 mm apart, the
+// pair needs 202, and it rejects the move -- which is why every zigzag in a
+// planned route comes out as stop-and-spin.
+//
+// turn_smooth() never refuses. After a turn it relabels the frame to
+// SENSING_POSITION + exit_offset (170 + 30 = 200), and the next turn waits on
+// `while (position < FULL_CELL + HALF_CELL - entry_offset)` = 170, which is
+// already false. So the wait loop does not run and the second arc begins the
+// instant the first ends: the two overlap and she cuts the corner rather than
+// returning to the centreline between them.
+//
+// Which is correct is a question about the floor, not the code. This drives
+// the case deliberately: N alternating 90s in consecutive cells with no
+// straight between, finishing stopped at a cell centre so the offset can be
+// measured against a wall. Mode 1 drives the same path as stop-and-spin for
+// comparison -- that is what the planner currently believes she must do.
+//
+// Needs a 3x3 open section for the default 3 turns: from the start cell she
+// ends two cells across and two up.
+//
+//   ZIG,turns,mode,first   over BT    mode 0 = chained arcs, 1 = spins
+//                                     first 1 = right, 0 = left
+static int s_zig_turns = 3;
+static int s_zig_mode  = 0;
+static int s_zig_right = 1;
+
+static void act_zigzag_test(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }   // release the select press
+	HAL_Delay(800);                                             // hands-off settle
+	report_printf("ZIG,start turns=%d mode=%s first=%c\r\n", s_zig_turns,
+	              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L');
+	control_run_begin();
+
+	// Out of the start cell to its centre, exactly as search_to() begins.
+	motion.move(BACK_WALL_TO_CENTER, SEARCH_SPEED, SEARCH_TURN_SPEED, SEARCH_ACCELERATION);
+	motion.set_position(HALF_CELL);
+
+	int right = s_zig_right;
+	for (int i = 0; i < s_zig_turns; i++) {
+		const TurnParameters &p = turn_params[right ? SS90ER : SS90EL];
+		if (s_zig_mode) {
+			// Reference: coast to the cell centre, stop, spin, move off again --
+			// the same shape turn_back() uses.
+			float remaining = (FULL_CELL + HALF_CELL) - motion.position();
+			if (remaining > 0.0f) motion.move(remaining, SEARCH_SPEED, 0.0f, SEARCH_ACCELERATION);
+			motion.reset_drive_system();
+			control_spin(right ? -90.0f : 90.0f, OMEGA_SPIN_TURN, 0.0f, ALPHA_SPIN_TURN);
+			motion.move(SENSING_POSITION - HALF_CELL, SEARCH_SPEED, SEARCH_SPEED, SEARCH_ACCELERATION);
+			motion.set_position(SENSING_POSITION);
+		} else {
+			// The case under test. On the first turn the wait loop runs; on every
+			// one after it the frame relabel has already put her past the turn
+			// point, so the arc fires immediately. That is the chaining.
+			motion.set_target_velocity(SEARCH_TURN_SPEED);
+			float turn_point = FULL_CELL + HALF_CELL - (float)p.entry_offset;
+			while (motion.position() < turn_point) { motion.stream_periodic(); }
+			motion.turn(p.angle, p.omega, 0.0f, p.alpha);
+			motion.set_position(SENSING_POSITION + (float)p.exit_offset);
+		}
+		report_printf("ZIG,turn %d %c gyro=%d pos=%d\r\n", i + 1, right ? 'R' : 'L',
+		              (int)gyro.angle(), (int)motion.position());
+		right = !right;
+	}
+
+	// Coast to the centre of the cell she finished in, so the stop is a datum
+	// you can hold a rule against rather than a place she happened to halt.
+	float remaining = (FULL_CELL + HALF_CELL) - motion.position();
+	if (remaining > 0.0f) motion.move(remaining, SEARCH_SPEED, 0.0f, SEARCH_ACCELERATION);
+	control_run_end();
+
+	// Alternating 90s cancel in pairs, so the net is one turn's worth if the
+	// count is odd and nothing if it is even.
+	int expect = (s_zig_turns & 1) ? (s_zig_right ? -90 : 90) : 0;
+	report_printf("ZIG,done gyro=%d expect=%d err=%d dist=%d\r\n",
+	              (int)gyro.angle(), expect, (int)gyro.angle() - expect,
+	              (int)odometry.robot_distance());
+}
+
 // Launch the ported search brain against the injected/seeded ground-truth
 // maze. Two-step: selecting this releases the button, then a fresh press
 // launches (search_maze() waits for the start press itself).
@@ -1033,6 +1117,7 @@ static const MenuItem MENU[] = {
 	/*27*/ { "Gyro scale cal",'G', act_gyro_scale_cal },
 	/*28*/ { "BT provision", 'B', act_bt_provision },
 	/*29*/ { "Threshold cal",'T', act_threshold_cal },
+	/*30*/ { "Zigzag test",  'Z', act_zigzag_test   },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -1040,7 +1125,7 @@ static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 // MODE -> CATEGORY -> ITEM. Wheels scroll, RIGHT enters/runs, LEFT backs out.
 // BT keys above bypass all of this.  (*) marks a stub, not built yet.
 typedef struct { const char *name; const uint8_t *items; uint8_t n; } Category;
-static const uint8_t CAT_CAL[]    = { 12, 27, 29, 10, 19, 4 };  // Recal gyro, Gyro scale cal, Threshold cal, IR monitor, Turn tuning, Motion test
+static const uint8_t CAT_CAL[]    = { 12, 27, 29, 10, 19, 4, 30 };  // Recal gyro, Gyro scale cal, Threshold cal, IR monitor, Turn tuning, Motion test, Zigzag test
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
@@ -1049,7 +1134,7 @@ static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22 };          // Explore, Speed run*, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
-	/*0*/ { "Calibration", CAT_CAL,    6 },
+	/*0*/ { "Calibration", CAT_CAL,    7 },
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
@@ -1282,6 +1367,17 @@ void app_main()
 								report_write("THR,rejected (expect 1..4095, front 1..8191)\r\n");
 							}
 						}
+					}
+					else if (strncmp(bt_line, "ZIG,", 4) == 0) {
+						// Seeded from the live values, so a short command changes only
+						// what it names. Sets up the next run; it does not launch one.
+						float v[3] = { (float)s_zig_turns, (float)s_zig_mode, (float)s_zig_right };
+						tt_parse_floats(bt_line + 4, v, 3);
+						if (v[0] >= 1.0f && v[0] <= 8.0f) s_zig_turns = (int)v[0];
+						s_zig_mode  = (v[1] != 0.0f);
+						s_zig_right = (v[2] != 0.0f);
+						report_printf("ZIG,set turns=%d mode=%s first=%c\r\n", s_zig_turns,
+						              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L');
 					}
 					else if (strncmp(bt_line, "GOAL,", 5) == 0) {
 						const char *a = bt_line + 5; const char *cc = strchr(a, ',');
