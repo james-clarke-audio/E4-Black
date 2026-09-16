@@ -17,22 +17,41 @@ struct ActionsScreen: View {
     }
 
     // Mirrors CAT_* in app_main.cpp.
-    private let groups: [Group] = [
-        .init(name: "Calibration", actions: [.recalGyro, .gyroScaleCal, .irMonitor, .turnTuning, .motionTest]),
+    //
+    // This list is hand-kept, so it drifts: an action added to E4MenuAction and
+    // not added here simply does not appear, with nothing to say so. That has
+    // already happened once. `groups` below therefore appends an "Other"
+    // catch-all for anything unplaced, so the failure mode is an item in the
+    // wrong section rather than an item you cannot reach.
+    private static let curated: [Group] = [
+        .init(name: "Calibration", actions: [.recalGyro, .gyroScaleCal, .irMonitor, .turnTuning, .motionTest, .zigzagTest]),
         .init(name: "Moves", actions: [.forward180, .right90, .left90, .spin180]),
         .init(name: "In-maze bench", actions: [.setMazeSize, .setGoal, .search]),
         .init(name: "Simulation", actions: [.simulate, .simExplore, .recallMaze]),
         .init(name: "Diagnostics", actions: [.eepromTest, .sensorMode, .irSampler, .resetPose,
                                              .testMode, .setBT57k, .btProvision, .emitterHold,
                                              .firmwareVersion]),
-        .init(name: "Competition", actions: [.wallFollower, .explore, .speedRun, .resumeSaved, .runOptions]),
+        .init(name: "Competition", actions: [.wallFollower, .explore, .planRoute, .speedRun, .resumeSaved, .runOptions]),
     ]
+
+    /// The curated groups, plus anything E4MenuAction gained that nobody placed.
+    /// thresholdCal is deliberately absent from the grid — it has its own
+    /// screen, and a duplicate button that skips the guided flow is worse than
+    /// no button.
+    private static let placedElsewhere: Set<E4MenuAction> = [.thresholdCal]
+
+    private static let groups: [Group] = {
+        let placed = Set(Self.curated.flatMap(\.actions)).union(Self.placedElsewhere)
+        let missing = E4MenuAction.allCases.filter { !placed.contains($0) }
+        return missing.isEmpty ? Self.curated
+                               : Self.curated + [.init(name: "Other", actions: missing)]
+    }()
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 navPad
-                ForEach(groups) { group in
+                ForEach(Self.groups) { group in
                     Card(group.name) {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 168), spacing: 8)], spacing: 8) {
                             ForEach(group.actions) { action in
