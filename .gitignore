@@ -10,6 +10,13 @@
 *.bin
 *.hex
 
+# Slicer output (regenerated from the STL whenever it is needed)
+# The STL is the source; a sliced file is that STL plus one printer's settings
+# on one day, so committing it invites picking up a stale one later.
+*.gx
+*.gcode
+*.3mf
+
 # OS / editor cruft
 .DS_Store
 *~
