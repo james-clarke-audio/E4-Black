@@ -1251,7 +1251,36 @@ static void act_threshold_cal(void) {
 	report_write("Threshold cal: exit\r\n");
 }
 
-static void act_wall_follow(void)   { act_todo("Wall follower"); }
+// --- Wall follower: one hand on the wall, no map needed to decide ----------
+//
+// Four entries rather than one action with a hand setting, because the hand IS
+// the experiment: left and right explore different halves of a maze and one
+// often reaches a goal the other cannot. Having to configure a setting between
+// two runs you want to compare back to back is friction with no payoff.
+//
+// She maps as she goes either way, so even a lap that never finds the centre
+// leaves those walls in the map -- which is the reason a follower is still
+// worth having when the flood is what actually solves it.
+static void act_wall_follow_l(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("wall follow (left hand) armed: press a button to launch\r\n");
+	mouse.follow_to(maze.goal(), false);
+}
+static void act_wall_follow_r(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("wall follow (right hand) armed: press a button to launch\r\n");
+	mouse.follow_to(maze.goal(), true);
+}
+static void act_sim_follow_l(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("sim wall follow (left hand) armed: press a button to launch\r\n");
+	mouse.simulate_follow(false);
+}
+static void act_sim_follow_r(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("sim wall follow (right hand) armed: press a button to launch\r\n");
+	mouse.simulate_follow(true);
+}
 static void act_speed_run(void)     { act_todo("Speed run"); }
 static void act_resume_saved(void)  { act_todo("Resume saved"); }
 static void act_run_options(void)   { act_todo("Run options"); }
@@ -1355,7 +1384,7 @@ static const MenuItem MENU[] = {
 	/*17*/ { "Set maze size",'c', act_set_maze_size },
 	/*18*/ { "Set goal",     'y', act_set_goal      },
 	/*19*/ { "Turn tuning",  'j', act_turn_tune     },
-	/*20*/ { "Wall follower",'w', act_wall_follow   },
+	/*20*/ { "Wall follow L", 'w', act_wall_follow_l },
 	/*21*/ { "Speed run",    'l', act_speed_run     },
 	/*22*/ { "Resume saved", 'R', act_resume_saved  },
 	/*23*/ { "Run options",  'O', act_run_options   },
@@ -1367,6 +1396,9 @@ static const MenuItem MENU[] = {
 	/*29*/ { "Threshold cal",'T', act_threshold_cal },
 	/*30*/ { "Zigzag test",  'Z', act_zigzag_test   },
 	/*31*/ { "Plan route",   'P', act_plan_route    },
+	/*32*/ { "Wall follow R",'W', act_wall_follow_r },
+	/*33*/ { "Sim follow L", 'q', act_sim_follow_l  },
+	/*34*/ { "Sim follow R", 'Q', act_sim_follow_r  },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -1379,7 +1411,7 @@ static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90,
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
 static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 28, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, BT provision, Emitter hold, Firmware ver
-static const uint8_t CAT_WALL[]   = { 20 };                 // Wall follower*
+static const uint8_t CAT_WALL[]   = { 20, 32, 33, 34 };     // Wall follow L/R, and both simulated
 static const uint8_t CAT_SOLVE[]  = { 7, 21, 22, 31 };     // Explore, Speed run*, Resume saved*, Plan route
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
@@ -1388,7 +1420,7 @@ static const Category CAT[] = {
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
 	/*4*/ { "Diagnostics", CAT_DIAG,   9 },
-	/*5*/ { "Wall follow", CAT_WALL,   1 },
+	/*5*/ { "Wall follow", CAT_WALL,   4 },
 	/*6*/ { "Maze solver", CAT_SOLVE,  4 },
 	/*7*/ { "Run options", CAT_RUNOPT, 1 },
 };

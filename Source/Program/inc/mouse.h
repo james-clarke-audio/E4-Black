@@ -280,7 +280,19 @@ class Mouse {
   }
 
   //---- a simple left-wall follower that knows where it is -------------------
-  void follow_to(Location target) {
+  //---- wall follower -------------------------------------------------------
+  // Keep one hand on the wall and walk. It is the oldest maze algorithm there
+  // is, it needs no map and no memory, and on a competition maze it usually
+  // FAILS -- the centre is deliberately an island, joined to nothing the
+  // followed hand can reach, so she circles the outside forever. That is not a
+  // bug to fix, it is what the maze is for, and the guard below reports it
+  // honestly rather than looping until the battery dies.
+  //
+  // It still earns its place: it is the simplest thing that exercises sensing,
+  // deciding and driving end to end, so if the wheels and the walls disagree it
+  // shows here with no solver in the way. She also MAPS as she goes, so a lap
+  // of the outside is not wasted -- those walls are in the map afterwards.
+  void follow_to(Location target, bool right_hand) {
     m_handStart = true;
     m_location = START;
     m_heading = NORTH;
@@ -293,6 +305,7 @@ class Mouse {
     motion.move(BACK_WALL_TO_CENTER, SEARCH_SPEED, SEARCH_SPEED, SEARCH_ACCELERATION);
     motion.set_position(HALF_CELL);
     motion.wait_until_position(SENSING_POSITION);
+    int steps = 0;
     while (m_location != target) {
       if (switches.button_pressed()) { break; }
       sensors.set_steering_mode(STEER_NORMAL);
@@ -300,15 +313,29 @@ class Mouse {
       sensors.update(m_location, m_heading);
       update_map();
       if (m_location != target) {
-        if (!sensors.see_left_wall)       { turn_left();  }
-        else if (!sensors.see_front_wall) { move_ahead(); }
-        else if (!sensors.see_right_wall) { turn_right(); }
-        else                              { turn_back();  }
+        if (right_hand) {
+          if      (!sensors.see_right_wall) { turn_right(); }
+          else if (!sensors.see_front_wall) { move_ahead(); }
+          else if (!sensors.see_left_wall)  { turn_left();  }
+          else                              { turn_back();  }
+        } else {
+          if      (!sensors.see_left_wall)  { turn_left();  }
+          else if (!sensors.see_front_wall) { move_ahead(); }
+          else if (!sensors.see_right_wall) { turn_right(); }
+          else                              { turn_back();  }
+        }
+      }
+      if (++steps > FOLLOW_STEP_LIMIT) {
+        report_printf("WF,gave up after %d cells (%s hand)\r\n",
+                      steps, right_hand ? "right" : "left");
+        break;
       }
     }
     stopAtCentre();
     adjustPosition();
-    report_write("Arrived!\r\n");
+    stream_cell();
+    report_printf("WF,done %s hand at (%d,%d) %d cells\r\n",
+                  right_hand ? "right" : "left", m_location.x, m_location.y, steps);
     HAL_Delay(250);
     control_run_end();
   }
@@ -410,6 +437,66 @@ class Mouse {
     }
     control_pose_set(m_location.x * FULL_CELL + HALF_CELL, m_location.y * FULL_CELL + HALF_CELL, heading_deg(m_heading));
     control_stream_telemetry();
+  }
+
+  // sim: the wall follower, animated, motors never armed. Same decision, same
+  // map updates; only the driving is replaced. The step limit matters more here
+  // than on the floor, because nothing runs out of battery to stop her.
+  void sim_follow_to(Location target, bool right_hand) {
+    sensors.update(m_location, m_heading);
+    update_map();
+    maybe_assert_goal_room();
+    int steps = 0;
+    bool gave_up = false;
+    while (m_location != target) {
+      if (switches.button_pressed()) break;
+      if (++steps > FOLLOW_STEP_LIMIT) { gave_up = true; break; }
+      Heading nh;
+      if (right_hand) {
+        if      (!sensors.see_right_wall) nh = right_from(m_heading);
+        else if (!sensors.see_front_wall) nh = m_heading;
+        else if (!sensors.see_left_wall)  nh = left_from(m_heading);
+        else                              nh = behind_from(m_heading);
+      } else {
+        if      (!sensors.see_left_wall)  nh = left_from(m_heading);
+        else if (!sensors.see_front_wall) nh = m_heading;
+        else if (!sensors.see_right_wall) nh = right_from(m_heading);
+        else                              nh = behind_from(m_heading);
+      }
+      Location next = m_location.neighbour(nh);
+      sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh));
+      m_location = next;
+      m_heading = nh;
+      sensors.update(m_location, m_heading);
+      update_map();
+      maybe_assert_goal_room();
+    }
+    control_pose_set(m_location.x * FULL_CELL + HALF_CELL,
+                     m_location.y * FULL_CELL + HALF_CELL, heading_deg(m_heading));
+    control_stream_telemetry();
+    if (gave_up) {
+      report_printf("WF,gave up after %d cells (%s hand)\r\n", steps,
+                    right_hand ? "right" : "left");
+    }
+    report_printf("WF,done %s hand at (%d,%d) %d cells\r\n",
+                  right_hand ? "right" : "left", m_location.x, m_location.y, steps);
+  }
+
+  // sim: wall follow from the start cell to the goal, with the map redrawn.
+  void simulate_follow(bool right_hand) {
+    sensors.wait_for_user_start();
+    m_handStart = true;
+    m_location = START;
+    m_heading = NORTH;
+    m_goalRoomAsserted = false;
+    maze.initialise();
+    control_pose_set(START.x * FULL_CELL + HALF_CELL, START.y * FULL_CELL + HALF_CELL, 0.0f);
+    report_write("RST\r\n");
+    report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
+    report_known_map();          // the perimeter, before she has seen a thing
+    report_write("STATE,SIM\r\n");
+    sim_follow_to(maze.goal(), right_hand);
+    report_write("STATE,IDLE\r\n");
   }
 
   void simulate_to_goal() {

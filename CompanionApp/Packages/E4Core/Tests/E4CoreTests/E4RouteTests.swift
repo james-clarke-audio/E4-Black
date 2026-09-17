@@ -193,6 +193,30 @@ final class E4MenuActionRouteTests: XCTestCase {
         }
     }
 
+    // MARK: - the wall follower
+
+    func testWallFollowActionsMatchTheFirmwareTable() {
+        XCTAssertEqual(E4MenuAction.wallFollowLeft.rawValue, 20)
+        XCTAssertEqual(E4MenuAction.wallFollowRight.rawValue, 32)
+        XCTAssertEqual(E4MenuAction.simFollowLeft.rawValue, 33)
+        XCTAssertEqual(E4MenuAction.simFollowRight.rawValue, 34)
+        XCTAssertEqual(E4MenuAction.wallFollowLeft.key, "w")
+        XCTAssertEqual(E4MenuAction.wallFollowRight.key, "W")
+        XCTAssertEqual(E4MenuAction.simFollowLeft.key, "q")
+        XCTAssertEqual(E4MenuAction.simFollowRight.key, "Q")
+    }
+
+    func testOnlyTheDrivenFollowersMoveHer() {
+        // The simulated pair never arms a motor. If they fall through into
+        // movesTheMouse the app puts a "this moves the mouse" dialog in front
+        // of something that cannot, which is how you learn to dismiss the
+        // dialog that matters.
+        XCTAssertTrue(E4MenuAction.wallFollowLeft.movesTheMouse)
+        XCTAssertTrue(E4MenuAction.wallFollowRight.movesTheMouse)
+        XCTAssertFalse(E4MenuAction.simFollowLeft.movesTheMouse)
+        XCTAssertFalse(E4MenuAction.simFollowRight.movesTheMouse)
+    }
+
     // MARK: - the chained-turn test
 
     func testZigzagStartDecodes() {

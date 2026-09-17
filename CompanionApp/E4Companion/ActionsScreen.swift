@@ -38,7 +38,9 @@ struct ActionsScreen: View {
         .init(name: "Diagnostics", actions: [.eepromTest, .sensorMode, .irSampler, .resetPose,
                                              .testMode, .setBT57k, .btProvision, .emitterHold,
                                              .firmwareVersion]),
-        .init(name: "Competition", actions: [.wallFollower, .explore, .planRoute, .speedRun, .resumeSaved, .runOptions]),
+        .init(name: "Wall follow", actions: [.wallFollowLeft, .wallFollowRight,
+                                            .simFollowLeft, .simFollowRight]),
+        .init(name: "Competition", actions: [.explore, .planRoute, .speedRun, .resumeSaved, .runOptions]),
     ]
 
     /// The curated groups, plus anything E4MenuAction gained that nobody placed.

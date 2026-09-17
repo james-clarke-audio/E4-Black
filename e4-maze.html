@@ -596,6 +596,11 @@ function parseLine(line){
     case 'RU': if(state.unknownPending&&inb(+p[1],+p[2])) state.unknownPending.add(idx(+p[1],+p[2])); break;
     case 'RUE': state.unknown=state.unknownPending||new Set(); state.unknownPending=null;
       routeInfo(); needsDraw=true; break;
+    // Wall follower. "gave up" is the NORMAL ending on a competition maze --
+    // the centre is deliberately an island the followed hand cannot reach --
+    // so it is reported, not treated as a fault.
+    case 'WF': { const el=document.getElementById('solveInfo');
+      if(el) el.textContent=p.slice(1).join(',').trim(); break; }
     case 'SOLVE': state.solution=[]; break;
     case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];

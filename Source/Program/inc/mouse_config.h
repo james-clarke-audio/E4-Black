@@ -33,6 +33,14 @@ const float SEARCH_SPEED        = 300.0f;
 const float SEARCH_ACCELERATION = 2000.0f;
 const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smooth turn
 
+// --- Wall follower ---------------------------------------------------------
+// How many cells before she admits the hand she is following does not reach
+// the goal. On a competition maze that is the NORMAL outcome, not a failure:
+// the centre is deliberately an island, so a follower circles the outside for
+// ever. 512 is four times the cells in the arena -- comfortably more than any
+// honest route, and short enough that giving up is quicker than watching.
+const int FOLLOW_STEP_LIMIT = 512;
+
 // --- Fast-run speeds (mm/s, mm/s/s) ---------------------------------------
 // The SEARCH values above are what she explores at, and they are bounded by
 // something real: she reads walls and decides where to go once per cell, so

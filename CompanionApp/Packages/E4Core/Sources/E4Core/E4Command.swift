@@ -166,7 +166,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case setMazeSize = 17
     case setGoal = 18
     case turnTuning = 19
-    case wallFollower = 20
+    case wallFollowLeft = 20
     case speedRun = 21
     case resumeSaved = 22
     case runOptions = 23
@@ -178,6 +178,9 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case thresholdCal = 29
     case zigzagTest = 30
     case planRoute = 31
+    case wallFollowRight = 32
+    case simFollowLeft = 33
+    case simFollowRight = 34
 
     public var id: Int { rawValue }
 
@@ -203,7 +206,10 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .setMazeSize:     return "c"
         case .setGoal:         return "y"
         case .turnTuning:      return "j"
-        case .wallFollower:    return "w"
+        case .wallFollowLeft:  return "w"
+        case .wallFollowRight: return "W"
+        case .simFollowLeft:   return "q"
+        case .simFollowRight:  return "Q"
         case .speedRun:        return "l"
         case .resumeSaved:     return "R"
         case .runOptions:      return "O"
@@ -240,7 +246,10 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .setMazeSize:     return "Set maze size"
         case .setGoal:         return "Set goal"
         case .turnTuning:      return "Turn tuning"
-        case .wallFollower:    return "Wall follower"
+        case .wallFollowLeft:  return "Wall follow L"
+        case .wallFollowRight: return "Wall follow R"
+        case .simFollowLeft:   return "Sim follow L"
+        case .simFollowRight:  return "Sim follow R"
         case .speedRun:        return "Speed run"
         case .resumeSaved:     return "Resume saved"
         case .runOptions:      return "Run options"
@@ -288,7 +297,8 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     public var movesTheMouse: Bool {
         switch self {
         case .forward180, .right90, .left90, .spin180, .motionTest,
-             .search, .explore, .recalGyro, .turnTuning, .wallFollower,
+             .search, .explore, .recalGyro, .turnTuning,
+             .wallFollowLeft, .wallFollowRight,   // the sim pair never arms a motor
              .speedRun, .resumeSaved, .gyroScaleCal,
              .zigzagTest:              // drives a zigzag across three cells
             return true
