@@ -193,6 +193,34 @@ final class E4MenuActionRouteTests: XCTestCase {
         }
     }
 
+    // MARK: - executing a route
+
+    func testRunKindDecodesAndEncodes() {
+        guard case .runKind(let k) = E4MessageDecoder.decode("KIND,2") else {
+            return XCTFail("KIND did not decode")
+        }
+        XCTAssertEqual(k, .diagonal)
+        XCTAssertEqual(E4Command.runKind(0).line, "KIND,0\n")
+        XCTAssertEqual(E4Command.readRunKind.line, "KIND?\n")
+    }
+
+    func testRunKindRejectsAnUnknownValue() {
+        if case .runKind = E4MessageDecoder.decode("KIND,7") {
+            XCTFail("7 is not a route kind")
+        }
+    }
+
+    func testSpeedRunActionsWaitButOnlyOneOfThemDrives() {
+        XCTAssertEqual(E4MenuAction.simSpeedRun.rawValue, 35)
+        XCTAssertEqual(E4MenuAction.simSpeedRun.key, "F")
+        // Both arm and wait for a press on her.
+        XCTAssertTrue(E4MenuAction.simSpeedRun.waitsForButtonPress)
+        XCTAssertTrue(E4MenuAction.speedRun.waitsForButtonPress)
+        // Only one of them turns a wheel.
+        XCTAssertTrue(E4MenuAction.speedRun.movesTheMouse)
+        XCTAssertFalse(E4MenuAction.simSpeedRun.movesTheMouse)
+    }
+
     // MARK: - simulator playback
 
     func testSimRateDecodesAndEncodes() {

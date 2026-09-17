@@ -136,6 +136,24 @@ float route_time(const Route &r, const Robot &rob, const DiagTurns &d, Head) {
   return total;
 }
 
+void route_times(const Route &r, const Robot &rob, const DiagTurns &d, Head,
+                 RouteStepFn fn, void *ctx) {
+  if (!r.ok || !fn) return;
+  const float vg = v_goal_of(rob);
+  float v = v_start_of(rob), off = 0.0f;
+  for (int i = 0; i < r.count; ++i) {
+    const Step &s = r.steps[i];
+    // Recomputed rather than inferred: step_time() advances v and off as a
+    // side effect, so the turn's own cost has to be read from the same spec it
+    // uses or the split would not add up to the whole.
+    const float turn = (s.move == MV_GOAL) ? 0.0f : spec_of(s.move, rob, d).t;
+    const float t = step_time(s, rob, d, vg, v, off);
+    if (t >= timing::INF_TIME) return;
+    fn(ctx, i, s, t - turn, turn);
+    if (s.move == MV_GOAL) break;
+  }
+}
+
 /// Cost steps [i0, i1) exactly as they stand.
 static float cost_as_is(const Route &r, int i0, int i1, const Robot &rob,
                         const DiagTurns &d, float v, float off) {

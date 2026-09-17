@@ -6,6 +6,13 @@
 
 Mouse mouse;
 
+// Lattice steps, in the SAME rotational order as plan::Head (N,E,S,W) and
+// plan::Diag (NE,SE,SW,NW). Out of line because they are static members.
+const int Mouse::LHX[4] = { 0, 1, 0, -1 };
+const int Mouse::LHY[4] = { 1, 0, -1, 0 };
+const int Mouse::LDX[4] = { 1, 1, -1, -1 };
+const int Mouse::LDY[4] = { 1, -1, -1, 1 };
+
 // The one definition of the turn table. Lives here rather than in the header
 // so there is exactly one copy in the image; mouse_config.h declares it extern.
 // In-place spin dynamics. One definition, same as the arcs.

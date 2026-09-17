@@ -27,6 +27,7 @@
 #include "report.h"          // report_write/printf/pose
 #include "control.h"         // control_run_begin/_end, control_pose_reset, control_pose_*
 #include "timing.h"          // straight_time / turn_time -- the planner's own model
+#include "diagonal.h"        // plan::Route, Robot, DiagTurns, route_times
 #include "maze_store.h"     // persist the discovered maze to EEPROM
 
 class Mouse;
@@ -150,6 +151,173 @@ class Mouse {
     // offset so continuing cells stay aligned and the target stop lands centred.
     // SEARCH_SPEED == SEARCH_TURN_SPEED, so no speed-resume move is needed yet.
     motion.set_position(SENSING_POSITION + params.exit_offset);
+  }
+
+  //---- execute a planned route ---------------------------------------------
+  //
+  // The planner says what to do; this does it. One walk serves both the real
+  // run and the rehearsal, because the part worth getting right is the
+  // SEQUENCING -- which turn, after how many cells, from which heading -- and
+  // a simulator that sequenced differently from the driver would prove nothing
+  // about the driver.
+  //
+  // Timing comes from route_times(), which is the same step_time() that costed
+  // the route. Two models of one mouse drift, and the drift arrives as a run
+  // that took longer than promised for reasons nobody can name.
+  //
+  // THE SIMULATED TURN IS A SIMPLIFICATION worth naming: position advances
+  // during the run and heading rotates at the vertex, so on screen an arc
+  // looks like a spin. The TIME is right either way, and the route line drawn
+  // over the maze shows the true path -- but do not read the animation as
+  // evidence about arc geometry. Zigzag test is what answers that.
+  static const int LHX[4], LHY[4], LDX[4], LDY[4];
+
+  static float diag_deg(int dd) {
+    switch (dd) { case 1: return -135.0f; case 2: return 135.0f; case 3: return 45.0f; }
+    return -45.0f;                                   // NE
+  }
+  static void collect_times(void *ctx, int i, const plan::Step &, float run_s, float turn_s) {
+    Mouse *m = (Mouse *)ctx;
+    if (i >= 0 && i < plan::MAX_STEPS) { m->m_run_s[i] = run_s; m->m_turn_s[i] = turn_s; }
+  }
+
+  /// The turn-table row a planned move is driven from, and the angle it turns.
+  /// Returns -1 for moves that are not table turns (spins, and the goal).
+  static int row_of(plan::Move mv, float &angle) {
+    switch (mv) {
+      case plan::MV_ARC_L:   angle =  90.0f; return SS90L;
+      case plan::MV_ARC_R:   angle = -90.0f; return SS90R;
+      case plan::MV_ARC_180: angle = 180.0f; return SS180L;
+      case plan::MV_SD45_L:  angle =  45.0f; return SD45L;
+      case plan::MV_SD45_R:  angle = -45.0f; return SD45R;
+      case plan::MV_DS45_L:  angle =  45.0f; return DS45L;
+      case plan::MV_DS45_R:  angle = -45.0f; return DS45R;
+      case plan::MV_DD90_L:  angle =  90.0f; return DD90L;
+      case plan::MV_DD90_R:  angle = -90.0f; return DD90R;
+      default: angle = 0.0f; return -1;
+    }
+  }
+
+  void run_route(const plan::Route &rt, const plan::Robot &rb,
+                 const plan::DiagTurns &dt, bool simulate) {
+    if (!rt.ok || rt.count <= 0) { report_write("SR,no route\r\n"); return; }
+
+    for (int i = 0; i < plan::MAX_STEPS; i++) { m_run_s[i] = 0.0f; m_turn_s[i] = 0.0f; }
+    plan::route_times(rt, rb, dt, plan::NN, &Mouse::collect_times, this);
+
+    int u = 2 * START.x + 1, v = 2 * START.y + 1;
+    int h = (int)plan::NN, dd = 0;
+    bool on_diag = false;
+    float deg = 0.0f;
+    m_sim_seconds = 0.0f;
+    m_route_off = 0.0f;
+
+    if (!simulate) {
+      control_run_begin();
+      control_pose_reset();
+      motion.move(BACK_WALL_TO_CENTER, RUN_SPEED, RUN_SPEED, RUN_ACCELERATION);
+      motion.set_position(HALF_CELL);
+    } else {
+      control_pose_set(u * HALF_CELL, v * HALF_CELL, 0.0f);
+    }
+
+    report_printf("SR,start steps=%d predicted=%dms%s\r\n", rt.count,
+                  (int)(rt.seconds * 1000.0f), simulate ? " sim" : "");
+
+    for (int i = 0; i < rt.count; i++) {
+      if (switches.button_pressed()) break;
+      const plan::Step &st = rt.steps[i];
+
+      // --- the run before the turn ----------------------------------------
+      const int u0 = u, v0 = v;
+      if (st.diag) { u += st.cells * LDX[dd]; v += st.cells * LDY[dd]; }
+      else         { u += st.cells * 2 * LHX[h]; v += st.cells * 2 * LHY[h]; }
+
+      if (simulate) {
+        if (st.cells > 0) {
+          sim_glide(u0 * HALF_CELL, v0 * HALF_CELL, deg,
+                    u * HALF_CELL, v * HALF_CELL, deg, m_run_s[i]);
+        }
+      } else {
+        const float pitch = st.diag ? plan::DIAG_PITCH : FULL_CELL;
+        float angle; const int row = row_of(st.move, angle);
+        const float exit_speed = (row >= 0) ? (float)turn_params[row].speed : RUN_SPEED;
+        const float entry = (row >= 0) ? (float)turn_params[row].entry_offset : 0.0f;
+        const float dist = st.cells * pitch - m_route_off - entry;
+        if (dist > 1.0f) motion.move(dist, RUN_SPEED, exit_speed, RUN_ACCELERATION);
+        m_route_off = entry;
+      }
+
+      // --- the turn --------------------------------------------------------
+      float angle; const int row = row_of(st.move, angle);
+      switch (st.move) {
+        case plan::MV_GOAL:
+          break;
+        case plan::MV_SPIN_L: case plan::MV_SPIN_R: case plan::MV_SPIN_180: {
+          const float a = (st.move == plan::MV_SPIN_L) ? 90.0f
+                        : (st.move == plan::MV_SPIN_R) ? -90.0f : 180.0f;
+          h = (st.move == plan::MV_SPIN_L) ? (h + 3) & 3
+            : (st.move == plan::MV_SPIN_R) ? (h + 1) & 3 : (h + 2) & 3;
+          if (!simulate) { motion.spin_turn(a, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN); }
+          break;
+        }
+        case plan::MV_ARC_L: case plan::MV_ARC_R: case plan::MV_ARC_180:
+          h = (st.move == plan::MV_ARC_L) ? (h + 3) & 3
+            : (st.move == plan::MV_ARC_R) ? (h + 1) & 3 : (h + 2) & 3;
+          if (!simulate && row >= 0) {
+            motion.set_target_velocity((float)turn_params[row].speed);
+            motion.turn(angle, turn_params[row].omega, 0.0f, turn_params[row].alpha);
+          }
+          break;
+        case plan::MV_SD45_L: case plan::MV_SD45_R: {
+          const int nd = (st.move == plan::MV_SD45_L) ? ((h + 3) & 3) : h;
+          u += LDX[nd] - LHX[h];
+          v += LDY[nd] - LHY[h];
+          dd = nd; on_diag = true;
+          if (!simulate && row >= 0) {
+            motion.set_target_velocity((float)turn_params[row].speed);
+            motion.turn(angle, turn_params[row].omega, 0.0f, turn_params[row].alpha);
+          }
+          break;
+        }
+        case plan::MV_DS45_L: case plan::MV_DS45_R: {
+          const int nh = (st.move == plan::MV_DS45_L) ? ((dd + 3) & 3) : ((dd + 1) & 3);
+          u += LHX[nh]; v += LHY[nh];
+          h = nh; on_diag = false;
+          if (!simulate && row >= 0) {
+            motion.set_target_velocity((float)turn_params[row].speed);
+            motion.turn(angle, turn_params[row].omega, 0.0f, turn_params[row].alpha);
+          }
+          break;
+        }
+        case plan::MV_DD90_L: case plan::MV_DD90_R:
+          dd = (st.move == plan::MV_DD90_L) ? (dd + 3) & 3 : (dd + 1) & 3;
+          if (!simulate && row >= 0) {
+            motion.set_target_velocity((float)turn_params[row].speed);
+            motion.turn(angle, turn_params[row].omega, 0.0f, turn_params[row].alpha);
+          }
+          break;
+        default: break;
+      }
+
+      const float nd_deg = on_diag ? diag_deg(dd) : heading_deg((Heading)h);
+      if (simulate && m_turn_s[i] > 0.0001f) {
+        sim_glide(u * HALF_CELL, v * HALF_CELL, deg,
+                  u * HALF_CELL, v * HALF_CELL, nd_deg, m_turn_s[i]);
+      }
+      deg = nd_deg;
+
+      if (st.move == plan::MV_GOAL) break;
+    }
+
+    if (!simulate) { motion.reset_drive_system(); control_run_end(); }
+    else { control_pose_set(u * HALF_CELL, v * HALF_CELL, deg); control_stream_telemetry(); }
+
+    m_location = Location((uint8_t)((u - 1) / 2), (uint8_t)((v - 1) / 2));
+    m_heading  = (Heading)h;
+    report_printf("SR,done at (%d,%d) predicted=%dms model=%dms\r\n",
+                  m_location.x, m_location.y, (int)(rt.seconds * 1000.0f),
+                  (int)(m_sim_seconds * 1000.0f));
   }
 
   //---- stop at the centre of the current cell ------------------------------
@@ -444,6 +612,30 @@ class Mouse {
   // the whole point is that the two agree.
   static const uint32_t SIM_FRAME_MS = 30;
 
+  // The animator, in millimetres. sim_step() is the cell-to-cell caller; the
+  // route executor works in half-cells and calls this directly, because a
+  // diagonal leg does not begin or end at a cell centre.
+  void sim_glide(float ax, float ay, float da, float bx, float by, float db, float seconds) {
+    float dd = db - da; while (dd > 180.0f) dd -= 360.0f; while (dd < -180.0f) dd += 360.0f;
+
+    m_sim_seconds += seconds;
+
+    const float rate = (SIM_RATE > 0.05f) ? SIM_RATE : 1.0f;
+    int NS = (int)((seconds * 1000.0f / rate) / (float)SIM_FRAME_MS + 0.5f);
+    if (NS < 1) NS = 1;
+    if (NS > 240) NS = 240;
+
+    uint32_t due = HAL_GetTick();
+    for (int i = 1; i <= NS; i++) {
+      if (switches.button_pressed()) return;
+      float t = (float)i / NS;
+      control_pose_set(ax + (bx - ax) * t, ay + (by - ay) * t, da + dd * t);
+      control_stream_telemetry();
+      due += SIM_FRAME_MS;
+      while ((int32_t)(HAL_GetTick() - due) < 0) { }
+    }
+  }
+
   void sim_step(Location a, Location b, float da, float db, float seconds) {
     float ax = a.x * FULL_CELL + HALF_CELL, ay = a.y * FULL_CELL + HALF_CELL;
     float bx = b.x * FULL_CELL + HALF_CELL, by = b.y * FULL_CELL + HALF_CELL;
@@ -724,6 +916,12 @@ class Mouse {
   // wall clock, so a slow link or a dropped frame shows up as a stutter on
   // screen and never as a slower mouse.
   float m_sim_seconds = 0.0f;
+
+  // Per-step durations for the route being executed, filled by route_times().
+  float m_run_s[plan::MAX_STEPS];
+  float m_turn_s[plan::MAX_STEPS];
+  // How far into the current cell the last turn left her, driven runs only.
+  float m_route_off = 0.0f;
 };
 
 #endif  // MOUSE_H

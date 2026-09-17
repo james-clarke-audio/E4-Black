@@ -93,6 +93,9 @@ public enum E4Message: Sendable, Equatable {
     /// played back.
     case simRate(Double)
 
+    /// Which planned route a speed run would execute.
+    case runKind(E4RouteKind)
+
     /// `RST` — clear the maze model.
     case resetMaze
 

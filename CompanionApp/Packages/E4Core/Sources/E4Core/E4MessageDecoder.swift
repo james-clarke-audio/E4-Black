@@ -133,6 +133,10 @@ public enum E4MessageDecoder {
                 return .threshold(report)
             }
 
+        case "KIND":
+            guard let k = int(fields, 1), let kind = E4RouteKind(rawValue: k) else { break }
+            return .runKind(kind)
+
         case "SIM":
             let kv = keyValues(in: String(raw.dropFirst(min(4, raw.count))))
             guard let rate = kv["rate"].flatMap(Double.init) else { break }

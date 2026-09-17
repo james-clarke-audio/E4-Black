@@ -325,13 +325,9 @@ static void plan_emit_point(void *, int u, int v, int mv) {
 	report_printf("RP,%d,%d,%d\r\n", u, v, mv);
 }
 
-static void act_plan_route(void) {
-	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
-
-	// Plan against what she KNOWS, not what she hopes: unknown walls closed.
-	MazeMask save = maze.get_mask();
-	maze.set_mask(MASK_CLOSED);
-
+// The models the planner is given, built from the LIVE tuning in one place so
+// that planning and executing can never disagree about what she is capable of.
+static void build_run_models(plan::Robot &rb, plan::DiagTurns &dt) {
 	// The FAST-RUN speeds, not the search ones. She explores at SEARCH_SPEED
 	// because she is reading walls a cell at a time; she runs the known map at
 	// RUN_SPEED. Planning the fast run at search speed was why SHORTEST and
@@ -341,7 +337,7 @@ static void act_plan_route(void) {
 	// The ARC speeds below stay as the turn table holds them. They are two
 	// different things: she can run a six-cell straight flat out and still take
 	// every SS90 at the speed that row was tuned at.
-	plan::Robot rb;
+
 	rb.straight.v_max = RUN_SPEED;
 	rb.straight.accel = RUN_ACCELERATION;
 	rb.straight.decel = RUN_ACCELERATION;
@@ -358,7 +354,7 @@ static void act_plan_route(void) {
 	rb.spin_omega = OMEGA_SPIN_TURN;
 	rb.spin_alpha = ALPHA_SPIN_TURN;
 
-	plan::DiagTurns dt;
+
 	{
 		const TurnParameters &t = turn_params[SD45L];
 		dt.sd45_speed = (float)t.speed; dt.sd45_offset = (float)t.entry_offset;
@@ -371,23 +367,35 @@ static void act_plan_route(void) {
 	}
 	dt.diag_v_max = RUN_DIAG_SPEED;   // the narrow corridor, not the straight
 
-	// The clock stops on ENTERING the goal, and the goal is a 2x2 room -- so any
-	// of its four cells ends the run. Planning to maze.goal() as a single cell
-	// makes her drive to one named square, which when the approach arrives from
-	// the far side means crossing the room to reach it: cells and turns spent
-	// after she has already finished. On the maze this was first seen on she
-	// drove through (8,8) and (8,7), both goal cells, to turn into (7,7).
-	//
-	// The room only applies when her goal actually sits inside it. The corner
-	// presets from 'Set goal' are single cells and must stay single, or she
-	// would plan to a 2x2 block hanging off the edge of the arena.
+}
+
+// The goal box. The clock stops on ENTERING the goal and the goal is a 2x2
+// room, so any of its four cells ends the run; the corner presets from
+// 'Set goal' are single cells and stay single.
+static void run_goal_box(int &gx, int &gy, int &gw, int &gh) {
 	const Location g = maze.goal();
-	const bool goal_is_room = (g.x == GOAL_ROOM_X0 || g.x == GOAL_ROOM_X0 + 1) &&
-	                          (g.y == GOAL_ROOM_Y0 || g.y == GOAL_ROOM_Y0 + 1);
-	const int gx = goal_is_room ? GOAL_ROOM_X0 : (int)g.x;
-	const int gy = goal_is_room ? GOAL_ROOM_Y0 : (int)g.y;
-	const int gw = goal_is_room ? 2 : 1;
-	const int gh = goal_is_room ? 2 : 1;
+	const bool room = (g.x == GOAL_ROOM_X0 || g.x == GOAL_ROOM_X0 + 1) &&
+	                  (g.y == GOAL_ROOM_Y0 || g.y == GOAL_ROOM_Y0 + 1);
+	gx = room ? GOAL_ROOM_X0 : (int)g.x;
+	gy = room ? GOAL_ROOM_Y0 : (int)g.y;
+	gw = room ? 2 : 1;
+	gh = room ? 2 : 1;
+}
+
+static void act_plan_route(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+
+	// Plan against what she KNOWS, not what she hopes: unknown walls closed.
+	MazeMask save = maze.get_mask();
+	maze.set_mask(MASK_CLOSED);
+
+	plan::Robot rb;
+	plan::DiagTurns dt;
+	build_run_models(rb, dt);
+
+	int gx, gy, gw, gh;
+	run_goal_box(gx, gy, gw, gh);
+
 	plan::DiagTurns off = dt; off.enabled = false;
 	int proven_ms[3] = { -1, -1, -1 };
 
@@ -1285,7 +1293,78 @@ static void act_sim_follow_r(void) {
 	report_write("sim wall follow (right hand) armed: press a button to launch\r\n");
 	mouse.simulate_follow(true);
 }
-static void act_speed_run(void)     { act_todo("Speed run"); }
+// --- Execute a planned route ------------------------------------------------
+//
+// Plan, then drive. The planner has been able to answer for several versions;
+// nothing acted on the answer until now.
+//
+// WHICH route she runs is a setting rather than three menu entries, because
+// the three are the same run with a different cost function and you will want
+// to compare them back to back on one maze. Default is QUICKEST orthogonal:
+// the diagonal route is faster on paper but every diagonal row of the turn
+// table is arithmetic that has never met a floor.
+//
+//   KIND,<0|1|2>   over BT    0 shortest, 1 quickest, 2 quickest + diagonals
+static int s_run_kind = 1;
+
+static bool plan_for_run(void) {
+	MazeMask save = maze.get_mask();
+	maze.set_mask(MASK_CLOSED);          // plan on what she KNOWS
+
+	plan::Robot rb;
+	plan::DiagTurns dt;
+	build_run_models(rb, dt);
+	plan::DiagTurns off = dt; off.enabled = false;
+
+	int gx, gy, gw, gh;
+	run_goal_box(gx, gy, gw, gh);
+
+	const plan::Objective obj = (s_run_kind == 0) ? plan::SHORTEST : plan::QUICKEST;
+	const plan::DiagTurns &use = (s_run_kind == 2) ? dt : off;
+	const plan::WallReader wr = { &plan_wall_is_exit, 0 };
+	plan_native(s_route, wr, rb, use, obj, START.x, START.y, plan::NN, gx, gy, gw, gh);
+	maze.set_mask(save);
+
+	if (!s_route.ok) { report_write("SR,no route\r\n"); return false; }
+
+	// Stream it first, so the line she is about to take is on screen before she
+	// takes it -- and so a run that goes wrong can be compared against what she
+	// meant to do rather than against memory.
+	report_printf("RT,%d,%d\r\n", s_run_kind, (int)(s_route.seconds * 1000.0f));
+	int n = plan::route_points(s_route, START.x, START.y, plan::NN, plan_emit_point, 0);
+	report_printf("RTE,%d,%d,%d,%d\r\n", n, s_route.cells, s_route.turns, s_route.spins);
+	return true;
+}
+
+// Rehearsal. Motors never armed, and the animation runs at the speed the model
+// predicts -- so watching it IS the prediction, and the two route kinds can be
+// watched side by side before either is driven.
+static void act_sim_speed_run(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("sim speed run armed: press a button to launch\r\n");
+	sensors.wait_for_user_start();
+	if (!plan_for_run()) return;
+	plan::Robot rb; plan::DiagTurns dt; build_run_models(rb, dt);
+	plan::DiagTurns off = dt; off.enabled = false;
+	report_write("STATE,SIM\r\n");
+	mouse.run_route(s_route, rb, (s_run_kind == 2) ? dt : off, true);
+	report_write("STATE,IDLE\r\n");
+}
+
+// The real thing. UNPROVEN: no part of this has driven a floor, and the turn
+// table it reads is arithmetic except for the two SS90E rows. Arm it with room
+// around her and a hand near the button.
+static void act_speed_run(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	report_write("speed run armed: press a button to launch\r\n");
+	sensors.wait_for_user_start();
+	if (!plan_for_run()) return;
+	plan::Robot rb; plan::DiagTurns dt; build_run_models(rb, dt);
+	plan::DiagTurns off = dt; off.enabled = false;
+	report_write("STATE,RUN\r\n");
+	mouse.run_route(s_route, rb, (s_run_kind == 2) ? dt : off, false);
+	report_write("STATE,IDLE\r\n");
+}
 static void act_resume_saved(void)  { act_todo("Resume saved"); }
 static void act_run_options(void)   { act_todo("Run options"); }
 
@@ -1403,6 +1482,7 @@ static const MenuItem MENU[] = {
 	/*32*/ { "Wall follow R",'W', act_wall_follow_r },
 	/*33*/ { "Sim follow L", 'q', act_sim_follow_l  },
 	/*34*/ { "Sim follow R", 'Q', act_sim_follow_r  },
+	/*35*/ { "Sim speed run",'F', act_sim_speed_run },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -1416,7 +1496,7 @@ static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set go
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
 static const uint8_t CAT_DIAG[]   = { 15, 11, 26, 13, 14, 16, 28, 24, 25 }; // EEPROM test, Sensor mode, IR sampler, Reset pose, Test mode, BT57600, BT provision, Emitter hold, Firmware ver
 static const uint8_t CAT_WALL[]   = { 20, 32, 33, 34 };     // Wall follow L/R, and both simulated
-static const uint8_t CAT_SOLVE[]  = { 7, 21, 22, 31 };     // Explore, Speed run*, Resume saved*, Plan route
+static const uint8_t CAT_SOLVE[]  = { 7, 31, 35, 21, 22 };  // Explore, Plan route, Sim speed run, Speed run, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
 	/*0*/ { "Calibration", CAT_CAL,    7 },
@@ -1425,7 +1505,7 @@ static const Category CAT[] = {
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
 	/*4*/ { "Diagnostics", CAT_DIAG,   9 },
 	/*5*/ { "Wall follow", CAT_WALL,   4 },
-	/*6*/ { "Maze solver", CAT_SOLVE,  4 },
+	/*6*/ { "Maze solver", CAT_SOLVE,  5 },
 	/*7*/ { "Run options", CAT_RUNOPT, 1 },
 };
 
@@ -1675,6 +1755,14 @@ void app_main()
 						} else {
 							report_write("SPD,rejected (v 100..3000, a 100..32000, diag 100..3000)\r\n");
 						}
+					}
+					else if (strncmp(bt_line, "KIND?", 5) == 0) {
+						report_printf("KIND,%d\r\n", s_run_kind);
+					}
+					else if (strncmp(bt_line, "KIND,", 5) == 0) {
+						const int k = atoi(bt_line + 5);
+						if (k >= 0 && k <= 2) { s_run_kind = k; report_printf("KIND,%d\r\n", k); }
+						else report_write("KIND,rejected (0 shortest, 1 quickest, 2 diagonal)\r\n");
 					}
 					else if (strncmp(bt_line, "SIM?", 4) == 0) {
 						report_printf("SIM,rate=%d.%02d\r\n", (int)SIM_RATE,

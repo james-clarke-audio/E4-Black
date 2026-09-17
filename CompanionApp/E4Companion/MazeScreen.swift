@@ -120,6 +120,20 @@ struct MazeScreen: View {
                         .frame(maxWidth: .infinity)
                         .touchTarget()
 
+                    // WHICH route a run executes. One setting rather than three
+                    // buttons: the three are the same run with a different cost
+                    // function, and the point is comparing them on one maze.
+                    Picker("", selection: Binding(
+                        get: { session.runKind },
+                        set: { session.send(.runKind($0.rawValue)) }
+                    )) {
+                        Text("shortest").tag(E4RouteKind.shortest)
+                        Text("quickest").tag(E4RouteKind.quickest)
+                        Text("diagonal").tag(E4RouteKind.diagonal)
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+
                     Text("Place her back edge against the wall before Search — she drives 49 mm forward, then declares centre.")
                         .font(.caption)
                         .foregroundStyle(Palette.faint)
@@ -147,6 +161,10 @@ struct MazeScreen: View {
                         Button("Sim follow L") { session.send(.action(.simFollowLeft)) }
                         Button("Sim follow R") { session.send(.action(.simFollowRight)) }
                     }
+                    Button("Sim speed run") { session.send(.action(.simSpeedRun)) }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity)
+                        .touchTarget()
                     .buttonStyle(.bordered)
                     .frame(maxWidth: .infinity)
                     .touchTarget()

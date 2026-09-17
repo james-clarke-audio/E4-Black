@@ -65,6 +65,15 @@ public enum E4Command: Sendable, Equatable {
     /// Pick which turn the tuner's ARC edits.
     case selectTurn(Int)
 
+    /// `KIND,<0|1|2>` — which planned route a speed run executes: shortest,
+    /// quickest orthogonal, or quickest with diagonals. A setting rather than
+    /// three actions, because the three are the same run with a different cost
+    /// function and the point is comparing them on one maze.
+    case runKind(Int)
+
+    /// Ask which route kind a run would take.
+    case readRunKind
+
     /// `SIM,<rate>` — how fast to WATCH a simulated run. The simulator animates
     /// at the speed the motion model says she would really move, so a full
     /// explore is forty-odd seconds; this shortens the sitting and never the
@@ -127,6 +136,10 @@ public enum E4Command: Sendable, Equatable {
             return "CFG?\n"
         case .selectTurn(let index):
             return "SEL,\(index)\n"
+        case .runKind(let k):
+            return "KIND,\(k)\n"
+        case .readRunKind:
+            return "KIND?\n"
         case .simRate(let rate):
             return "SIM,\(String(format: "%.2f", rate))\n"
         case .readSimRate:
@@ -194,6 +207,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case wallFollowRight = 32
     case simFollowLeft = 33
     case simFollowRight = 34
+    case simSpeedRun = 35
 
     public var id: Int { rawValue }
 
@@ -223,6 +237,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .wallFollowRight: return "W"
         case .simFollowLeft:   return "q"
         case .simFollowRight:  return "Q"
+        case .simSpeedRun:     return "F"
         case .speedRun:        return "l"
         case .resumeSaved:     return "R"
         case .runOptions:      return "O"
@@ -263,6 +278,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .wallFollowRight: return "Wall follow R"
         case .simFollowLeft:   return "Sim follow L"
         case .simFollowRight:  return "Sim follow R"
+        case .simSpeedRun:     return "Sim speed run"
         case .speedRun:        return "Speed run"
         case .resumeSaved:     return "Resume saved"
         case .runOptions:      return "Run options"
@@ -304,7 +320,8 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
              // All four followers call wait_for_user_start(), the driven pair
              // and the simulated pair alike. Leaving them out of this list is
              // why pressing one in the app looked like nothing happening.
-             .wallFollowLeft, .wallFollowRight, .simFollowLeft, .simFollowRight:
+             .wallFollowLeft, .wallFollowRight, .simFollowLeft, .simFollowRight,
+             .simSpeedRun, .speedRun:
             return true
         default:
             return false

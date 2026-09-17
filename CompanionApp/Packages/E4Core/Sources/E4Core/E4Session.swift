@@ -66,6 +66,9 @@ public final class E4Session {
 
     /// Simulator playback rate, as she reports it.
     public private(set) var simRate: Double = 1.0
+
+    /// Which planned route a speed run would execute.
+    public private(set) var runKind: E4RouteKind = .quickest
     public private(set) var lastGyroCal: E4GyroCalReport?
 
     /// Everything the threshold-calibration routine has said this session.
@@ -310,6 +313,9 @@ public final class E4Session {
             default:
                 break
             }
+
+        case .runKind(let k):
+            runKind = k
 
         case .simRate(let rate):
             simRate = rate

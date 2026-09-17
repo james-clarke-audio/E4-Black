@@ -69,4 +69,20 @@ int diagonalise(Route &r, const Robot &rob, const DiagTurns &d, Head start_head)
 /// measurement and is not one.
 float route_time(const Route &r, const Robot &rob, const DiagTurns &d, Head start_head);
 
+/// The same walk as route_time(), reporting each step as it goes: how long the
+/// RUN before the turn takes, and how long the TURN itself takes.
+///
+/// It exists so that anything which executes a route -- the speed run, and the
+/// simulator that rehearses one -- gets its timing from the model that costed
+/// the route rather than from a second model written alongside it. Two models
+/// of one mouse drift, and the drift shows up as a route that takes longer
+/// than the planner promised for reasons nobody can name.
+///
+/// The durations sum to route_time()'s total by construction: both call the
+/// same step_time().
+typedef void (*RouteStepFn)(void *ctx, int index, const Step &s,
+                            float run_seconds, float turn_seconds);
+void route_times(const Route &r, const Robot &rob, const DiagTurns &d,
+                 Head start_head, RouteStepFn fn, void *ctx);
+
 }  // namespace plan
