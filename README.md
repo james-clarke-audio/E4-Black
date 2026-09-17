@@ -128,6 +128,37 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.29 — 17 Sep 2026 · The executor left a diagonal by the wrong side**
+A diagonal speed run finished at **(1,0)** — near the start, nowhere near the
+goal — having walked a staircase west and south with no 45° heading in it, on a
+route whose time came back exactly right at 23199 ms.
+
+One line. `run_route` left a diagonal with `nh = (L) ? ((dd + 3) & 3) : ((dd + 1) & 3)`.
+"+3 to turn left" is correct *inside* an enum. This crosses from `Diag` to
+`Head`, and those are different enums offset by half a turn: leaving a diagonal
+to the left is **+0** and to the right is +1. The right hand was accidentally
+correct, which is why it took a real route to expose.
+
+What it does is worse than a wrong heading: it lands her on a **post**, the one
+lattice point that is never occupied, so her half-cell coordinates lose their
+parity and every orthogonal move afterwards keeps her on the wrong parity for
+the rest of the route. Hence a whole run animated on the lines *between* cells —
+which is exactly what the `POS` trail showed, every coordinate an even multiple
+of 90.
+
+Fixed in **one place, not two**: `diag_ccw`/`diag_cw` move from statics in
+`native.cpp` to inline functions in `native.h`, so the executor uses the same
+mapping `route_points()` does rather than a second copy of it. Two copies of that
+mapping is how one of them went wrong.
+
+And the walk checks itself now. A route ends at a cell **centre**, odd in both
+half-cell coordinates; anything else means the walk lost the lattice and every
+cell it has reported since is fiction. It says so — `SR,LOST u= v= diag=` —
+rather than reporting a plausible wrong answer.
+
+Verified on the maze that broke it: every vertex of the run now matches the
+planned route exactly, and she finishes at (8,8).
+
 **0.28 — 17 Sep 2026 · The route executor**
 The planner has been able to answer since 0.20 and nothing acted on the answer.
 `run_route()` does.
