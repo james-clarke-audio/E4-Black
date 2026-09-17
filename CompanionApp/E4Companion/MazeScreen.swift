@@ -12,6 +12,8 @@ struct MazeScreen: View {
     @State private var loadedName = ""
     @State private var flipped = false
     @State private var loadError: String?
+    @State private var editor = MazeEditor()
+    @State private var exporting = false
 
     /// She prints RUN before the action runs, and the action's first act is to
     /// wait for a button — so between those two the app knows she is armed. Once
@@ -27,15 +29,27 @@ struct MazeScreen: View {
     /// What would actually be sent — the file, turned over if the orientation
     /// switch is on. Nothing in a maze file records which way up it was written.
     private var outgoing: E4MazeFile? {
+        // While editing, what gets sent is what is on screen. Sending the file
+        // she was opened from, after twenty minutes of drawing, would be the
+        // single most confusing thing this screen could do.
+        if editor.isEditing, let edited = editor.file {
+            return flipped ? edited.flippedVertically() : edited
+        }
         guard let loaded else { return nil }
         return flipped ? loaded.flippedVertically() : loaded
     }
 
     var body: some View {
         HStack(spacing: 0) {
-            MazeCanvas()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Palette.Dark.bg)
+            Group {
+                if editor.isEditing {
+                    MazeEditCanvas(editor: editor)
+                } else {
+                    MazeCanvas()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Palette.Dark.bg)
 
             Rectangle().fill(Palette.line).frame(width: 1)
 
@@ -77,6 +91,8 @@ struct MazeScreen: View {
                 }
 
                 importCard
+
+                editCard
 
                 Card("Run") {
                     if isArmedWaiting {
@@ -304,6 +320,68 @@ struct MazeScreen: View {
             Text(reason)
                 .font(.caption)
                 .foregroundStyle(Palette.bad)
+        }
+    }
+
+    /// Drawing a maze. Entered deliberately, because it takes over the canvas
+    /// that otherwise shows what she believes.
+    private var editCard: some View {
+        Card("Edit") {
+            if editor.isEditing {
+                Picker("", selection: Binding(get: { editor.tool },
+                                              set: { editor.tool = $0 })) {
+                    ForEach(MazeEditor.Tool.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                Text(editor.tool == .walls
+                     ? "Tap near a wall to put it up or take it down. The perimeter is fixed — she is born knowing it is there."
+                     : "Tap a cell to make it the goal; tap it again to clear.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.faint)
+
+                Picker("", selection: Binding(get: { editor.format },
+                                              set: { editor.format = $0 })) {
+                    ForEach(MazeEditor.Format.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+
+                HStack(spacing: 8) {
+                    Button("Save as…") { exporting = true }
+                        .buttonStyle(.borderedProminent)
+                    Button("Done") { editor.isEditing = false }
+                        .buttonStyle(.bordered)
+                }
+                .touchTarget()
+
+                Text("Saved copies get the standard start cell — open north, walled east — so a drawn maze cannot begin with her facing a wall.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.faint)
+            } else {
+                HStack(spacing: 8) {
+                    Button(loaded == nil ? "New maze" : "Edit loaded") {
+                        editor.begin(from: loaded, name: loadedName)
+                    }
+                    .buttonStyle(.bordered)
+                    if editor.file != nil {
+                        Button("Resume") { editor.isEditing = true }
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .touchTarget()
+
+                Text("Draw a maze instead of hunting for one: a wall-follower course, or one where the shortest route and the quickest are genuinely different.")
+                    .font(.caption)
+                    .foregroundStyle(Palette.faint)
+            }
+        }
+        .fileExporter(isPresented: $exporting,
+                      document: MazeDocument(editor.exportData),
+                      contentType: editor.format.utType,
+                      defaultFilename: editor.suggestedFilename) { result in
+            if case .success = result { editor.dirty = false }
         }
     }
 
