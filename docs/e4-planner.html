@@ -371,10 +371,39 @@ RU,&lt;x&gt;,&lt;y&gt;  &hellip;  RUE,&lt;total&gt;        the union &mdash; and
 
   <p class="dimc">Cost is one extra plan per kind, about 100&nbsp;ms each on the F411, so roughly 600&nbsp;ms added to a press of <code>P</code>.</p>
 
+  <h2 class="sec">Executing one</h2>
+
+  <p>A planner that nobody acts on is an opinion. <code>run_route()</code> is the part that acts.</p>
+
+  <div class="note">
+    <b>One walk serves both the real run and the rehearsal.</b> The thing worth getting right is the <em>sequencing</em> &mdash; which turn, after how many cells, from which heading &mdash; and a simulator that sequenced differently from the driver would prove nothing whatever about the driver. The only thing the <code>simulate</code> flag changes is whether a step is animated or driven.
+  </div>
+
+  <p>Timing is the other half of not having two of everything. <code>route_times()</code> walks the route with the <b>same <code>step_time()</code> that costed it</b> and reports each step split in two: the run before the turn, and the turn itself. That split is what lets the rehearsal animate a step at its true duration &mdash; and it means the simulated total equals <code>route.seconds</code> <em>by construction</em> rather than because two pieces of arithmetic happened to agree.</p>
+
+  <p>It matters because the alternative is a second model. Two models of one mouse drift, and the drift does not announce itself: it arrives as a run that took longer than the planner promised, for reasons nobody can name.</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>action</th><th>key</th><th>what it does</th></tr>
+    <tr><td class="t">Sim speed run</td><td class="n">F</td><td class="t">plan, then rehearse at the speed the model predicts</td></tr>
+    <tr><td class="t">Speed run</td><td class="n">l</td><td class="t">plan, then drive</td></tr>
+    <tr><td class="t"><code>KIND,&lt;0|1|2&gt;</code></td><td class="n">&ndash;</td><td class="t">shortest &middot; quickest &middot; quickest with diagonals</td></tr>
+  </table>
+  </div>
+
+  <p>Which route is a <b>setting</b> and not three menu entries, because the three are one run with a different cost function and the whole point is comparing them back to back on one maze. The default is quickest orthogonal: the diagonal route is faster on paper, but every diagonal row of the turn table is arithmetic that has never met a floor.</p>
+
+  <p>Both actions <b>stream the route before executing it</b>, so the line she is about to take is drawn over the maze before she takes it. A run that goes wrong can then be compared against what she meant to do, rather than against memory.</p>
+
+  <div class="note bad">
+    <b>The simulated turn is a simplification, and it is named in the code rather than hidden.</b> Position advances during the run and heading rotates at the vertex, so on screen an arc looks like a spin. The <em>time</em> is right either way, and the route line shows the true path &mdash; but do not read the animation as evidence about arc geometry. <b>Zigzag test</b> is what answers that.
+  </div>
+
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">
-    <li><b>Nothing <em>drives</em> any of it.</b> <code>Plan route</code> runs the planner and draws the answer, but no run mode executes one. The gap between a route on the screen and a route under the wheels is the speed run, and that is the next thing to build.</li>
+    <li><b>The driven half has never been near a floor.</b> <code>run_route()</code> exists and the rehearsal proves the sequencing, but <code>Speed run</code> with the motors live is untested, and the turn table it reads is arithmetic outside the two SS90E rows. It arms and waits like everything else; give her room the first time.</li>
     <li><b>Every figure is only as good as the turn table</b>, and by <a href="e4-turns.html">Ch&nbsp;10</a> only the SS90E pair and the spins have met a floor. The planner will confidently choose a wrong route if the table lies to it, so the arcs want <em>measuring</em>, not eyeballing &mdash; entry speed, exit speed and duration, per turn.</li>
     <li><b>The planner and <code>turn_smooth()</code> still disagree about chained arcs &mdash; and the planner is right.</b> A chainable 90 is a quarter circle of radius 90&nbsp;mm, half a cell, wall midpoint to wall midpoint. Her tuned turn displaces <b>111.5&nbsp;mm</b> each way once <code>alpha</code>&rsquo;s ramps are integrated &mdash; not the 101 that <code>R = v/&omega;</code> suggests &mdash; so a chained pair needs 223&nbsp;mm and has 180. The planner refuses and emits stop-and-spin; the firmware relabels the frame past the next turn point and runs the arcs back to back anyway, cutting the corner by 21.5&nbsp;mm each time and compounding it. <b>Zigzag test</b> (Calibration, or <code>Z</code>) drives the case deliberately, and now drives the <code>SS90</code> speed-run row by default, since only that row has to chain. The fix is &omega;&nbsp;&asymp;&nbsp;226 at 300&nbsp;mm/s &mdash; see <a href="e4-turns.html">Ch&nbsp;10</a>.</li>
     <li><b>The goal run-out is assumed at 270&nbsp;mm.</b> It depends on which cell of the goal box she enters and from where; a tighter entry would cap her lower.</li>

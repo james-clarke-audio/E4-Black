@@ -31,6 +31,8 @@ control and calibration. Built for the October 2026 micromouse competition.
 - **Maze persistence** to on-board EEPROM.
 - **Flood-fill search / speed run** from mazerunner-core, with a virtual/real
   sensor switch so the brain can be exercised in simulation.
+- **A route executor** — one walk that either drives a planned route or
+  rehearses it, so the rehearsal proves the sequencing the driver uses.
 - **Time-weighted route planner** — least time rather than fewest cells, with
   diagonals *searched* rather than substituted, and an optimistic twin of each
   plan that says how much is still left to find.
@@ -125,6 +127,46 @@ a fix. **1.0.0 is reserved** for the build that goes to the October competition
 Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
+
+**0.28 — 17 Sep 2026 · The route executor**
+The planner has been able to answer since 0.20 and nothing acted on the answer.
+`run_route()` does.
+
+**One walk serves both the real run and the rehearsal.** The part worth getting
+right is the sequencing — which turn, after how many cells, from which heading —
+and a simulator that sequenced differently from the driver would prove nothing
+about the driver. The only thing the `simulate` flag changes is whether a step
+is animated or driven.
+
+Timing comes from a new `route_times()` in `diagonal.cpp`, which walks the route
+with the **same `step_time()` that costed it** and reports each step split into
+the run before the turn and the turn itself. That split is what lets the
+rehearsal animate a step at its true duration, and it means the simulated total
+equals `route.seconds` by construction rather than by coincidence.
+
+    Sim speed run   F    plan, then rehearse at the speed the model predicts
+    Speed run       l    plan, then drive
+    KIND,<0|1|2>         shortest · quickest · quickest with diagonals
+
+Which route is a **setting** rather than three menu entries, because the three
+are one run with a different cost function and the point is comparing them back
+to back on one maze. The default is quickest orthogonal: the diagonal route is
+faster on paper, but every diagonal row of the turn table is arithmetic that has
+never met a floor.
+
+Both actions **stream the route before executing it**, so the line she is about
+to take is on screen before she takes it, and a run that goes wrong can be
+compared against what she meant to do rather than against memory.
+
+One simplification, named in the code rather than hidden: in the simulated turn,
+position advances during the run and heading rotates at the vertex, so an arc
+looks like a spin on screen. The *time* is right either way and the route line
+shows the true path — but the animation is not evidence about arc geometry.
+**Zigzag test** is what answers that.
+
+> `act_speed_run` is **unproven**. No part of the driven path has been near a
+> floor, and the turn table it reads is arithmetic outside the two SS90E rows.
+> It arms and waits like everything else; give her room.
 
 **0.27 — 17 Sep 2026 · The followers arm like everything else, and say so**
 Two bugs, both from 0.25. `follow_to()` **did not wait** — every other action
