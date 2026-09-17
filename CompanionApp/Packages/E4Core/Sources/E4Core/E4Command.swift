@@ -300,8 +300,14 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     /// the wrong place.
     public var waitsForButtonPress: Bool {
         switch self {
-        case .search, .explore, .simulate, .simExplore: return true
-        default:                                        return false
+        case .search, .explore, .simulate, .simExplore,
+             // All four followers call wait_for_user_start(), the driven pair
+             // and the simulated pair alike. Leaving them out of this list is
+             // why pressing one in the app looked like nothing happening.
+             .wallFollowLeft, .wallFollowRight, .simFollowLeft, .simFollowRight:
+            return true
+        default:
+            return false
         }
     }
 

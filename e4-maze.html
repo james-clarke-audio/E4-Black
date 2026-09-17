@@ -366,6 +366,7 @@
         <label class="chk"><input type="checkbox" id="mazeFlip"> Flip vertically</label>
       </div>
       <div id="mazeInfo" style="color:var(--faint);font-size:11px;margin-top:8px">Load a .txt or .maz maze (or drop one on the grid), then send it into the mouse.</div>
+      <div id="armedHint" style="display:none;color:var(--warn);font-size:12px;margin-top:6px;padding:8px;border-radius:7px;background:rgba(240,160,75,.12)"></div>
       <div id="solveInfo" style="color:var(--warn);font-size:12px;font-family:var(--mono);margin-top:6px"></div>
     </div>
 
@@ -552,6 +553,20 @@ function identSensor(sel){                 // EMIT,<sel> from the mouse's emitte
 function parseLine(line){
   const raw=line.trim(); if(!raw) return;
   if(raw.indexOf('Emitter hold: off')>=0) identSensor(-1);
+  // She prints "<action> armed: press a button to launch" and then BLOCKS on a
+  // press on her own buttons. With that as one line among hundreds in the log,
+  // a deliberate pause is indistinguishable from a command that never arrived.
+  {
+    const el=document.getElementById('armedHint');
+    if(el){
+      if(/armed: press a button/i.test(raw)){
+        el.textContent='She is armed — press a button on the mouse to start: '+raw.split(' armed')[0];
+        el.style.display='block';
+      } else if(/^(STATE|DONE|RUN),/i.test(raw) && !/^STATE,IDLE/i.test(raw)){
+        el.style.display='none';
+      }
+    }
+  }
   const p=raw.split(','), tag=p[0].toUpperCase(); let ok=true;
   switch(tag){
     case 'RST': resetMaze(); break;
@@ -616,6 +631,7 @@ function parseLine(line){
     case 'WF': { const el=document.getElementById('solveInfo');
       if(el) el.textContent=p.slice(1).join(',').trim(); break; }
     case 'SOLVE': state.solution=[]; break;
+
     case 'SP': if(inb(+p[1],+p[2])) state.solution.push([+p[1],+p[2]]); break;
     case 'SOLVED': state.solveMs=+p[1]; state.solveSteps=+p[2];
       { const el=document.getElementById('solveInfo');

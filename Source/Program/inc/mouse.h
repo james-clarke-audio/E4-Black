@@ -299,6 +299,13 @@ class Mouse {
   // She also MAPS as she follows, so even a lap that never finds a centre
   // leaves those walls in the map.
   void follow_to(Location target, bool right_hand) {
+    // ARM FIRST. Every other action that turns a wheel waits for a press on
+    // HER before it moves, and this one did not -- so firing it from the app
+    // put her in motion the instant the button was tapped, with nobody
+    // necessarily near her. The simulated twin waits too, so that both halves
+    // of the pair behave the same way and neither teaches you a habit the
+    // other punishes.
+    sensors.wait_for_user_start();
     m_handStart = true;
     m_location = START;
     m_heading = NORTH;

@@ -102,6 +102,15 @@ struct ActionsScreen: View {
 
     /// The three-level menu as it appears on the OLED. Useful when you want to
     /// drive what she is showing rather than jump straight to an action.
+    /// She prints RUN before the action runs, and the action's first act is to
+    /// wait for a button — so between those two she is armed, not going. Once
+    /// she actually moves she reports a STATE, which is what clears this.
+    private var isArmedWaiting: Bool {
+        guard let running = session.runningAction, running.waitsForButtonPress else { return false }
+        let state = session.stateLabel?.uppercased()
+        return state == nil || state == "IDLE"
+    }
+
     private var navPad: some View {
         Card("Menu") {
             HStack(spacing: 8) {
@@ -113,7 +122,19 @@ struct ActionsScreen: View {
             .buttonStyle(.bordered)
             .touchTarget()
 
-            if let name = session.runningActionName {
+            // "Running" is not the same as "waiting for you", and the
+            // difference matters: several actions print RUN and then block on a
+            // press on HER. Showing only "Running" for that made a deliberate
+            // pause look like a dropped command.
+            if let running = session.runningAction, running.waitsForButtonPress, isArmedWaiting {
+                Label("**\(running.title)** is armed — press a button on the mouse to start it.",
+                      systemImage: "hand.tap.fill")
+                    .font(.callout)
+                    .foregroundStyle(Palette.warn)
+                    .padding(9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Palette.warn.opacity(0.10), in: RoundedRectangle(cornerRadius: 7))
+            } else if let name = session.runningActionName {
                 Label("Running: \(name)", systemImage: "play.circle.fill")
                     .font(.callout)
                     .foregroundStyle(.orange)
