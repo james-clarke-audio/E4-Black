@@ -60,6 +60,9 @@ public final class E4Session {
     public private(set) var stateLabel: String?
     public private(set) var gyroScale: Double?
     public private(set) var lastTurnResult: E4TurnResult?
+
+    /// The chained-turn bench test, rebuilt from her own ZIG lines.
+    public private(set) var zigzag = E4ZigzagState()
     public private(set) var lastGyroCal: E4GyroCalReport?
 
     /// Everything the threshold-calibration routine has said this session.
@@ -304,6 +307,23 @@ public final class E4Session {
             default:
                 break
             }
+
+        case .zigzagSetup(let setup, let started):
+            zigzag.setup = setup
+            if started {
+                // A new run replaces the last one. Keeping the old turns would
+                // show a result from a setting she no longer holds.
+                zigzag.turns = []
+                zigzag.result = nil
+                zigzag.running = true
+            }
+
+        case .zigzagTurn(let turn):
+            zigzag.turns.append(turn)
+
+        case .zigzagDone(let result):
+            zigzag.result = result
+            zigzag.running = false
 
         case .gyroCal(let report):
             lastGyroCal = report

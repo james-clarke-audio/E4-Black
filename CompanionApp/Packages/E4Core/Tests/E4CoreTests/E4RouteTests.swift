@@ -193,6 +193,70 @@ final class E4MenuActionRouteTests: XCTestCase {
         }
     }
 
+    // MARK: - the chained-turn test
+
+    func testZigzagStartDecodes() {
+        guard case .zigzagSetup(let z, let started) =
+                E4MessageDecoder.decode("ZIG,start turns=3 mode=arc first=R row=SS90 v=300") else {
+            return XCTFail("ZIG,start did not decode")
+        }
+        XCTAssertTrue(started)
+        XCTAssertEqual(z.turns, 3)
+        XCTAssertFalse(z.spin)
+        XCTAssertTrue(z.firstRight)
+        XCTAssertTrue(z.speedRunRow)
+        XCTAssertEqual(z.speed, 300)
+    }
+
+    func testZigzagSetIsNotAStart() {
+        guard case .zigzagSetup(let z, let started) =
+                E4MessageDecoder.decode("ZIG,set turns=5 mode=spin first=L row=SS90E") else {
+            return XCTFail("ZIG,set did not decode")
+        }
+        XCTAssertFalse(started, "a set must not clear the last run's turns")
+        XCTAssertEqual(z.turns, 5)
+        XCTAssertTrue(z.spin)
+        XCTAssertFalse(z.firstRight)
+        XCTAssertFalse(z.speedRunRow)
+        XCTAssertNil(z.speed)
+    }
+
+    func testZigzagWithoutARowMeansTheSearchTurn() {
+        // Firmware before 0.24 sent no row and drove SS90E. Defaulting a
+        // missing field to SS90 would relabel every old log as a speed-run
+        // test that never happened.
+        guard case .zigzagSetup(let z, _) =
+                E4MessageDecoder.decode("ZIG,set turns=3 mode=arc first=R") else {
+            return XCTFail("legacy ZIG,set did not decode")
+        }
+        XCTAssertFalse(z.speedRunRow)
+    }
+
+    func testZigzagTurnAndDoneDecode() {
+        guard case .zigzagTurn(let t) =
+                E4MessageDecoder.decode("ZIG,turn 2 L gyro=-1 pos=200") else {
+            return XCTFail("ZIG,turn did not decode")
+        }
+        XCTAssertEqual(t.index, 2)
+        XCTAssertFalse(t.right)
+        XCTAssertEqual(t.gyro, -1)
+        XCTAssertEqual(t.position, 200)
+
+        guard case .zigzagDone(let r) =
+                E4MessageDecoder.decode("ZIG,done row=SS90 gyro=-87 expect=-90 err=3 dist=541") else {
+            return XCTFail("ZIG,done did not decode")
+        }
+        XCTAssertTrue(r.speedRunRow)
+        XCTAssertEqual(r.error, 3)
+        XCTAssertEqual(r.distance, 541)
+    }
+
+    func testZigzagCommandEncodesFourFields() {
+        XCTAssertEqual(E4Command.zigzagSetup(turns: 4, spin: true,
+                                             firstRight: false, speedRunRow: true).line,
+                       "ZIG,4,1,0,1\n")
+    }
+
     func testUnknownCellListDecodes() {
         guard case .routeUnknownCell(let x, let y) =
                 E4MessageDecoder.decode("RU,12,3") else {

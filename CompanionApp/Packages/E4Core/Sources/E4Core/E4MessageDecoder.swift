@@ -133,6 +133,42 @@ public enum E4MessageDecoder {
                 return .threshold(report)
             }
 
+        case "ZIG":
+            // Not CSV: "ZIG,start turns=3 mode=arc first=R row=SS90 v=300".
+            // The leading word says which line it is, the rest is key=value.
+            let body = String(raw.dropFirst(min(4, raw.count)))
+            let head = body.split(whereSeparator: { $0 == " " }).first.map(String.init)?.lowercased() ?? ""
+            let kv = keyValues(in: body)
+            switch head {
+            case "set", "start":
+                guard let t = kv["turns"].flatMap(Int.init) else { break }
+                let setup = E4ZigzagSetup(turns: t,
+                                          spin: (kv["mode"] ?? "arc") == "spin",
+                                          firstRight: (kv["first"] ?? "R") == "R",
+                                          // An older mouse sends no row at all.
+                                          // It drove SS90E, so that is what a
+                                          // missing field means -- not SS90.
+                                          speedRunRow: (kv["row"] ?? "SS90E") == "SS90",
+                                          speed: kv["v"].flatMap(Int.init))
+                return .zigzagSetup(setup, started: head == "start")
+            case "turn":
+                let words = body.split(whereSeparator: { $0 == " " }).map(String.init)
+                guard words.count > 2, let i = Int(words[1]),
+                      let g = kv["gyro"].flatMap(Int.init),
+                      let p = kv["pos"].flatMap(Int.init) else { break }
+                return .zigzagTurn(E4ZigzagTurn(index: i, right: words[2] == "R",
+                                                gyro: g, position: p))
+            case "done":
+                guard let g = kv["gyro"].flatMap(Int.init),
+                      let e = kv["expect"].flatMap(Int.init),
+                      let err = kv["err"].flatMap(Int.init),
+                      let d = kv["dist"].flatMap(Int.init) else { break }
+                return .zigzagDone(E4ZigzagResult(speedRunRow: (kv["row"] ?? "SS90E") == "SS90",
+                                                  gyro: g, expected: e, error: err, distance: d))
+            default:
+                break
+            }
+
         case "CFG":
             return .config(decodeConfig(raw))
 

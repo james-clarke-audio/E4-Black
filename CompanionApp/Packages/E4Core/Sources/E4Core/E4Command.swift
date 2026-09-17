@@ -65,6 +65,11 @@ public enum E4Command: Sendable, Equatable {
     /// Pick which turn the tuner's ARC edits.
     case selectTurn(Int)
 
+    /// `ZIG,<turns>,<mode>,<first>,<row>` — set up the chained-turn test. It
+    /// only configures; the test is launched by the menu action. `row` picks
+    /// SS90 (the speed-run turn, the only one that has to chain) or SS90E.
+    case zigzagSetup(turns: Int, spin: Bool, firstRight: Bool, speedRunRow: Bool)
+
     // --- ground-truth maze upload (GT channel) -----------------------------
     // Every one of these is acked by the mouse, and the row carries a
     // checksum she checks before accepting it. See E4MazeUploader.
@@ -113,6 +118,8 @@ public enum E4Command: Sendable, Equatable {
             return "CFG?\n"
         case .selectTurn(let index):
             return "SEL,\(index)\n"
+        case .zigzagSetup(let turns, let spin, let first, let row):
+            return "ZIG,\(turns),\(spin ? 1 : 0),\(first ? 1 : 0),\(row ? 1 : 0)\n"
         case .mazeClear:
             return "GTC\n"
         case .mazeRow(let y, let hex, let checksum):

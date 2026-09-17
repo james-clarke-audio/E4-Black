@@ -76,6 +76,18 @@ public enum E4Message: Sendable, Equatable {
     /// End of the unknown-cell list, with the total.
     case routeUnknownEnd(total: Int)
 
+    // MARK: - the chained-turn bench test
+
+    /// Her zigzag settings, from `ZIG,set` (changed) or `ZIG,start` (about to
+    /// run — `started` true, and the setup then carries the speed).
+    case zigzagSetup(E4ZigzagSetup, started: Bool)
+
+    /// One turn of the run, as she took it.
+    case zigzagTurn(E4ZigzagTurn)
+
+    /// The end of the run, with the heading error and the distance covered.
+    case zigzagDone(E4ZigzagResult)
+
     /// `RST` — clear the maze model.
     case resetMaze
 
