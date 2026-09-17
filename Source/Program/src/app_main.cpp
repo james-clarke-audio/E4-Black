@@ -142,11 +142,22 @@ static void act_motion_test(void) {
 //
 // SETTLES AN ARGUMENT between the route planner and the firmware.
 //
-// The planner refuses to chain smooth 90s. Its arithmetic: R = v / omega =
-// 300 / (170 deg/s in rad) = 101 mm, so a 90 degree arc starts ~R before its
-// pivot and ends ~R after it. Two pivots one cell apart are 180 mm apart, the
-// pair needs 202, and it rejects the move -- which is why every zigzag in a
-// planned route comes out as stop-and-spin.
+// A chainable 90 is a quarter circle of radius 90 mm -- HALF A CELL. It starts
+// at the midpoint of the wall she enters by and ends at the midpoint of the
+// wall she leaves by, so it begins and ends exactly on a cell boundary, on the
+// corridor centreline, and the next one can start where the last finished with
+// nothing in between. 90 mm forward, 90 mm sideways. That is the whole
+// requirement, and it is geometry, not tuning.
+//
+// She does not do that. R = v / omega = 300 / (170 deg/s in rad) = 101 mm is
+// the number usually quoted, and it is already too wide -- but it is also not
+// the displacement, because alpha is finite and omega ramps. Integrating the
+// actual trapezoidal profile at v 300, omega 170, alpha 2500 gives 111.5 mm
+// forward and 111.5 mm sideways: 21.5 mm wider than a turn that fits. Two of
+// them one cell apart need 223 mm and have 180.
+//
+// So the planner refuses and emits stop-and-spin, and it is right about its own
+// model.
 //
 // turn_smooth() never refuses. After a turn it relabels the frame to
 // SENSING_POSITION + exit_offset (170 + 30 = 200), and the next turn waits on
@@ -164,40 +175,57 @@ static void act_motion_test(void) {
 // Needs a 3x3 open section for the default 3 turns: from the start cell she
 // ends two cells across and two up.
 //
-//   ZIG,turns,mode,first   over BT    mode 0 = chained arcs, 1 = spins
-//                                     first 1 = right, 0 = left
+// WHICH ROW. SS90E and SS90 are separate rows precisely so they can be
+// different turns, and only the speed-run row has to chain. Searching, she
+// stops and senses every cell and wall-following re-centres her, so a wide arc
+// costs nothing but a little scrub -- SS90E is tuned and should stay as it is.
+// SS90 is the one a fast run strings together, so that is what this drives by
+// default, with SS90E available as a comparison rather than as the subject.
+//
+//   ZIG,turns,mode,first,row   over BT   mode 0 = chained arcs, 1 = spins
+//                                        first 1 = right, 0 = left
+//                                        row  1 = SS90 (speed run), 0 = SS90E
 static int s_zig_turns = 3;
 static int s_zig_mode  = 0;
 static int s_zig_right = 1;
+static int s_zig_row   = 1;    // the speed-run turn: the one that has to chain
 
 static void act_zigzag_test(void) {
 	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }   // release the select press
 	HAL_Delay(800);                                             // hands-off settle
-	report_printf("ZIG,start turns=%d mode=%s first=%c\r\n", s_zig_turns,
-	              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L');
+	// The row's OWN speed, not SEARCH_SPEED. A speed-run turn tuned at 500 mm/s
+	// tells you nothing if the test approaches it at 300, and both modes have to
+	// use the same number or the comparison is between two different runs.
+	const TurnParameters &row0 = turn_params[s_zig_row ? SS90L : SS90EL];
+	const float v = (row0.speed > 0) ? (float)row0.speed : SEARCH_TURN_SPEED;
+
+	report_printf("ZIG,start turns=%d mode=%s first=%c row=%s v=%d\r\n", s_zig_turns,
+	              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L',
+	              s_zig_row ? "SS90" : "SS90E", (int)v);
 	control_run_begin();
 
 	// Out of the start cell to its centre, exactly as search_to() begins.
-	motion.move(BACK_WALL_TO_CENTER, SEARCH_SPEED, SEARCH_TURN_SPEED, SEARCH_ACCELERATION);
+	motion.move(BACK_WALL_TO_CENTER, v, v, SEARCH_ACCELERATION);
 	motion.set_position(HALF_CELL);
 
 	int right = s_zig_right;
 	for (int i = 0; i < s_zig_turns; i++) {
-		const TurnParameters &p = turn_params[right ? SS90ER : SS90EL];
+		const int id = s_zig_row ? (right ? SS90R : SS90L) : (right ? SS90ER : SS90EL);
+		const TurnParameters &p = turn_params[id];
 		if (s_zig_mode) {
 			// Reference: coast to the cell centre, stop, spin, move off again --
 			// the same shape turn_back() uses.
 			float remaining = (FULL_CELL + HALF_CELL) - motion.position();
-			if (remaining > 0.0f) motion.move(remaining, SEARCH_SPEED, 0.0f, SEARCH_ACCELERATION);
+			if (remaining > 0.0f) motion.move(remaining, v, 0.0f, SEARCH_ACCELERATION);
 			motion.reset_drive_system();
 			control_spin(right ? -90.0f : 90.0f, OMEGA_SPIN_TURN, 0.0f, ALPHA_SPIN_TURN);
-			motion.move(SENSING_POSITION - HALF_CELL, SEARCH_SPEED, SEARCH_SPEED, SEARCH_ACCELERATION);
+			motion.move(SENSING_POSITION - HALF_CELL, v, v, SEARCH_ACCELERATION);
 			motion.set_position(SENSING_POSITION);
 		} else {
 			// The case under test. On the first turn the wait loop runs; on every
 			// one after it the frame relabel has already put her past the turn
 			// point, so the arc fires immediately. That is the chaining.
-			motion.set_target_velocity(SEARCH_TURN_SPEED);
+			motion.set_target_velocity(v);
 			float turn_point = FULL_CELL + HALF_CELL - (float)p.entry_offset;
 			while (motion.position() < turn_point) { motion.stream_periodic(); }
 			motion.turn(p.angle, p.omega, 0.0f, p.alpha);
@@ -211,13 +239,14 @@ static void act_zigzag_test(void) {
 	// Coast to the centre of the cell she finished in, so the stop is a datum
 	// you can hold a rule against rather than a place she happened to halt.
 	float remaining = (FULL_CELL + HALF_CELL) - motion.position();
-	if (remaining > 0.0f) motion.move(remaining, SEARCH_SPEED, 0.0f, SEARCH_ACCELERATION);
+	if (remaining > 0.0f) motion.move(remaining, v, 0.0f, SEARCH_ACCELERATION);
 	control_run_end();
 
 	// Alternating 90s cancel in pairs, so the net is one turn's worth if the
 	// count is odd and nothing if it is even.
 	int expect = (s_zig_turns & 1) ? (s_zig_right ? -90 : 90) : 0;
-	report_printf("ZIG,done gyro=%d expect=%d err=%d dist=%d\r\n",
+	report_printf("ZIG,done row=%s gyro=%d expect=%d err=%d dist=%d\r\n",
+	              s_zig_row ? "SS90" : "SS90E",
 	              (int)gyro.angle(), expect, (int)gyro.angle() - expect,
 	              (int)odometry.robot_distance());
 }
@@ -1614,13 +1643,16 @@ void app_main()
 					else if (strncmp(bt_line, "ZIG,", 4) == 0) {
 						// Seeded from the live values, so a short command changes only
 						// what it names. Sets up the next run; it does not launch one.
-						float v[3] = { (float)s_zig_turns, (float)s_zig_mode, (float)s_zig_right };
-						tt_parse_floats(bt_line + 4, v, 3);
-						if (v[0] >= 1.0f && v[0] <= 8.0f) s_zig_turns = (int)v[0];
-						s_zig_mode  = (v[1] != 0.0f);
-						s_zig_right = (v[2] != 0.0f);
-						report_printf("ZIG,set turns=%d mode=%s first=%c\r\n", s_zig_turns,
-						              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L');
+						float z[4] = { (float)s_zig_turns, (float)s_zig_mode,
+						               (float)s_zig_right, (float)s_zig_row };
+						tt_parse_floats(bt_line + 4, z, 4);
+						if (z[0] >= 1.0f && z[0] <= 8.0f) s_zig_turns = (int)z[0];
+						s_zig_mode  = (z[1] != 0.0f);
+						s_zig_right = (z[2] != 0.0f);
+						s_zig_row   = (z[3] != 0.0f);
+						report_printf("ZIG,set turns=%d mode=%s first=%c row=%s\r\n", s_zig_turns,
+						              s_zig_mode ? "spin" : "arc", s_zig_right ? 'R' : 'L',
+						              s_zig_row ? "SS90" : "SS90E");
 					}
 					else if (strncmp(bt_line, "GOAL,", 5) == 0) {
 						const char *a = bt_line + 5; const char *cc = strchr(a, ',');

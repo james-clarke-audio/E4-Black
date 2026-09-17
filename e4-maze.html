@@ -335,6 +335,10 @@
           <option value="1">stop-and-spin</option>
         </select>
         <select id="zigFirst"><option value="1">first R</option><option value="0">first L</option></select>
+        <select id="zigRow" title="which turn row: only the speed-run turn has to chain">
+          <option value="1">SS90 (speed run)</option>
+          <option value="0">SS90E (search)</option>
+        </select>
         <button id="zigSet">Set</button>
       </div>
       <div id="routeInfo" style="color:var(--faint);font-size:11px;margin-top:8px"></div>
@@ -959,7 +963,7 @@ document.querySelectorAll('.cmd').forEach(b=>{ b.onclick=()=>sendCmd(b.dataset.c
 // Zigzag bench test. Sets up the next run; the Z button launches it.
 document.getElementById('zigSet').onclick=()=>{
   const t=Math.max(1,Math.min(8,parseInt(document.getElementById('zigTurns').value,10)||3));
-  sendCmd('ZIG,'+t+','+document.getElementById('zigMode').value+','+document.getElementById('zigFirst').value);
+  sendCmd('ZIG,'+t+','+document.getElementById('zigMode').value+','+document.getElementById('zigFirst').value+','+document.getElementById('zigRow').value);
 };
 
 // Gyro-scale calibration. Everything except "Enter cal" only does anything once

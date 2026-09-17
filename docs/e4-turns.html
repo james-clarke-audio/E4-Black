@@ -109,6 +109,41 @@
 
   <p>The other consequence of the radius: for an arc that meets both centrelines cleanly, it has to <b>start about R before the crossing</b>. That is why <code>entry_offset</code> is ~100 for a turn of radius 101 — the two numbers are not independent, and changing &omega; without moving <code>entry_offset</code> will put her through the wall she was turning to avoid.</p>
 
+  <div class="note bad">
+    <b>&ldquo;About R&rdquo; is doing more work in that sentence than it should.</b> <code>R = v/&omega;</code> is the <em>instantaneous</em> radius once she is rotating at full rate, and at neither end of the turn is she: <code>alpha</code> ramps &omega; up and back down. Integrating the actual trapezoidal profile at v&nbsp;300, &omega;&nbsp;170, &alpha;&nbsp;2500 gives <b>111.5&nbsp;mm forward and 111.5&nbsp;mm sideways</b> &mdash; ten more than <code>R</code> suggests. So <code>entry_offset</code> wants setting from the <em>displacement</em> rather than from <code>R</code>: for this row, about 111, not 100.
+  </div>
+
+  <h2 class="sec">A chainable 90 is a 90 mm quarter circle</h2>
+
+  <p>A turn that runs <b>wall midpoint to wall midpoint</b> &mdash; starting where the centreline crosses the wall she enters by, ending where it crosses the wall she leaves by &mdash; is exactly a quarter circle of radius <b>90&nbsp;mm</b>, half a cell. 90 forward, 90 sideways. None of that is tuneable: it is what the cell pitch is.</p>
+
+  <p>It is also the only turn that <b>composes</b>. Because it begins and ends on a cell boundary, on the centreline, the next turn can start exactly where the last one finished. A zigzag becomes arc&ndash;arc&ndash;arc with no straight between, and two 90s in consecutive cells need precisely the 180&nbsp;mm the maze gives them.</p>
+
+  <div class="note">
+    <b>Her tuned turn swings 111.5&nbsp;mm, not 90</b> &mdash; 21.5&nbsp;mm too wide on every turn, so a chained pair needs 223&nbsp;mm and has 180. For an edge-to-edge turn at 300&nbsp;mm/s with &alpha;&nbsp;2500 she wants <b>&omega; &asymp; 226&nbsp;deg/s</b>, which puts the outer wheel at 456&nbsp;mm/s against 417 today: nine percent more, on a controller ceiling of <code>MAX_MOTOR_VOLTS</code> 4.0 from a 9&nbsp;V rail.
+  </div>
+
+  <p><b>Only the speed-run row needs this.</b> <code>SS90E</code> and <code>SS90</code> are separate rows precisely so they can be different turns. Searching, she stops and senses every cell and wall-following re-centres her, so a wide arc costs a little scrub and nothing else &mdash; <code>SS90E</code> is tuned and should stay as it is. <code>SS90</code> is what a fast run strings together, and that is the row that has to fit. <b>Zigzag test</b> drives <code>SS90</code> by default for exactly that reason, with <code>SS90E</code> selectable as a comparison.</p>
+
+  <h2 class="sec">Above about 400 mm/s the wall is &alpha;, not &omega;</h2>
+
+  <p>Raising &omega; buys a tighter turn only while there is room to raise it. With &alpha; finite the two ramps carry her sideways on their own, so there is a <b>minimum swing you cannot get below</b> however hard she rotates:</p>
+
+  <div class="tblwrap">
+  <table>
+    <tr><th>&alpha; (&deg;/s&sup2;)</th><th>300 mm/s</th><th>400</th><th>500</th><th>600</th></tr>
+    <tr><td class="n">2500</td><td class="n">68</td><td class="n"><b>90</b></td><td class="n">113</td><td class="n">136</td></tr>
+    <tr><td class="n">5000</td><td class="n">48</td><td class="n">64</td><td class="n">80</td><td class="n">96</td></tr>
+    <tr><td class="n">10000</td><td class="n">34</td><td class="n">45</td><td class="n">56</td><td class="n">68</td></tr>
+  </table>
+  </div>
+
+  <p class="dimc">Minimum achievable lateral swing, mm, for a 90&deg; turn. 90 is what an edge-to-edge turn needs.</p>
+
+  <div class="note bad">
+    <b>At &alpha; 2500 an edge-to-edge 90 becomes impossible above about 400&nbsp;mm/s.</b> No value of &omega; rescues it &mdash; the ramps have already swung her past the boundary. A speed run at 600&nbsp;mm/s wants <code>SS90</code> nearer &alpha;&nbsp;10000. So the turn table does not merely need tuning, it needs tuning <em>at the speed you intend to run</em>: a row tuned at 300 does not scale.
+  </div>
+
   <h2 class="sec">Why 45 and 135 each appear twice</h2>
 
   <p class="lead">A 45&deg; turn is not one turn. This is the single most important thing in the table.</p>
