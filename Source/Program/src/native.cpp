@@ -10,9 +10,8 @@ static const int HY[4] = { 1,  0, -1,  0 };
 static const int DXd[4] = { 1,  1, -1, -1 };
 static const int DYd[4] = { 1, -1, -1,  1 };
 
-// The two orthogonal headings a diagonal sits between: NE is between N and E.
-static inline Head diag_ccw(Diag d) { return Head(d); }            // NE->N, SE->E, SW->S, NW->W
-static inline Head diag_cw (Diag d) { return Head((d + 1) & 3); }  // NE->E, SE->S, SW->W, NW->N
+// diag_ccw / diag_cw now live in native.h: the route executor needs them too,
+// and two copies of that mapping is exactly how one of them went wrong.
 
 // ---------------------------------------------------------------------------
 // Wall-midpoint numbering. Vertical walls first, then horizontal.

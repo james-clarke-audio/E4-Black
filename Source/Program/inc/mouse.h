@@ -27,7 +27,7 @@
 #include "report.h"          // report_write/printf/pose
 #include "control.h"         // control_run_begin/_end, control_pose_reset, control_pose_*
 #include "timing.h"          // straight_time / turn_time -- the planner's own model
-#include "diagonal.h"        // plan::Route, Robot, DiagTurns, route_times
+#include "native.h"          // plan::Route, Robot, DiagTurns, route_times, diag_ccw/cw
 #include "maze_store.h"     // persist the discovered maze to EEPROM
 
 class Mouse;
@@ -281,7 +281,11 @@ class Mouse {
           break;
         }
         case plan::MV_DS45_L: case plan::MV_DS45_R: {
-          const int nh = (st.move == plan::MV_DS45_L) ? ((dd + 3) & 3) : ((dd + 1) & 3);
+          // NOT (dd + 3) & 3. Leaving a diagonal to the LEFT is +0 across the
+          // Diag -> Head boundary, not +3: those are different enums, offset
+          // by half a turn. See native.h.
+          const int nh = (st.move == plan::MV_DS45_L) ? (int)plan::diag_ccw(plan::Diag(dd))
+                                                      : (int)plan::diag_cw(plan::Diag(dd));
           u += LHX[nh]; v += LHY[nh];
           h = nh; on_diag = false;
           if (!simulate && row >= 0) {
@@ -313,6 +317,16 @@ class Mouse {
     if (!simulate) { motion.reset_drive_system(); control_run_end(); }
     else { control_pose_set(u * HALF_CELL, v * HALF_CELL, deg); control_stream_telemetry(); }
 
+    // Check its own arithmetic before believing it. A route ends at a CELL
+    // CENTRE, which is odd in both half-cell coordinates; anything else means
+    // the walk lost the lattice somewhere and every cell reported since is
+    // fiction. Saying so here is the difference between a bug found in one
+    // line and a bug found by reading two thousand lines of telemetry.
+    const bool on_centre = (u & 1) && (v & 1);
+    if (!on_centre || on_diag) {
+      report_printf("SR,LOST u=%d v=%d diag=%d -- the walk left the lattice\r\n",
+                    u, v, on_diag ? 1 : 0);
+    }
     m_location = Location((uint8_t)((u - 1) / 2), (uint8_t)((v - 1) / 2));
     m_heading  = (Heading)h;
     report_printf("SR,done at (%d,%d) predicted=%dms model=%dms\r\n",

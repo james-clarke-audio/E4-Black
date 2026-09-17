@@ -50,6 +50,19 @@ namespace plan {
 /// Diagonal headings, in the same rotational order as Head.
 enum Diag : uint8_t { NE = 0, SE = 1, SW = 2, NW = 3 };
 
+/// The two orthogonal headings a diagonal sits between: NE is between N and E.
+///
+/// PUBLIC, and used by everything that walks a route, because getting this
+/// wrong is silent. Diag and Head are different enums whose numbering happens
+/// to be offset by half a turn, so the "+3 to go left" trick that works INSIDE
+/// one of them is wrong ACROSS them: leaving a diagonal to the left is +0, and
+/// to the right is +1. Writing (dd + 3) & 3 there compiles, runs, and puts her
+/// on a post -- which is the one lattice point that is never occupied, so
+/// every orthogonal move after it keeps her on the wrong parity for the rest
+/// of the route.
+inline Head diag_ccw(Diag d) { return Head(d); }            // NE->N, SE->E, SW->S, NW->W
+inline Head diag_cw (Diag d) { return Head((d + 1) & 3); }  // NE->E, SE->S, SW->W, NW->N
+
 constexpr int N_CENTRE = W * H * NHEAD * NSPEED;    // 2048
 constexpr int N_VWALL  = (W + 1) * H;               // 272 vertical wall midpoints
 constexpr int N_HWALL  = W * (H + 1);               // 272 horizontal
