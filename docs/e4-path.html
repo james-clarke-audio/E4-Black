@@ -251,6 +251,32 @@ next = behind_from(start_heading);  <i>// then behind</i></pre>
     <b>The one real trap.</b> Everything in <code>search_to</code> re-derives position from the cell it is entering, 170&nbsp;mm at a time, and re-anchors on the walls each cell. A multi-cell straight gives up that re-anchoring for its whole length. At search speed the drift over one cell is nothing; over six cells at run speed it is the whole error budget. That is the reason a speed run is a different problem from a fast search, and not just a bigger number in the config.
   </div>
 
+  <h2 class="sec">How fast may she cross a cell?</h2>
+
+  <p>Searching, she crawled at <code>SEARCH_SPEED</code> from the first cell to the last. That is right for ground she has not seen &mdash; she is reading walls and deciding at every cell &mdash; and it is waste everywhere else. &ldquo;Everywhere else&rdquo; is most of the way home, because the return leg is ground she has just driven.</p>
+
+  <div class="note">
+    <b>But the test is PER CELL, not per leg.</b> The obvious version is to run the whole return leg fast because she has just driven it. That is wrong: the flood picks the best <em>known</em> path home, and known does not mean <em>visited</em>. She will have seen a cell&rsquo;s walls from next door without ever entering it, and those cells are exactly where there is still something to learn. The return leg is an exploring run that happens to be quick in the parts already covered.
+  </div>
+
+  <p><code>cruise_speed()</code> is that rule, in one place, used by the driven search and the simulated one so neither models something the other does not do:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>condition</th><th>speed</th><th></th></tr>
+    <tr><td>cell she is entering is fully visited, <b>and</b> the move out of it is straight</td><td class="v">RUN_SPEED</td><td class="n">nothing to sense, no turn to arrive at too fast</td></tr>
+    <tr><td>anything else</td><td class="v">SEARCH_SPEED</td><td class="n">something to learn, or a turn coming</td></tr>
+  </table>
+  </div>
+
+  <p>The second condition is the one that is easy to forget. There is <b>no room to shed speed</b> between a cell&rsquo;s sensing point and the turn point that follows it, so carrying run speed into a turn means entering it too fast. Checking costs nothing: in visited territory the map is complete, so <code>heading_to_smallest()</code> on the flood she already has is a reliable one-cell look ahead.</p>
+
+  <div class="note">
+    <b>A sloppy read at speed cannot hurt her</b>, and that is what makes this safe rather than merely fast. She still senses and still calls <code>update_map()</code> in a cell crossed at 600&nbsp;mm/s &mdash; but <code>update_wall_state()</code> returns early unless the wall is still <code>UNKNOWN</code>, and <em>fully visited</em> means every wall in that cell has been decided. So a bad reading is <b>discarded by construction</b>, in exactly the cells where the rule permits speed. The one place a wrong wall could be written is a cell with something unknown in it &mdash; and those are the cells she is required to crawl through.
+  </div>
+
+  <p class="dimc">The wall follower stays at search speed throughout, deliberately: <code>cruise_speed()</code> reads the flood to look ahead, and a follower never floods &mdash; it would be reading whatever costs an earlier run left behind.</p>
+
   <h2 class="sec">The wall follower is a different competition</h2>
 
   <p>Keep one hand on the wall and walk. No map, no memory, no flood. It is the oldest maze algorithm there is, and it is easy to file it as a weaker solver kept around for diagnostics &mdash; which is wrong, and was wrong in this repository&rsquo;s own comments until it was corrected.</p>

@@ -128,6 +128,53 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.30 — 17 Sep 2026 · She speeds up through ground she has already covered**
+Watching a simulated explore, she never went any faster in cells she had already
+been through — and she didn't, in either the simulator or the firmware.
+`sim_move_seconds()` used `FULL_CELL / SEARCH_SPEED` for every cell, and
+`search_to()` crawls at `SEARCH_SPEED` from the first cell to the last. The
+simulator was faithfully showing what the firmware does, which is the simulator
+doing its job.
+
+**The test is per cell, not per leg.** The obvious version of this is to run the
+whole return leg fast, on the grounds that she has just driven it. That is
+wrong: the flood picks the best *known* path home and known does not mean
+*visited* — she will have seen a cell's walls from next door without ever
+entering it, and those cells are exactly where there is still something to
+learn. So the return leg becomes an exploring run that happens to be quick in
+the parts already covered.
+
+`cruise_speed()` is that rule, in one place, used by the driven search and the
+simulated one so neither models something the other does not do:
+
+| condition | speed |
+|---|---|
+| the cell she is **entering** is fully visited, **and** the move out of it is straight | `RUN_SPEED` |
+| anything else | `SEARCH_SPEED` |
+
+The second condition is the one that is easy to forget. There is no room to shed
+speed between a cell's sensing point and the turn point after it, so carrying run
+speed into a turn means entering it too fast. Checking costs nothing: in visited
+territory the map is complete, so `heading_to_smallest()` on the flood she
+already has is a reliable one-cell look ahead.
+
+**And a sloppy read at speed cannot hurt her**, which is what makes this safe
+rather than merely fast. She still senses and still calls `update_map()` in a
+cell crossed at 600 mm/s — but `update_wall_state()` refuses to change a wall
+that has already been seen, and *fully visited* means every wall in that cell
+has been. A bad reading is discarded by construction, in exactly the cells where
+the rule allows speed. The only place a wrong wall could be written is a cell
+with something unknown in it, and those are the cells she is required to crawl
+through.
+
+`sim_move_seconds()` now tracks the speed she is **carrying** and costs each move
+with `timing::straight_time` — the planner's own model — so a run of visited
+cells visibly winds up and the cell before a turn visibly sheds it, instead of
+every cell costing a flat 0.6 s.
+
+The wall follower stays at search speed throughout, deliberately: `cruise_speed()`
+reads the flood to look ahead, and a follower never floods.
+
 **0.29 — 17 Sep 2026 · The executor left a diagonal by the wrong side**
 A diagonal speed run finished at **(1,0)** — near the start, nowhere near the
 goal — having walked a staircase west and south with no 45° heading in it, on a
