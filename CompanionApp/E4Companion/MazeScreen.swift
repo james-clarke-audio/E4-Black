@@ -123,6 +123,18 @@ struct MazeScreen: View {
                         .frame(maxWidth: .infinity)
                         .touchTarget()
 
+                    // The two followers belong here rather than only in Actions
+                    // because they draw on the canvas to the left, like the
+                    // other two. Their DRIVEN twins do not: a wall follow is a
+                    // different event from the solver flow this panel is for.
+                    HStack(spacing: 8) {
+                        Button("Sim follow L") { session.send(.action(.simFollowLeft)) }
+                        Button("Sim follow R") { session.send(.action(.simFollowRight)) }
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                    .touchTarget()
+
                     // Playback speed, not mouse speed. She animates at the pace
                     // her motion model says she would really move, which makes a
                     // full explore forty-odd seconds of watching. This shortens
