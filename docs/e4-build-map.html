@@ -192,6 +192,7 @@
 
       <div class="cat">
         <h3>Simulation</h3>
+        <div class="item"><span class="name">Playback speed</span><span class="note">the simulator animates at the speed the motion model predicts, so a simulated run takes as long as it claims to. The reported time is the MODEL&rsquo;S, never the wall clock &mdash; otherwise a slow link would read as a slower mouse. <code style="color:var(--dim);font-family:var(--mono)">SIM,&lt;rate&gt;</code> scales the watching only</span><span class="rt"><span class="keycap">&ndash;</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Simulate route</span><span class="rt"><span class="keycap">u</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Sim explore</span><span class="rt"><span class="keycap">x</span><span class="chip built">Built</span></span></div>
         <div class="item"><span class="name">Recall maze</span><span class="rt"><span class="keycap">m</span><span class="chip built">Built</span></span></div>
@@ -217,7 +218,10 @@
 
       <div class="cat">
         <h3>Wall follower</h3>
-        <div class="item"><span class="name">Wall follower</span><span class="note">left / right hand · integrated-turn option</span><span class="rt"><span class="keycap">w</span><span class="chip stub">Stub</span></span></div>
+        <div class="item"><span class="name">Wall follow L</span><span class="note">its own competition class, not a fallback solver: a follower course is built with a wall connected to the centre, a solver maze with the inside cut off from the outside. Of the 406 files in <code style="color:var(--dim);font-family:var(--mono)">mazefiles/binary</code>, <b>90</b> are follower-solvable &mdash; the <em>same</em> 90 for both hands, because the hand decides the route and not whether the centre is reachable</span><span class="rt"><span class="keycap">w</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Wall follow R</span><span class="note">the other hand. Both map as they go, so a lap leaves those walls in the map</span><span class="rt"><span class="keycap">W</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Sim follow L</span><span class="note">same decision, motors never armed &mdash; run either hand against any maze file with no bench at all</span><span class="rt"><span class="keycap">q</span><span class="chip built">Built</span></span></div>
+        <div class="item"><span class="name">Sim follow R</span><span class="note">pointed at a solver maze, <code style="color:var(--dim);font-family:var(--mono)">WF,gave up</code> is the run passing, not failing</span><span class="rt"><span class="keycap">Q</span><span class="chip built">Built</span></span></div>
       </div>
 
       <div class="cat">
@@ -267,7 +271,7 @@
     <li><div><div class="ot">Diagonal motion</div><div class="od">the other half, and now the harder one &mdash; SD45/DS45/DD90 tuned, and steering that holds a 110&nbsp;mm corridor off intermittent posts rather than a continuous wall</div></div><span class="step-chip">Later</span></li>
     <li><div><div class="ot">Resume &mdash; explore what is left</div><div class="od">she comes home and stops, the tyres get cleaned, she goes back down and a button sends her out again, OLED reading <code style="color:var(--dim);font-family:var(--mono)">Resume, waiting</code>. The new part is a second objective: flood to the nearest <em>unseen</em> cell rather than to the goal, because once a route is known, flooding to the goal just re-drives it. 0.23 already supplies the stopping rule &mdash; keep going until the optimistic route crosses no unseen cell, at which point it is provably the best in the maze. The pick-up penalty was dropped from the competition years ago, so outings cost nothing but wall-clock</div></div><span class="step-chip">Next</span></li>
     <li><div><div class="ot">Speed run</div><div class="od">drive a planned route. The planner and the executor now exist separately; this is the wire between them</div></div><span class="step-chip">Then</span></li>
-    <li><div><div class="ot">Native iPad companion app</div><div class="od">SwiftUI + Core Bluetooth · polished, shareable build — the web app is its prototype &amp; protocol spec (Apple account in hand)</div></div><span class="step-chip">Nice-to-have</span></li>
+    <li><div><div class="ot">Native iPad companion app</div><div class="od">now the primary tool, and the base point for the support apps &mdash; new companion work lands there first and the web app follows. Gained a <b>maze editor</b>: draw a course on the big canvas, save it as text or <code style="color:var(--dim);font-family:var(--mono)">.maz</code>, send it straight to her. Quicker than hunting through 406 files for one that exercises what you are testing, and the only way to get a wall-follower course that is not already in the corpus. SwiftUI + Core Bluetooth · polished, shareable build — the web app is its prototype &amp; protocol spec (Apple account in hand)</div></div><span class="step-chip">Nice-to-have</span></li>
   </ol>
 
   <h2 class="sec">Reference docs</h2>

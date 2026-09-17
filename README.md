@@ -31,6 +31,18 @@ control and calibration. Built for the October 2026 micromouse competition.
 - **Maze persistence** to on-board EEPROM.
 - **Flood-fill search / speed run** from mazerunner-core, with a virtual/real
   sensor switch so the brain can be exercised in simulation.
+- **Time-weighted route planner** — least time rather than fewest cells, with
+  diagonals *searched* rather than substituted, and an optimistic twin of each
+  plan that says how much is still left to find.
+- **Wall follower**, both hands, driven and simulated — its own competition
+  class rather than a fallback solver.
+- **A simulator that runs at the speed the motion model predicts**, so a
+  simulated run takes as long as it claims to and the two numbers can be
+  compared. Playback can be sped up for watching; the reported figure never
+  moves with it.
+- **A maze editor in the companion app** — draw a course on the big canvas,
+  save it as text or `.maz`, and send it straight to her. Quicker than hunting
+  through 406 files for one that exercises the thing you are testing.
 
 ## Hardware
 
@@ -113,6 +125,89 @@ a fix. **1.0.0 is reserved** for the build that goes to the October competition
 Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
+
+**0.27 — 17 Sep 2026 · The followers arm like everything else, and say so**
+Two bugs, both from 0.25. `follow_to()` **did not wait** — every other action
+that turns a wheel calls `sensors.wait_for_user_start()` before it moves, and
+the driven wall follower went straight from a tap in the app to driving. It arms
+now, and so does the simulated twin, so both halves of the pair behave the same
+way and neither teaches a habit the other punishes.
+
+The four followers were also missing from `waitsForButtonPress`, which is why
+pressing one in the app looked like nothing happening: she printed
+`armed: press a button to launch` and blocked, correctly, and the app had no way
+to tell a deliberate pause from a dropped command. Both apps now put that
+message in front of you rather than leaving it as one line among hundreds, and
+the **Actions** screen gets the same armed banner the maze screen already had —
+it had been showing `Running:` for an action doing nothing of the sort.
+
+**0.26 — 17 Sep 2026 · The simulator runs at the speed the model predicts**
+`sim_step` animated eight frames of thirty milliseconds whatever the move, so a
+cell crossing, a 90 and a dead-end reversal all took 240 ms and the simulator
+told you nothing about time. It takes a **duration** now and the frames follow
+from it, and that duration comes from `timing.h` — the planner's own model, not
+a second one written for the animation, so the two cannot drift into different
+opinions about the same mouse.
+
+| move | cost |
+|---|---|
+| `AHEAD` | one cell at search speed |
+| 90 | an **arc**: she rotates *while* she travels, so it is whichever of the two takes longer, not the sum |
+| `BACK` | the one move that does not overlap — `turn_back()` stops dead, spins on the spot and moves off again, so that one adds up |
+
+Getting the 90 wrong the other way is how a simulator flatters a route full of
+corners; getting `BACK` wrong is how it flatters one full of dead ends.
+
+The reported time is now the **modelled** clock, not `HAL_GetTick()`. The two
+agree to within the odd frame, which is exactly why the wall clock must not be
+the one reported — a slow link or a stalled frame would read as a slower mouse,
+and the figure would stop being a property of the route. Real search runs are
+untouched; there the wall clock *is* the truth.
+
+Two details decide whether it is honest. The frame deadline **absorbs** transmit
+time rather than adding to it (a `POS` and `TEL` pair is about 56 bytes, roughly
+10 ms of wire at 57600, so delaying a full frame on top would run every run a
+third slow). And `SIM_RATE` — `SIM,<rate>` over BT, a picker in both apps —
+scales the *watching* only, because a real-time explore is forty-odd seconds and
+nobody should sit through that twice, but the number she reports must not move
+when you skip ahead.
+
+**0.25 — 17 Sep 2026 · The wall follower, both hands, driven and simulated**
+`follow_to()` had been sitting in `mouse.h` implementing a left-hand follower the
+whole time, with `act_wall_follow` still an `act_todo` stub, so nothing could
+reach it. It takes a hand now:
+
+    20  Wall follow L   w        32  Wall follow R   W
+    33  Sim follow L    q        34  Sim follow R    Q
+
+Four entries rather than one action with a hand setting, because the hand *is*
+the experiment — left and right walk different halves of a course. The
+simulated pair animate the same decision with the motors never armed, so both
+hands can be run against any maze file with no bench at all.
+
+**A wall follower is its own competition class, not a weaker solver.** A
+follower course is built with a wall connected all the way to the centre, so a
+follower always arrives — that is the point of the event. A maze-solver maze is
+built the other way round, with the inside deliberately disconnected from the
+outside, so a follower can never reach the middle of one however long it walks.
+Same code, two events.
+
+So `FOLLOW_STEP_LIMIT` (512, four times the cells in the arena) is not a guard
+against a weak algorithm — on its own course it never trips. It exists because
+this code gets pointed at a solver maze in the simulator, where **not arriving
+is the correct answer**, and the only wrong behaviour would be walking for ever
+while that is true. Giving up reports `WF,gave up after N cells (left hand)`.
+
+Of the **406** files in `mazefiles/binary`, **90 are follower-solvable and 316
+are not** — and it is the *same* 90 for both hands, with not one maze yielding
+to one hand and not the other. That is structural rather than luck: the hand
+decides which route she walks, not whether the centre is reachable. If the
+centre's walls are connected to the perimeter, both hands are walking the same
+wall component; if it is an island, neither can. Five of the 90 are built for
+the class explicitly — `uk2010follower`, `uk2011follower-final`,
+`tic05followersheats`, `robotic-2011-follower-heats`, `-finals` — and 33 are
+competition mazes including `japan1991`, `uk2003q` and `uk2009f`. `test3.maz`
+arrives in 14 cells if you only want a smoke test.
 
 **0.23 — 16 Sep 2026 · How much of the route is still guesswork**
 "Have I explored enough?" had no answer but a feeling. It has one now, and it is

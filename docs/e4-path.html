@@ -251,11 +251,41 @@ next = behind_from(start_heading);  <i>// then behind</i></pre>
     <b>The one real trap.</b> Everything in <code>search_to</code> re-derives position from the cell it is entering, 170&nbsp;mm at a time, and re-anchors on the walls each cell. A multi-cell straight gives up that re-anchoring for its whole length. At search speed the drift over one cell is nothing; over six cells at run speed it is the whole error budget. That is the reason a speed run is a different problem from a fast search, and not just a bigger number in the config.
   </div>
 
+  <h2 class="sec">The wall follower is a different competition</h2>
+
+  <p>Keep one hand on the wall and walk. No map, no memory, no flood. It is the oldest maze algorithm there is, and it is easy to file it as a weaker solver kept around for diagnostics &mdash; which is wrong, and was wrong in this repository&rsquo;s own comments until it was corrected.</p>
+
+  <div class="note">
+    <b>A wall-follower course is built with a wall connected all the way to the centre</b>, so a follower always arrives. That is the point of the event. <b>A maze-solver maze is built the other way round</b>, with the inside deliberately disconnected from the outside, so a follower can never reach the middle of one however long it walks. Same code, two events.
+  </div>
+
+  <p>Which makes the numbers worth having. Running a follower over every file in <code>mazefiles/binary</code>:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>outcome</th><th>files</th><th></th></tr>
+    <tr><td>left hand reaches the centre</td><td class="v">90</td><td class="n">of 406</td></tr>
+    <tr><td>right hand reaches it</td><td class="v">90</td><td class="n">of 406</td></tr>
+    <tr><td>both</td><td class="v">90</td><td class="n">every one that either hand solves</td></tr>
+    <tr><td>neither</td><td class="v">316</td><td class="n">the centre is an island</td></tr>
+  </table>
+  </div>
+
+  <p><b>The same 90 for both hands</b>, with not one maze yielding to one hand and not the other. That is structural rather than luck: the hand decides which <em>route</em> she walks, not whether the centre is reachable at all. If the centre&rsquo;s walls are connected to the perimeter, both hands are walking the same wall component and both get there; if it is an island, neither can.</p>
+
+  <p>Five of the 90 are built for the class explicitly &mdash; <code>uk2010follower</code>, <code>uk2011follower-final</code>, <code>tic05followersheats</code>, <code>robotic-2011-follower-heats</code> and <code>-finals</code> &mdash; and 33 are competition mazes, including <code>japan1991</code>, <code>uk2003q</code> and <code>uk2009f</code>. <code>test3.maz</code> arrives in 14 cells, which makes it the fastest smoke test in the corpus.</p>
+
+  <div class="note">
+    <b><code>FOLLOW_STEP_LIMIT</code> is not a guard against a weak algorithm.</b> On its own course it never trips. It exists because the same code gets pointed at a solver maze in the simulator, where <em>not arriving is the correct answer</em> &mdash; and the only wrong behaviour would be walking for ever while that answer is true. 512 cells, four times the arena, then <code>WF,gave up after N cells</code>.
+  </div>
+
+  <p>She maps while she follows, so even a lap that never finds a centre leaves those walls in the map. <b>Sim follow L</b> and <b>Sim follow R</b> animate the same decision with the motors never armed, which is how either hand can be run against any maze file with no bench at all &mdash; and the companion app&rsquo;s maze editor is how you get a follower course that is not already in the corpus.</p>
+
   <h2 class="sec">Deliberately absent</h2>
 
   <ul class="tight">
     <li><b>Diagonals.</b> <code>Heading</code> has exactly four values and the flood is four-connected. Upstream's comments flag this as the thing to expand for diagonals, and warn that the cost calculations need care if you do.</li>
-    <li><b>Any improvement pass.</b> She searches out and back once. Upstream notes a better searcher would keep going until a route computed over <em>all</em> cells passes through no unvisited ones — i.e. until it can prove it has the best route, not merely a route.</li>
+    <li><b>Any improvement pass.</b> She searches out and back once, and nothing sends her back out. The <em>measurement</em> now exists &mdash; 0.23&rsquo;s optimistic plan says how much is still to find and which unseen cells lie on the best possible line, which is the proof upstream describes &mdash; but the mode that acts on it does not. What is missing is a second objective: flood to the nearest useful unseen cell rather than to the goal, because once a route is known, flooding to the goal just re-drives it. See <a href="e4-planner.html">Ch&nbsp;12</a>.</li>
     <li><b>Front-wall correction.</b> <code>adjustPosition()</code> is <code>return;</code> and <code>stopAtCentre()</code> always coasts to the profiled distance. Both are waiting on the analog front sensor.</li>
     <li><b>Sensor-triggered turn entry.</b> <code>turn_smooth</code> can start its curve early on a front-sensor reading, but <code>TURN_THRESHOLD_SS90E</code> is set to 1&nbsp;000&nbsp;000 so it never fires. Turns are started purely on distance until the sensors are real.</li>
   </ul>
