@@ -78,7 +78,7 @@ Full pin map, sensor geometry and housing detail are in the reference manual
 The **E4 Reference Manual** lives in [`docs/`](docs/index.html) — open
 `docs/index.html`. Eleven chapters: overview, architecture & pin map, sensor
 aim, sensor geometry, sensor housing, the firmware/menu map, position integrity
-("Staying Located"), a design note for the next board (STM32G431), how she
+("Staying Located"), a design note for the next board (STM32G474), how she
 chooses her path, the turn table, and the sensor carrier.
 
 ## Repository layout
