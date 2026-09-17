@@ -281,17 +281,22 @@ class Mouse {
 
   //---- a simple left-wall follower that knows where it is -------------------
   //---- wall follower -------------------------------------------------------
-  // Keep one hand on the wall and walk. It is the oldest maze algorithm there
-  // is, it needs no map and no memory, and on a competition maze it usually
-  // FAILS -- the centre is deliberately an island, joined to nothing the
-  // followed hand can reach, so she circles the outside forever. That is not a
-  // bug to fix, it is what the maze is for, and the guard below reports it
-  // honestly rather than looping until the battery dies.
+  // Keep one hand on the wall and walk. No map, no memory, no flood.
   //
-  // It still earns its place: it is the simplest thing that exercises sensing,
-  // deciding and driving end to end, so if the wheels and the walls disagree it
-  // shows here with no solver in the way. She also MAPS as she goes, so a lap
-  // of the outside is not wasted -- those walls are in the map afterwards.
+  // This is NOT a fallback solver, it is an entrant in a DIFFERENT EVENT.
+  // Wall-follower courses are built with a wall connected all the way to the
+  // centre, so a follower always arrives -- that is the point of the class.
+  // Maze-solver mazes are built the other way round, with the outside
+  // deliberately disconnected from the inside, so a follower can never reach
+  // the middle of one however long it walks.
+  //
+  // So the step limit below is not there because the algorithm is weak. It is
+  // there because this same code will be pointed at a solver maze in the sim,
+  // where not arriving is the CORRECT answer and the only wrong behaviour
+  // would be walking for ever while it is true.
+  //
+  // She also MAPS as she follows, so even a lap that never finds a centre
+  // leaves those walls in the map.
   void follow_to(Location target, bool right_hand) {
     m_handStart = true;
     m_location = START;

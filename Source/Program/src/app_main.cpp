@@ -1253,14 +1253,18 @@ static void act_threshold_cal(void) {
 
 // --- Wall follower: one hand on the wall, no map needed to decide ----------
 //
-// Four entries rather than one action with a hand setting, because the hand IS
-// the experiment: left and right explore different halves of a maze and one
-// often reaches a goal the other cannot. Having to configure a setting between
-// two runs you want to compare back to back is friction with no payoff.
+// Its own competition class, not a weaker solver. A wall-follower course is
+// built with a wall connected to the centre, so a follower always arrives; a
+// maze-solver maze is built with the inside cut off from the outside, so one
+// never can. Pointing this at a solver maze and watching it not arrive is a
+// demonstration of the maze, not of the code.
 //
-// She maps as she goes either way, so even a lap that never finds the centre
-// leaves those walls in the map -- which is the reason a follower is still
-// worth having when the flood is what actually solves it.
+// Four entries rather than one action with a hand setting, because the hand IS
+// the experiment: left and right walk different halves of a course and the two
+// rarely take the same line. Having to change a setting between two runs you
+// want to compare back to back is friction with no payoff.
+//
+// She maps as she goes either way, so a lap leaves those walls in the map.
 static void act_wall_follow_l(void) {
 	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
 	report_write("wall follow (left hand) armed: press a button to launch\r\n");

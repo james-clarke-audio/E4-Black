@@ -35,10 +35,14 @@ const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smoo
 
 // --- Wall follower ---------------------------------------------------------
 // How many cells before she admits the hand she is following does not reach
-// the goal. On a competition maze that is the NORMAL outcome, not a failure:
-// the centre is deliberately an island, so a follower circles the outside for
-// ever. 512 is four times the cells in the arena -- comfortably more than any
-// honest route, and short enough that giving up is quicker than watching.
+// the goal.
+//
+// On a WALL-FOLLOWER course this never trips: those courses are built with a
+// wall connected to the centre, so the hand always gets there. On a MAZE-
+// SOLVER maze it always trips, because those are built with the inside
+// disconnected from the outside on purpose. Same code, two events, and the
+// limit is what lets the second one end in a sentence instead of a walk that
+// never finishes. 512 is four times the cells in the arena.
 const int FOLLOW_STEP_LIMIT = 512;
 
 // --- Fast-run speeds (mm/s, mm/s/s) ---------------------------------------
