@@ -153,6 +153,45 @@ class Mouse {
     motion.set_position(SENSING_POSITION + params.exit_offset);
   }
 
+  //---- how fast may she cross the cell she is entering? --------------------
+  //
+  // Searching, she crawls at SEARCH_SPEED because she is reading walls and
+  // deciding at every cell. That is right for ground she has not seen. It is
+  // waste everywhere else -- and "everywhere else" is most of the way home,
+  // because the return leg is ground she has just driven.
+  //
+  // But the test is PER CELL, not per leg. The flood picks the best KNOWN path
+  // home, and known does not mean visited: she will have seen a cell's walls
+  // from next door without ever entering it. Run fast through one of those and
+  // she is guessing at the very moment there was something to learn. So the
+  // return leg is an exploring run that happens to be quick in the parts she
+  // has already covered, which is also the answer for the Resume transit and
+  // for backtracking out of a dead end.
+  //
+  // TWO conditions, and the second is the one that is easy to forget. The cell
+  // she is ENTERING must be fully visited, so there is nothing to sense there.
+  // And the move OUT of it must be straight as well -- because there is no room
+  // to shed speed between a cell's sensing point and the turn point that
+  // follows it, so carrying run speed into a turn means entering it too fast.
+  // Checking that costs nothing: in visited territory the map is complete, so
+  // heading_to_smallest() on the flood she already has is a reliable look ahead.
+  //
+  // AND THE SLOPPY READ CANNOT HURT HER, which is the part that makes this safe
+  // rather than merely fast. She still senses and still calls update_map() in a
+  // cell she crosses at speed -- but update_wall_state() refuses to change a
+  // wall that has already been seen, and "fully visited" means every wall in
+  // that cell has. So a bad reading taken at 600 mm/s is discarded by
+  // construction, in exactly the cells where the rule allows 600 mm/s. The one
+  // place a wrong wall could be written is a cell with something still unknown
+  // in it, and those are the cells she is required to crawl through.
+  float cruise_speed(Heading move_dir) {
+    Location next = m_location.neighbour(move_dir);
+    if (!next.is_in_maze()) return SEARCH_SPEED;
+    if (!maze.cell_is_visited(next)) return SEARCH_SPEED;   // something to learn there
+    if (maze.heading_to_smallest(next, move_dir) != move_dir) return SEARCH_SPEED;  // a turn follows
+    return RUN_SPEED;
+  }
+
   //---- execute a planned route ---------------------------------------------
   //
   // The planner says what to do; this does it. One walk serves both the real
@@ -445,8 +484,16 @@ class Mouse {
         unsigned char newHeading = maze.heading_to_smallest(m_location, m_heading);
         if (newHeading == BLOCKED) { report_write("ERR: no route to target\r\n"); panic(); return; }
         unsigned char hdgChange = (newHeading - m_heading) & 0x3;
+        // Fast through ground she has already covered, search speed through
+        // anything with something left to learn -- and back to search speed
+        // before a turn, because there is no room to shed speed between a
+        // cell's sensing point and the turn point after it. turn_smooth() sets
+        // its own speed, so only the straight case needs saying.
         switch (hdgChange) {
-          case AHEAD: move_ahead(); break;
+          case AHEAD:
+            motion.set_target_velocity(cruise_speed((Heading)newHeading));
+            move_ahead();
+            break;
           case RIGHT: turn_right(); break;
           case BACK:  turn_back();  break;
           case LEFT:  turn_left();  break;
@@ -604,15 +651,43 @@ class Mouse {
   // turn_back() stops dead, spins on the spot and moves off again -- so that
   // one adds up. Getting this wrong in the other direction is how a sim ends
   // up flattering a route full of dead ends.
-  float sim_move_seconds(int hdg_change) const {
-    const float straight = FULL_CELL / SEARCH_SPEED;
-    if (hdg_change == AHEAD) return straight;
+  // How long the move she is about to animate would actually take, from the
+  // speed she is CARRYING to the speed this move allows.
+  //
+  // It tracks a speed now rather than assuming SEARCH_SPEED everywhere, so a
+  // run of visited cells visibly winds up and the cell before a turn visibly
+  // sheds it. The arithmetic is timing::straight_time -- the planner's own --
+  // so the explore and the speed run are costed by one model, not two.
+  //
+  // A 90 is an ARC: she rotates while she travels, so it is whichever of the
+  // two takes longer, not the sum. BACK is the one move that does not overlap,
+  // because turn_back() stops dead, spins on the spot and moves off again.
+  float sim_move_seconds(int hdg_change, float allowed) {
+    timing::MotionModel m;
+    m.v_max = RUN_SPEED;
+    m.accel = RUN_ACCELERATION;
+    m.decel = RUN_ACCELERATION;
+
     if (hdg_change == BACK) {
-      return straight + timing::spin_time(180.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN);
+      const float t = timing::straight_time(m, FULL_CELL, m_sim_v, 0.0f);
+      m_sim_v = SEARCH_SPEED;
+      return (t >= timing::INF_TIME ? FULL_CELL / SEARCH_SPEED : t)
+             + timing::spin_time(180.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN);
     }
+
+    if (hdg_change == AHEAD) {
+      const float t = timing::straight_time(m, FULL_CELL, m_sim_v, allowed);
+      m_sim_v = allowed;
+      return (t >= timing::INF_TIME) ? FULL_CELL / SEARCH_SPEED : t;
+    }
+
     const TurnParameters &p = turn_params[(hdg_change == RIGHT) ? SS90ER : SS90EL];
+    const float turn_v = (p.speed > 0) ? (float)p.speed : SEARCH_TURN_SPEED;
+    float t = timing::straight_time(m, FULL_CELL, m_sim_v, turn_v);
+    if (t >= timing::INF_TIME) t = FULL_CELL / SEARCH_SPEED;
+    m_sim_v = turn_v;
     const float arc = timing::turn_time(90.0f, p.omega, p.alpha);
-    return (arc > straight) ? arc : straight;
+    return (arc > t) ? arc : t;
   }
 
   // One animated move, taking as long on screen as it would on the floor.
@@ -684,9 +759,10 @@ class Mouse {
       if (switches.button_pressed()) break;
       Heading nh = maze.heading_to_smallest(m_location, m_heading);
       if (nh == BLOCKED) { report_write("ERR: no route to target\r\n"); break; }
+      const float allowed = cruise_speed(nh);
       Location next = m_location.neighbour(nh);
       sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh),
-               sim_move_seconds(((int)nh - (int)m_heading) & 3));
+               sim_move_seconds(((int)nh - (int)m_heading) & 3, allowed));
       m_location = next;
       m_heading = nh;
       sensors.update(m_location, m_heading);
@@ -722,9 +798,13 @@ class Mouse {
         else if (!sensors.see_right_wall) nh = right_from(m_heading);
         else                              nh = behind_from(m_heading);
       }
+      // Search speed throughout, deliberately. cruise_speed() reads the flood
+      // to look one cell ahead, and a follower never floods -- it would be
+      // reading whatever costs some earlier run happened to leave behind. A
+      // follower has no route to be ahead of anyway.
       Location next = m_location.neighbour(nh);
       sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh),
-               sim_move_seconds(((int)nh - (int)m_heading) & 3));
+               sim_move_seconds(((int)nh - (int)m_heading) & 3, SEARCH_SPEED));
       m_location = next;
       m_heading = nh;
       sensors.update(m_location, m_heading);
@@ -756,7 +836,7 @@ class Mouse {
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
-    m_sim_seconds = 0.0f;
+    m_sim_seconds = 0.0f; m_sim_v = SEARCH_SPEED;
     sim_follow_to(maze.goal(), right_hand);
     report_write("STATE,IDLE\r\n");
   }
@@ -777,7 +857,7 @@ class Mouse {
     // frame -- which is exactly why the wall clock must not be the one
     // reported: a slow link or a stalled frame would then read as a slower
     // mouse, and the figure would stop being a property of the route.
-    m_sim_seconds = 0.0f;
+    m_sim_seconds = 0.0f; m_sim_v = SEARCH_SPEED;
     sim_search_to(maze.goal());
     report_solution((uint32_t)(m_sim_seconds * 1000.0f));
     report_write("STATE,IDLE\r\n");
@@ -797,7 +877,7 @@ class Mouse {
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
-    m_sim_seconds = 0.0f;                     // modelled seconds, not wall clock
+    m_sim_seconds = 0.0f; m_sim_v = SEARCH_SPEED;   // modelled seconds, not wall clock
     sim_search_to(maze.goal());
     report_write("STATE,RETURN\r\n");
     sim_search_to(START);
@@ -930,6 +1010,11 @@ class Mouse {
   // wall clock, so a slow link or a dropped frame shows up as a stutter on
   // screen and never as a slower mouse.
   float m_sim_seconds = 0.0f;
+
+  // The speed she is carrying through a simulated run. Tracked rather than
+  // assumed, so a run of visited cells winds up and the cell before a turn
+  // sheds it, exactly as the real profile would.
+  float m_sim_v = SEARCH_SPEED;
 
   // Per-step durations for the route being executed, filled by route_times().
   float m_run_s[plan::MAX_STEPS];
