@@ -65,6 +65,15 @@ public enum E4Command: Sendable, Equatable {
     /// Pick which turn the tuner's ARC edits.
     case selectTurn(Int)
 
+    /// `SIM,<rate>` — how fast to WATCH a simulated run. The simulator animates
+    /// at the speed the motion model says she would really move, so a full
+    /// explore is forty-odd seconds; this shortens the sitting and never the
+    /// reported time, which comes from the model rather than the clock.
+    case simRate(Double)
+
+    /// Ask what the playback rate is.
+    case readSimRate
+
     /// `ZIG,<turns>,<mode>,<first>,<row>` — set up the chained-turn test. It
     /// only configures; the test is launched by the menu action. `row` picks
     /// SS90 (the speed-run turn, the only one that has to chain) or SS90E.
@@ -118,6 +127,10 @@ public enum E4Command: Sendable, Equatable {
             return "CFG?\n"
         case .selectTurn(let index):
             return "SEL,\(index)\n"
+        case .simRate(let rate):
+            return "SIM,\(String(format: "%.2f", rate))\n"
+        case .readSimRate:
+            return "SIM?\n"
         case .zigzagSetup(let turns, let spin, let first, let row):
             return "ZIG,\(turns),\(spin ? 1 : 0),\(first ? 1 : 0),\(row ? 1 : 0)\n"
         case .mazeClear:

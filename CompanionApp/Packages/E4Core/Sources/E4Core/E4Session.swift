@@ -63,6 +63,9 @@ public final class E4Session {
 
     /// The chained-turn bench test, rebuilt from her own ZIG lines.
     public private(set) var zigzag = E4ZigzagState()
+
+    /// Simulator playback rate, as she reports it.
+    public private(set) var simRate: Double = 1.0
     public private(set) var lastGyroCal: E4GyroCalReport?
 
     /// Everything the threshold-calibration routine has said this session.
@@ -307,6 +310,9 @@ public final class E4Session {
             default:
                 break
             }
+
+        case .simRate(let rate):
+            simRate = rate
 
         case .zigzagSetup(let setup, let started):
             zigzag.setup = setup

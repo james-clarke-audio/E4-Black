@@ -123,7 +123,26 @@ struct MazeScreen: View {
                         .frame(maxWidth: .infinity)
                         .touchTarget()
 
-                    Text("Solves the maze she is holding, wheels never turning — send a file above first, or she will simulate whatever ground truth she already has.")
+                    // Playback speed, not mouse speed. She animates at the pace
+                    // her motion model says she would really move, which makes a
+                    // full explore forty-odd seconds of watching. This shortens
+                    // the sitting; the time she reports is the model's either way.
+                    HStack(spacing: 8) {
+                        Text("watch").font(.caption).foregroundStyle(Palette.faint)
+                        Picker("", selection: Binding(
+                            get: { session.simRate },
+                            set: { session.send(.simRate($0)) }
+                        )) {
+                            Text("1×").tag(1.0)
+                            Text("2×").tag(2.0)
+                            Text("5×").tag(5.0)
+                            Text("10×").tag(10.0)
+                        }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                    }
+
+                    Text("Solves the maze she is holding, wheels never turning — send a file above first, or she will simulate whatever ground truth she already has. She moves at the speed the motion model predicts, so the run takes as long as it says it does.")
                         .font(.caption)
                         .foregroundStyle(Palette.faint)
 

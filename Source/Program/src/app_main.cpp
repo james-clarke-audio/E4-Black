@@ -1676,6 +1676,25 @@ void app_main()
 							report_write("SPD,rejected (v 100..3000, a 100..32000, diag 100..3000)\r\n");
 						}
 					}
+					else if (strncmp(bt_line, "SIM?", 4) == 0) {
+						report_printf("SIM,rate=%d.%02d\r\n", (int)SIM_RATE,
+						              (int)((SIM_RATE - (float)(int)SIM_RATE) * 100.0f));
+					}
+					else if (strncmp(bt_line, "SIM,", 4) == 0) {
+						// How fast to WATCH, and nothing else. The simulator animates at
+						// the speed the motion model says she would move, so a real
+						// explore is 40-odd seconds of watching; this shortens the
+						// sitting, never the reported time, which comes from the model.
+						float v[1] = { SIM_RATE };
+						if (tt_parse_floats(bt_line + 4, v, 1) == 1 &&
+						    v[0] >= 0.25f && v[0] <= 20.0f) {
+							SIM_RATE = v[0];
+							report_printf("SIM,rate=%d.%02d\r\n", (int)SIM_RATE,
+							              (int)((SIM_RATE - (float)(int)SIM_RATE) * 100.0f));
+						} else {
+							report_write("SIM,rejected (rate 0.25..20)\r\n");
+						}
+					}
 					else if (strncmp(bt_line, "ZIG,", 4) == 0) {
 						// Seeded from the live values, so a short command changes only
 						// what it names. Sets up the next run; it does not launch one.

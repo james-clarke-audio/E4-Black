@@ -328,6 +328,11 @@
         <button class="cmd" data-cmd="Z">Zigzag test</button>
       </div>
       <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap;align-items:center">
+        <span style="color:var(--faint);font-size:11px">watch</span>
+        <select id="simRate" title="simulator playback speed — the reported time is the model's either way">
+          <option value="1.00">1x</option><option value="2.00">2x</option>
+          <option value="5.00">5x</option><option value="10.00">10x</option>
+        </select>
         <span style="color:var(--faint);font-size:11px">zigzag</span>
         <input type="number" id="zigTurns" min="1" max="8" value="3" style="width:52px" title="how many alternating 90s">
         <select id="zigMode" title="what to drive them as">
@@ -599,6 +604,10 @@ function parseLine(line){
     // Wall follower. "gave up" is the NORMAL ending on a competition maze --
     // the centre is deliberately an island the followed hand cannot reach --
     // so it is reported, not treated as a fault.
+    // Playback rate, not mouse speed: she animates at the pace the motion model
+    // predicts, and this only changes how long you sit through it.
+    case 'SIM': { const m=/rate=([\d.]+)/.exec(raw); const el=document.getElementById('simRate');
+      if(m&&el) el.value=(+m[1]).toFixed(2); break; }
     case 'WF': { const el=document.getElementById('solveInfo');
       if(el) el.textContent=p.slice(1).join(',').trim(); break; }
     case 'SOLVE': state.solution=[]; break;
@@ -966,6 +975,7 @@ async function sendCmd(s){
 document.querySelectorAll('.cmd').forEach(b=>{ b.onclick=()=>sendCmd(b.dataset.cmd); });
 
 // Zigzag bench test. Sets up the next run; the Z button launches it.
+document.getElementById('simRate').onchange=e=>sendCmd('SIM,'+e.target.value);
 document.getElementById('zigSet').onclick=()=>{
   const t=Math.max(1,Math.min(8,parseInt(document.getElementById('zigTurns').value,10)||3));
   sendCmd('ZIG,'+t+','+document.getElementById('zigMode').value+','+document.getElementById('zigFirst').value+','+document.getElementById('zigRow').value);

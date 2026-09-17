@@ -88,6 +88,11 @@ public enum E4Message: Sendable, Equatable {
     /// The end of the run, with the heading error and the distance covered.
     case zigzagDone(E4ZigzagResult)
 
+    /// Simulator playback rate. Affects watching only — a simulated run's
+    /// reported time comes from the motion model, not from how fast it was
+    /// played back.
+    case simRate(Double)
+
     /// `RST` — clear the maze model.
     case resetMaze
 

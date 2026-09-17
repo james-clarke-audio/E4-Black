@@ -33,6 +33,14 @@ const float SEARCH_SPEED        = 300.0f;
 const float SEARCH_ACCELERATION = 2000.0f;
 const float SEARCH_TURN_SPEED   = 300.0f;   // forward speed held through a smooth turn
 
+// --- Simulator playback ----------------------------------------------------
+// The simulator animates at the speed the motion model says she would really
+// move, so what you watch is the prediction rather than a fixed frame count.
+// SIM_RATE only scales the WATCHING: 2 makes it twice as quick to sit through,
+// and the reported time is unaffected, because that comes from the model and
+// not from the clock on the wall.
+extern float SIM_RATE;
+
 // --- Wall follower ---------------------------------------------------------
 // How many cells before she admits the hand she is following does not reach
 // the goal.

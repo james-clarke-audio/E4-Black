@@ -26,6 +26,7 @@
 #include "robot_switches.h"  // switches
 #include "report.h"          // report_write/printf/pose
 #include "control.h"         // control_run_begin/_end, control_pose_reset, control_pose_*
+#include "timing.h"          // straight_time / turn_time -- the planner's own model
 #include "maze_store.h"     // persist the discovered maze to EEPROM
 
 class Mouse;
@@ -406,17 +407,56 @@ class Mouse {
   static float heading_deg(Heading h) {
     switch (h) { case EAST: return -90.0f; case SOUTH: return 180.0f; case WEST: return 90.0f; default: return 0.0f; }
   }
-  void sim_step(Location a, Location b, float da, float db) {
+  // How long the move she is about to animate would actually take.
+  //
+  // AHEAD is one cell at search speed. A 90 is an ARC: she rotates while she
+  // travels, so the two overlap and the cost is whichever of them takes
+  // longer, not the sum. BACK is the one move that does NOT overlap, because
+  // turn_back() stops dead, spins on the spot and moves off again -- so that
+  // one adds up. Getting this wrong in the other direction is how a sim ends
+  // up flattering a route full of dead ends.
+  float sim_move_seconds(int hdg_change) const {
+    const float straight = FULL_CELL / SEARCH_SPEED;
+    if (hdg_change == AHEAD) return straight;
+    if (hdg_change == BACK) {
+      return straight + timing::spin_time(180.0f, OMEGA_SPIN_TURN, ALPHA_SPIN_TURN);
+    }
+    const TurnParameters &p = turn_params[(hdg_change == RIGHT) ? SS90ER : SS90EL];
+    const float arc = timing::turn_time(90.0f, p.omega, p.alpha);
+    return (arc > straight) ? arc : straight;
+  }
+
+  // One animated move, taking as long on screen as it would on the floor.
+  //
+  // Frames follow the DURATION rather than a fixed count, so a six-cell
+  // straight takes six times the frames of one cell and a dead-end reversal
+  // visibly costs what it costs. The frame deadline ABSORBS the time spent
+  // transmitting -- a POS and a TEL pair is about 56 bytes, roughly 10 ms of
+  // wire at 57600 -- because adding the link's latency on top of the frame
+  // would make every sim run a third slower than the model it is showing, and
+  // the whole point is that the two agree.
+  static const uint32_t SIM_FRAME_MS = 30;
+
+  void sim_step(Location a, Location b, float da, float db, float seconds) {
     float ax = a.x * FULL_CELL + HALF_CELL, ay = a.y * FULL_CELL + HALF_CELL;
     float bx = b.x * FULL_CELL + HALF_CELL, by = b.y * FULL_CELL + HALF_CELL;
     float dd = db - da; while (dd > 180.0f) dd -= 360.0f; while (dd < -180.0f) dd += 360.0f;
-    const int NS = 8;
+
+    m_sim_seconds += seconds;            // the modelled clock, not the wall one
+
+    const float rate = (SIM_RATE > 0.05f) ? SIM_RATE : 1.0f;
+    int NS = (int)((seconds * 1000.0f / rate) / (float)SIM_FRAME_MS + 0.5f);
+    if (NS < 1) NS = 1;
+    if (NS > 240) NS = 240;              // nothing legitimate is 7 s in one cell
+
+    uint32_t due = HAL_GetTick();
     for (int i = 1; i <= NS; i++) {
       if (switches.button_pressed()) return;
       float t = (float)i / NS;
       control_pose_set(ax + (bx - ax) * t, ay + (by - ay) * t, da + dd * t);
       control_stream_telemetry();
-      HAL_Delay(30);
+      due += SIM_FRAME_MS;
+      while ((int32_t)(HAL_GetTick() - due) < 0) { }
     }
   }
   // sim: flood/decide/animate to `target`, mapping + asserting the centre room.
@@ -432,7 +472,8 @@ class Mouse {
       Heading nh = maze.heading_to_smallest(m_location, m_heading);
       if (nh == BLOCKED) { report_write("ERR: no route to target\r\n"); break; }
       Location next = m_location.neighbour(nh);
-      sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh));
+      sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh),
+               sim_move_seconds(((int)nh - (int)m_heading) & 3));
       m_location = next;
       m_heading = nh;
       sensors.update(m_location, m_heading);
@@ -469,7 +510,8 @@ class Mouse {
         else                              nh = behind_from(m_heading);
       }
       Location next = m_location.neighbour(nh);
-      sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh));
+      sim_step(m_location, next, heading_deg(m_heading), heading_deg(nh),
+               sim_move_seconds(((int)nh - (int)m_heading) & 3));
       m_location = next;
       m_heading = nh;
       sensors.update(m_location, m_heading);
@@ -483,8 +525,9 @@ class Mouse {
       report_printf("WF,gave up after %d cells (%s hand)\r\n", steps,
                     right_hand ? "right" : "left");
     }
-    report_printf("WF,done %s hand at (%d,%d) %d cells\r\n",
-                  right_hand ? "right" : "left", m_location.x, m_location.y, steps);
+    report_printf("WF,done %s hand at (%d,%d) %d cells %dms\r\n",
+                  right_hand ? "right" : "left", m_location.x, m_location.y,
+                  steps, (int)(m_sim_seconds * 1000.0f));
   }
 
   // sim: wall follow from the start cell to the goal, with the map redrawn.
@@ -500,6 +543,7 @@ class Mouse {
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
+    m_sim_seconds = 0.0f;
     sim_follow_to(maze.goal(), right_hand);
     report_write("STATE,IDLE\r\n");
   }
@@ -516,9 +560,13 @@ class Mouse {
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
-    uint32_t t0 = HAL_GetTick();
+    // The MODELLED clock, not HAL_GetTick(). They now agree to within the odd
+    // frame -- which is exactly why the wall clock must not be the one
+    // reported: a slow link or a stalled frame would then read as a slower
+    // mouse, and the figure would stop being a property of the route.
+    m_sim_seconds = 0.0f;
     sim_search_to(maze.goal());
-    report_solution(HAL_GetTick() - t0);
+    report_solution((uint32_t)(m_sim_seconds * 1000.0f));
     report_write("STATE,IDLE\r\n");
   }
 
@@ -536,11 +584,11 @@ class Mouse {
     report_printf("GOAL,%d,%d\r\n", maze.goal().x, maze.goal().y);
     report_known_map();          // the perimeter, before she has seen a thing
     report_write("STATE,SIM\r\n");
-    uint32_t t0 = HAL_GetTick();
+    m_sim_seconds = 0.0f;                     // modelled seconds, not wall clock
     sim_search_to(maze.goal());
     report_write("STATE,RETURN\r\n");
     sim_search_to(START);
-    report_best_route(HAL_GetTick() - t0);
+    report_best_route((uint32_t)(m_sim_seconds * 1000.0f));
     report_write(maze_store_save() ? "ACT,saved\r\n" : "ACT,save-fail\r\n");  // persist (real EEPROM, no motors needed)
     report_write("STATE,IDLE\r\n");
   }
@@ -664,6 +712,11 @@ class Mouse {
   Location m_location;
   bool m_handStart = false;
   bool m_goalRoomAsserted = false;
+
+  // Seconds of MODELLED time in the current simulated run. Reported instead of
+  // wall clock, so a slow link or a dropped frame shows up as a stutter on
+  // screen and never as a slower mouse.
+  float m_sim_seconds = 0.0f;
 };
 
 #endif  // MOUSE_H

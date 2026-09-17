@@ -193,6 +193,17 @@ final class E4MenuActionRouteTests: XCTestCase {
         }
     }
 
+    // MARK: - simulator playback
+
+    func testSimRateDecodesAndEncodes() {
+        guard case .simRate(let r) = E4MessageDecoder.decode("SIM,rate=2.00") else {
+            return XCTFail("SIM did not decode")
+        }
+        XCTAssertEqual(r, 2.0, accuracy: 0.001)
+        XCTAssertEqual(E4Command.simRate(5).line, "SIM,5.00\n")
+        XCTAssertEqual(E4Command.readSimRate.line, "SIM?\n")
+    }
+
     // MARK: - the wall follower
 
     func testWallFollowActionsMatchTheFirmwareTable() {

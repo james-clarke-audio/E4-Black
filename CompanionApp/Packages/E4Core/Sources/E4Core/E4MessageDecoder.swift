@@ -133,6 +133,11 @@ public enum E4MessageDecoder {
                 return .threshold(report)
             }
 
+        case "SIM":
+            let kv = keyValues(in: String(raw.dropFirst(min(4, raw.count))))
+            guard let rate = kv["rate"].flatMap(Double.init) else { break }
+            return .simRate(rate)
+
         case "ZIG":
             // Not CSV: "ZIG,start turns=3 mode=arc first=R row=SS90 v=300".
             // The leading word says which line it is, the rest is key=value.

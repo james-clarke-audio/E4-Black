@@ -20,6 +20,9 @@ float RUN_SPEED       = 600.0f;    // mm/s along a straight
 float RUN_ACCELERATION = 2000.0f;  // mm/s/s, same as the search until measured
 float RUN_DIAG_SPEED  = 300.0f;    // mm/s along a diagonal -- the narrow corridor
 
+// Simulator playback rate. 1 = real time.
+float SIM_RATE = 1.0f;
+
 TurnParameters turn_params[TURN_COUNT] = {
     // speed, entry, exit, lead_out, angle, omega, alpha, trigger
     //
