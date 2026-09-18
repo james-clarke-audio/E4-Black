@@ -88,12 +88,13 @@ chooses her path, the turn table, and the sensor carrier.
 | Path | What it is |
 |------|-----------|
 | `Source/` | STM32CubeIDE firmware project (Core / Drivers / Modules / Program). |
-| `e4-maze.html` | Web Bluetooth companion app (single file) — the competition tool. |
-| `CompanionApp/` | Native SwiftUI companion (macOS/iPad) + the `E4Core` package. |
+| `CompanionApp/` | Native SwiftUI companion (macOS/iPad) + the `E4Core` package — **the tool she is driven from**. |
+| `e4-maze.html` | Web Bluetooth companion app (single file); follows the Swift app rather than leading it. |
 | `docs/` | The reference manual (`index.html` + chapters). |
 | `3D Files/` | Sensor housings, wheels, mounts, and the sensor socket plate (STL, print notes, and the parametric source that generates and verifies it). |
 | `tools/planner-bench/` | Native build of the route planner, for scoring routes against the maze files without a robot. |
-| `mazefiles/` | 408 real competition mazes, binary and text. |
+| `tools/bench-mazes/` | Finds and writes the per-turn tuning rigs, and checks the shipped files by planning them. |
+| `mazefiles/` | 408 real competition mazes, binary and text, plus `bench/` — twelve single-corridor tuning rigs. |
 | `E4-cell-alignment-A4.pdf` | 1:1 print jig for squaring a test cell. |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the fuller layout and workflow.
@@ -127,6 +128,90 @@ a fix. **1.0.0 is reserved** for the build that goes to the October competition
 Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
+
+**0.33 — 18 Sep 2026 · The approach is part of the turn**
+A tuning run is *drive to the turn, make it, drive out* — and the first of those
+three was the one the tuner could not be asked for. `ARC`'s fifth field writes
+`entry_offset`, and `run_arc_from_table()` passed `entry_offset` straight in as
+the lead-in, so the arc always began that many millimetres after she started
+moving. Fine for "does this arc look right"; useless for "does she come out of
+it in the lane", which is the only question a bench answers.
+
+The approach is now counted in cells and the millimetres derived:
+
+| entered from | lead-in |
+|---|---|
+| a straight | `BACK_WALL_TO_CENTER + cells × FULL_CELL − entry_offset` |
+| the diagonal | `cells × DIAG_PITCH − entry_offset` |
+
+`DS45`, `DS135` and `DD90` begin **on** the diagonal, where the pitch is 127.279
+and there is no back wall to square up on — she is placed on the line by hand.
+Which case applies follows from the row rather than from a switch someone has to
+remember: a turn that leaves the diagonal is a turn that was already on it.
+`POS,<cells>` sets it, `TUNE,pos=,lead=,pitch=` reports what she will actually
+drive *before* anything moves, and `TURNRES` carries the row and the lead so a
+log line three runs back still means something.
+
+**The card does the arithmetic before she does.** `R = v / ω`, and an arc joining
+two lanes that cross at θ is tangent to both only at `R·tan(θ/2)` either side of
+the crossing. That is a fact about circles, not about this mouse:
+
+| row | ω | R at 300 | tangent | `entry_offset` | |
+|---|---|---|---|---|---|
+| SS90E | 170 | 101 | 101 | 100 | agrees |
+| DD90 | 273 | 63 | 63 | 63 | agrees |
+| **SD45 / DS45** | **95** | **181** | **75** | **120** | **does not** |
+
+The 45 rows do not agree with themselves, and the same 120 sits in the planner
+as `sd45_offset` / `ds45_offset`, so both move together. The Tuning screen shows
+the gap and offers the tangent; the floor decides which of the two numbers was
+wrong, but it cannot until they agree.
+
+One number says it best: a diagonal step is 127.3 mm and `ds45_offset` is 120 of
+it, so on `bench-3x3-45min` the DS45 gets **seven millimetres** of approach
+before the arc starts. At the tangent value it gets 52. That is why the planner
+abandons that geometry and drives `ARC_R, SPIN_L` instead.
+
+*Alongside:* `06fc12d` and `fa6d585` — `mazefiles/bench/`, twelve single-corridor
+tuning rigs, and `tools/bench-mazes/` which found them by enumerating every
+corridor that fits in a section and asking the real planner what each one
+produces. Two results fell out of that search. A 3×3 entered at (0,0) facing
+north can only turn right first, because the west perimeter is beside her —
+`SD45_L` is unreachable there without a spin. And **(2,0) facing north is the
+mirror image of (0,0) facing north**, so once the start pose is allowed to move,
+every left-hand rig is the x-mirror of its right-hand twin, walk for walk.
+
+**0.32 — 18 Sep 2026 · She can finish by turning into the goal**
+Every goal test in `plan_native()` sat inside the cell-expansion loop, which
+advances a cell *before* it looks. So a route that **arrives** at the goal by
+turning into it was never recognised as finished: she drove past and came back,
+or took a longer way round that happened to approach along a straight.
+
+The node's own cell is now tested before the loop, with `best_cells = 0` and
+`best_t = 0` because the turn that brought her there is already paid for in
+`key`. `step_time()` returns `0.0f` for a zero-cell goal step rather than asking
+`straight_time()` for a negative distance — the clock stops on *entering* the
+goal, and what is left of that cell afterwards is not on it.
+
+On Boston the last vertices went from `DS45_L (17,18) → (17,17) → GOAL (17,15)`
+to `… → GOAL (17,17)`. Swept over the whole 394-maze corpus: **72 faster, 320
+unchanged, 2 slower, 0 invalid**, mean 32.864 → 32.761 s. Best: japan1997f
+−3.460 s, uk1992q −2.698 s, boston −1.544 s.
+
+The two slower ones are not a regression in the fix. `key_of()` quantises time
+to centiseconds — that is what makes Dial's bucket queue O(E) — so routes tying
+on the quantised key can differ by up to ~10 ms a step, and ≤0.13 s over twenty
+steps is inside one bucket width. Recorded here so nobody hunts it later.
+
+**0.31 — 18 Sep 2026 · No toy maze at boot, and the editor can undo**
+The boot scaffold seeded a two-cell maze with the goal at (1,1). It made a whole
+class of mistake invisible: a Plan route run with **no maze sent** looked
+entirely successful, because there really was a maze and she really did solve
+it. She now boots with `maze.h`'s own `m_goal{7, 7}` and an open arena as ground
+truth, so a run with nothing sent looks like what it is.
+
+The companion app's maze editor grows undo — `history: [E4MazeFile]` with
+`canUndo` / `undo()`, and ⌘Z on the canvas.
 
 **0.30 — 17 Sep 2026 · She speeds up through ground she has already covered**
 Watching a simulated explore, she never went any faster in cells she had already

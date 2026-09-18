@@ -400,6 +400,29 @@ RU,&lt;x&gt;,&lt;y&gt;  &hellip;  RUE,&lt;total&gt;        the union &mdash; and
     <b>The simulated turn is a simplification, and it is named in the code rather than hidden.</b> Position advances during the run and heading rotates at the vertex, so on screen an arc looks like a spin. The <em>time</em> is right either way, and the route line shows the true path &mdash; but do not read the animation as evidence about arc geometry. <b>Zigzag test</b> is what answers that.
   </div>
 
+  <h2 class="sec">Arriving by turning into it</h2>
+
+  <p>Every goal test in <code>plan_native()</code> lived inside the cell-expansion loop &mdash; the <code>for (int n = 1; &hellip;)</code> that walks forward cell by cell from a node. That loop advances a cell <i>before</i> it looks. So a route that <b>arrives</b> at the goal by turning into it was never recognised as finished: the turn put her in the goal cell, the loop stepped past it, and the search went looking for another way in. She drove through and came back, or took a longer way round that happened to approach along a straight.</p>
+
+  <p>The node&rsquo;s own cell is now tested before the loop runs, with <code>best_cells = 0</code> and <code>best_t = 0</code> &mdash; the turn that brought her there is already paid for in <code>key</code>, and charging for it twice would be the same error in the other direction. <code>step_time()</code> returns <code>0.0f</code> for a zero-cell goal step rather than asking <code>straight_time()</code> for a negative distance: <b>the clock stops on entering the goal</b>, and whatever is left of that cell afterwards is not on it.</p>
+
+  <p>On <code>boston.maz</code> the last vertices went from <code>DS45_L (17,18) &rarr; (17,17) &rarr; GOAL (17,15)</code> to <code>&hellip; &rarr; GOAL (17,17)</code>. Swept over the whole corpus:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>394 mazes</th><th>faster</th><th>same</th><th>slower</th><th>invalid</th><th>mean</th></tr>
+    <tr><td class="v">offset 60, v<sub>max</sub> 300</td><td class="t">72</td><td class="t">320</td><td class="t">2</td><td class="t">0</td><td class="t">32.864 &rarr; 32.761&nbsp;s</td></tr>
+  </table>
+  </div>
+
+  <p>Best: japan1997f &minus;3.460&nbsp;s, uk1992q &minus;2.698&nbsp;s, boston &minus;1.544&nbsp;s.</p>
+
+  <div class="note">
+    <b>The two slower mazes are not a regression in the fix.</b> <code>key_of()</code> quantises time to centiseconds &mdash; that is what makes Dial&rsquo;s bucket queue O(E) in the first place &mdash; so two routes tying on the quantised key can differ by up to about 10&nbsp;ms per step when <code>route_time()</code> recomputes them exactly. ijcp02 (+0.128&nbsp;s) and japan-2016-ef (+0.111&nbsp;s) are twenty-odd steps of that, which is inside one bucket width. Written down here so nobody hunts it later.
+  </div>
+
+  <p class="dimc"><code>sd45_offset</code> and <code>ds45_offset</code> default to 120&nbsp;mm, the same figure as the turn table&rsquo;s <code>entry_offset</code> on the 45 rows &mdash; and <a href="e4-turns.html">Ch&nbsp;10</a> shows that figure disagrees with the &omega; beside it. The two move together, so whatever the bench decides about one decides the other.</p>
+
   <h2 class="sec">What this does not settle</h2>
 
   <ul class="tight">

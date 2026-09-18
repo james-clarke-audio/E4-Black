@@ -309,21 +309,74 @@
 
   <pre><i>at the bench, over Bluetooth:</i>
 SEL,1                          <i>pick SS90ER</i>
+POS,2                          <i>two cells of approach before the turn's own cell</i>
 ARC,300,-90,170,2500,100,90    <i>run it</i>
-   <i>…measure on the floor…</i>
+   <i>&hellip;measure on the floor&hellip;</i>
 ARC,300,-90,185,2500,100,90    <i>tighter radius</i>
 OUT,30                         <i>the search-only frame relabel</i>
 S                              <i>save to EEPROM when happy</i></pre>
 
-  <p class="dimc">Because <code>ARC</code> writes the live row, the search picks the change up immediately — there is nothing to copy across afterwards. <code>SEL,0</code>–<code>SEL,15</code> reaches every turn in the table, including the ones nothing drives yet.</p>
+  <p class="dimc">Because <code>ARC</code> writes the live row, the search picks the change up immediately &mdash; there is nothing to copy across afterwards. <code>SEL,0</code>&ndash;<code>SEL,15</code> reaches every turn in the table, including the ones nothing drives yet. The app's Tuning screen sends exactly these lines.</p>
+
+  <h2 class="sec">The approach is part of the turn</h2>
+
+  <p>Until 0.33 the tuner could not be asked for one. <code>ARC</code>'s fifth field writes <code>entry_offset</code>, and the run passed <code>entry_offset</code> straight in as the lead-in &mdash; so the arc always began that many millimetres after she started moving. That is enough to answer <i>does this arc look right</i>. It is no use at all for <i>does she come out of it in the lane</i>, which is the only question a bench can settle.</p>
+
+  <p><code>POS,&lt;cells&gt;</code> counts the approach in cells and lets her derive the millimetres:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>entered from</th><th>lead-in</th></tr>
+    <tr><td class="v">a straight</td><td class="t"><code>BACK_WALL_TO_CENTER + cells &times; FULL_CELL &minus; entry_offset</code></td></tr>
+    <tr><td class="v">the diagonal</td><td class="t"><code>cells &times; DIAG_PITCH &minus; entry_offset</code></td></tr>
+  </table>
+  </div>
+
+  <p><code>DS45</code>, <code>DS135</code> and <code>DD90</code> begin <b>on</b> the diagonal. The pitch there is 127.279 mm, not 180, and there is no back wall to square up on &mdash; she is placed on the line by hand. Which case applies follows from the row rather than from a switch someone has to remember to set: <b>a turn that leaves the diagonal is a turn that was already on it.</b></p>
+
+  <p>The point of deriving it is that the approach then <i>follows</i> <code>entry_offset</code> instead of being re-typed after every change to it, which is where the arithmetic errors come from. She reports <code>TUNE,pos=,lead=,pitch=</code> so what she will drive is visible before anything moves, and <code>TURNRES</code> now carries the row and the lead &mdash; three runs back you will not remember which row was selected.</p>
+
+  <h2 class="sec">The arithmetic before the floor</h2>
+
+  <p>An arc of radius <i>R</i> joining two lanes that cross at angle &theta; is tangent to both only if it begins <code>R&middot;tan(&theta;/2)</code> before the crossing and ends the same distance after. That is a fact about circles. Combined with <code>R = v / &omega;</code> from earlier in this chapter, every row in the table makes a claim that can be checked without moving:</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>row</th><th>&omega;</th><th>R at 300</th><th>tangent</th><th><code>entry_offset</code></th><th></th></tr>
+    <tr><td class="v">SS90E</td><td class="t">170</td><td class="t">101</td><td class="t">101</td><td class="t">100</td><td class="t">agrees</td></tr>
+    <tr><td class="v">DD90</td><td class="t">273</td><td class="t">63</td><td class="t">63</td><td class="t">63</td><td class="t">agrees</td></tr>
+    <tr><td class="v"><b>SD45 / DS45</b></td><td class="t"><b>95</b></td><td class="t"><b>181</b></td><td class="t"><b>75</b></td><td class="t"><b>120</b></td><td class="t"><b>does not</b></td></tr>
+  </table>
+  </div>
+
+  <div class="note">
+    <b>The 45 rows do not agree with themselves.</b> At &omega; 95 the radius is 181 mm and the tangent is 75, against a stored offset of 120. One of those two numbers is wrong, and the floor cannot tell you which until they agree &mdash; an arc that is not tangent to either lane misses both, and every measurement you take is measuring that instead of the thing you changed.
+  </div>
+
+  <p>The same 120 sits in the planner as <code>sd45_offset</code> and <code>ds45_offset</code> (<a href="e4-planner.html">Ch. 10</a>), so the two move together. And one number makes the consequence concrete: a diagonal step is 127.279 mm, of which <code>ds45_offset</code> is 120 &mdash; so a <code>DS45</code> entered one step after an <code>SD45</code> has <b>seven millimetres</b> of approach before its arc starts. At the tangent value it has 52. Below 63.6 mm each, both tangents fit inside one step; above it, that geometry does not exist and the planner is right to refuse it.</p>
+
+  <h2 class="sec">Rigs, one per turn</h2>
+
+  <p>A turn buried in the middle of a competition maze cannot be profiled: by the time she reaches it she is carrying whatever error the turns before it left behind. So each turn gets a maze of its own, small enough to build out of one 3&times;3 bench section &mdash; <code>mazefiles/bench/</code>, twelve of them, each a <b>single corridor</b> so there is exactly one route through it and nothing else to watch.</p>
+
+  <p>The corridors were not chosen by eye. <code>tools/bench-mazes/bench.cpp</code> enumerates every single-corridor maze that fits in a section from every start pose it allows &mdash; 644 in a 3&times;3 &mdash; plans each with the real planner, and reports which rig shows each turn best. Two results came out of that:</p>
+
+  <ul class="tight">
+    <li><b>The competition corner can only turn right.</b> At (0,0) facing north the west perimeter is beside her, so her first turn in a 3&times;3 is a right whatever the walls say &mdash; and <code>SD45_L</code> is not reachable there at all without a spin in the route.</li>
+    <li><b>(2,0) facing north is the mirror image of (0,0) facing north</b>, and mirroring is exactly what swaps left for right. These are tuning rigs, not competition runs, so she is placed by hand &mdash; and once the start pose is allowed to move, every left-hand rig is the x-mirror of its right-hand twin, walk for walk, identical to the millisecond in the model.</li>
+  </ul>
+
+  <p class="dimc"><code>tools/bench-mazes/checktxt</code> reads the shipped ASCII back &mdash; walls, goal and all &mdash; and <b>derives the start pose from the file itself</b>: a single corridor has two ends, one is the goal, and the other is where she gets put down, heading along its one opening. So the pose is verified rather than trusted.</p>
 
   <h2 class="sec">What has to exist before the diagonals do</h2>
 
+  <p>This list was written when none of it existed. Three of the four have since landed, and the original shape is worth keeping so the one that has not is not quietly forgotten.</p>
+
   <ul class="tight">
-    <li><b>An expanded heading set.</b> <code>Heading</code> is four cardinal values and the flood is four-connected. Diagonals need eight, and upstream's own comment warns the cost calculations need care when you widen it.</li>
-    <li><b>The path generator.</b> <a href="e4-path.html">Ch. 9</a> — the cell list that <code>report_best_route()</code> already produces, run-length-encoded into straights and turns, with the turn choice picking rows from this table.</li>
-    <li><b>Multi-cell straights.</b> The motion layer executes one cell at a time; a diagonal run is a long straight at speed, which is a different problem and the one that gives up the per-cell re-anchoring.</li>
-    <li><b>Working side sensors.</b> Diagonal running has no walls either side at the usual distance, so the centring reference changes entirely. Nothing here matters until the thresholds in <a href="e4-build-map.html">Ch. 6</a> are real.</li>
+    <li><b>An expanded heading set.</b> <span class="chip built">done</span> Not by widening <code>Heading</code>, which stayed four cardinal values. <code>native.cpp</code> carries a second enum, <code>Diag</code>, over a half-cell lattice — and the two being <i>different enums offset by half a turn</i> is exactly what broke the executor in 0.29. They now meet in one place, <code>diag_ccw()</code> / <code>diag_cw()</code> in <code>native.h</code>.</li>
+    <li><b>The path generator.</b> <span class="chip built">done</span> <a href="e4-path.html">Ch. 9</a> and <a href="e4-planner.html">Ch. 10</a>. Dial's over the lattice, emitting the move vocabulary directly rather than run-length-encoding a cell list after the fact.</li>
+    <li><b>Multi-cell straights.</b> <span class="chip built">done</span> <code>run_route()</code> drives straights of any length, and gave up the per-cell re-anchoring to do it — which is what makes the last item the one that now matters.</li>
+    <li><b>Working side sensors.</b> <span class="chip plan">still open</span> The only thing left in the way. Diagonal running has no walls either side at the usual distance, so the centring reference changes entirely. Nothing above is worth trusting at speed until the thresholds in <a href="e4-build-map.html">Ch. 6</a> are real.</li>
   </ul>
 
   <footer>
