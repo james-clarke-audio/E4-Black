@@ -230,36 +230,60 @@ def page_turn(c, s):
         c.setDash([])
 
     # --- the mouse, oriented -----------------------------------------------
-    # CHASSIS BACK-TO-AXLE IS 35 mm -- config.c sets POSE_START_Y from it, and
-    # the comment there calls the axle line what it is: the centre of rotation.
-    # odometry.cpp derives deg_per_mm from MOUSE_RADIUS (30.6, half the 61.2 mm
-    # track), so both the distance she measures and the rotation she makes are
-    # referenced to the midpoint of that line. The arc of radius R is the path
-    # of THAT POINT. The body drawn round it is indicative; the line is not.
+    # HER REAL OUTLINE, not a blob. The chassis board IS the mouse: Ch 11 has
+    # the grippers at x = 1.0 and 76.0 and the wheel wells stepping in to
+    # x = 11.46 and 65.54 between y = 14.5 and 54.5, so the board is 77 wide and
+    # 54.1 across the wells; Ch 4's plan view draws the body 76 x 100 with a
+    # semicircular nose of radius 38 from y = 62. config.c puts the axle 35 mm
+    # forward of the back edge and MOUSE_RADIUS 30.6 gives a 61.2 mm track.
+    #
+    # The axle line is the whole point of drawing her at all: odometry measures
+    # along its midpoint and the rotation is about it, so the arc of radius R is
+    # the path of THAT POINT. Everything else here is context.
+    BODY_W, BODY_L = 76.0, 100.0
     BACK_TO_AXLE = 35.0
-    bw, bl = 76.0, 92.0
+    NOSE_R, NOSE_Y = 38.0, 62.0
+    WELL_X, WELL_Y0, WELL_Y1 = 27.0, 14.5, 54.5      # half-width across the wells
+    TRACK = 61.2
+
     mhx, mhy = s.get("mouse_heading", s["heading"])
     c.saveState()
     c.translate(X(dx0) * mm, Y(dy0) * mm)
     c.rotate(math.degrees(math.atan2(mhy, mhx)) - 90.0)
+    k = scale * mm
+
+    def P(bx, by):                       # board coords -> local, in points
+        return ((bx - BODY_W / 2) * k, (by - BACK_TO_AXLE) * k)
+
+    p = c.beginPath()
+    p.moveTo(*P(0, 0))
+    p.lineTo(*P(0, WELL_Y0))
+    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y0))
+    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y1))
+    p.lineTo(*P(0, WELL_Y1))
+    p.lineTo(*P(0, NOSE_Y))
+    for i in range(1, 37):               # the nose, a semicircle of r = 38
+        a = math.pi - i * math.pi / 36.0
+        p.lineTo(*P(BODY_W / 2 + NOSE_R * math.cos(a), NOSE_Y + NOSE_R * math.sin(a)))
+    p.lineTo(*P(BODY_W, WELL_Y1))
+    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y1))
+    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y0))
+    p.lineTo(*P(BODY_W, WELL_Y0))
+    p.lineTo(*P(BODY_W, 0))
+    p.close()
     c.setStrokeColor(MOUSE); c.setLineWidth(1.0)
     c.setFillColor(colors.HexColor("#dfeade"))
-    c.roundRect((-bw / 2) * scale * mm, (-BACK_TO_AXLE) * scale * mm,
-                bw * scale * mm, bl * scale * mm, 2.2 * mm, stroke=1, fill=1)
-    c.setFillColor(MOUSE)
-    p = c.beginPath()
-    p.moveTo(0, (bl - BACK_TO_AXLE + 10) * scale * mm)
-    p.lineTo(-8 * scale * mm, (bl - BACK_TO_AXLE + 1) * scale * mm)
-    p.lineTo(8 * scale * mm, (bl - BACK_TO_AXLE + 1) * scale * mm)
-    p.close()
-    c.drawPath(p, stroke=0, fill=1)
+    c.drawPath(p, stroke=1, fill=1)
+
+    # the axle line, drawn as the datum it is
     c.setStrokeColor(MOUSE); c.setLineWidth(1.3)
-    c.line((-bw / 2 - 11) * scale * mm, 0, (bw / 2 + 11) * scale * mm, 0)
+    c.line(-(BODY_W / 2 + 11) * k, 0, (BODY_W / 2 + 11) * k, 0)
     for e in (-1, 1):
-        c.line(e * (bw / 2 + 11) * scale * mm, -3 * scale * mm,
-               e * (bw / 2 + 11) * scale * mm, 3 * scale * mm)
+        c.line(e * (BODY_W / 2 + 11) * k, -3 * k, e * (BODY_W / 2 + 11) * k, 3 * k)
+        c.setFillColor(MOUSE)                      # wheel centres, 61.2 apart
+        c.circle(e * (TRACK / 2) * k, 0, 1.4 * k, stroke=0, fill=1)
     c.setFillColor(MOUSE)
-    c.circle(0, 0, 1.1 * mm, stroke=0, fill=1)
+    c.circle(0, 0, 1.2 * mm, stroke=0, fill=1)
     c.restoreState()
 
     # --- the crossing ------------------------------------------------------
@@ -430,7 +454,8 @@ def ss90(row, hand):
         ],
         "miss_anchor": "l" if r else "r", "miss_dx": 3 if r else -3,
         "read": [
-            "1   Back her against the wall, facing north. 2   The two lanes cross at the CELL CENTRE for a 90 — no half cell here.",
+            "1   Back her against the wall, facing north. The marked line across her is the AXLE LINE \u2014 her centre of rotation, and the point every distance on this page is measured from.",
+            "2   The two lanes cross AT the cell centre for a 90, so there is no half cell to add here \u2014 the tangent is the whole offset.",
             "3   Coming out she should be on the blue line and square to it. Measure the wall gap either side; they should match.",
         ],
     }
