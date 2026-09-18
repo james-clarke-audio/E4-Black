@@ -129,6 +129,53 @@ Each entry names the firmware commit; companion-app and docs commits that
 landed alongside are listed after it, since the two move together. Newest
 first.
 
+**0.34 — 18 Sep 2026 · The post loop**
+From an old lab note of James's: drive into a cell, then round a post
+continuously, watch the centre drift and adjust α. It is a better rig than the
+zigzag, and one line of geometry says why.
+
+**Four chained same-hand 90s of radius 90 *are* a circle centred on a post.**
+She comes up the lane at x = 90 turning right; the arc centre sits 90 mm to her
+right, which is the post. After the quarter she is heading east and her right is
+now south — the same point. Every quarter shares a centre, so the four are one
+circle, 565.5 mm round.
+
+Which pins ω: `R = v/ω`, so R = 90 at 300 mm/s needs **191 °/s** — the figure
+`SS180` already holds, because its lateral step of 2R is also one cell. And it
+reconciles the two numbers in Ch 10: **226 is the figure for a turn driven on
+its own**, where ω ramps to zero at the end and the trapezoid swings wider than
+the ideal circle. Driven continuously there are no ramps between the quarters,
+so the ideal `R = v/ω` applies and 191 is simply right. Two manoeuvres, two
+answers, and the loop is the one that matches what a chained turn has to be.
+
+**It separates ω from α.** Over a closed lap the four local frames sit at 0°,
+90°, 180° and 270°, so any consistent per-turn displacement error sums to zero —
+radius, offsets, tangential lag alike. Heading does not: the frames precess, the
+lap stops closing, and the centre walks by about `2.83·|d|·ε`.
+
+| error per turn | drift per lap | after 8 laps |
+|---|---|---|
+| 0.1° | 0.6 mm | 5 mm |
+| 1.0° | 6.3 mm | 50 mm |
+
+So ω sets the *size* of the circle and α sets the *drift* of its centre. It is
+also the honest gyro-scale test — at running speed with the wheels rolling
+rather than scrubbing in place — and the two causes separate, since scale error
+is speed-independent while α's grows with ω. Odometry gives the radius back for
+nothing: arc distance over 2π·laps, reported as `R_meas` beside the 90 it wants.
+
+`Post loop` (Calibration, or BT `A`), set up by `LOOP,laps,ω,α,hand,speed`. It
+is its own menu action rather than another use of `ARC` because **1440° is not a
+turn** and writing it into a row would ruin the row.
+
+*Alongside:* page 15 of `E4-bench-diagnostics-A4.pdf` draws the rig — a 2×2
+block with the middle post free-standing, the 90 mm circle to mark round it, the
+tangent run-in, and what a degree per turn looks like after one, four and eight
+laps. Her outline on every page is now the real one: the chassis board is 77
+wide with wheel wells stepping in to 11.46/65.54, 100 long with a semicircular
+nose of radius 38, and the axle 35 mm from the back — all of it already written
+down in Ch 11, Ch 4 and `config.c`.
+
 **0.33 — 18 Sep 2026 · The approach is part of the turn**
 A tuning run is *drive to the turn, make it, drive out* — and the first of those
 three was the one the tuner could not be asked for. `ARC`'s fifth field writes

@@ -125,6 +125,34 @@
 
   <p><b>Only the speed-run row needs this.</b> <code>SS90E</code> and <code>SS90</code> are separate rows precisely so they can be different turns. Searching, she stops and senses every cell and wall-following re-centres her, so a wide arc costs a little scrub and nothing else &mdash; <code>SS90E</code> is tuned and should stay as it is. <code>SS90</code> is what a fast run strings together, and that is the row that has to fit. <b>Zigzag test</b> drives <code>SS90</code> by default for exactly that reason, with <code>SS90E</code> selectable as a comparison.</p>
 
+  <h2 class="sec">The post loop settles &omega; without the ramps</h2>
+
+  <p>From an old lab note: drive into a cell, then round a post continuously, watch the centre drift and adjust &alpha;. It is a better rig than the zigzag, and the reason is one line of geometry.</p>
+
+  <p><b>Four chained same-hand 90s of radius 90 ARE a circle centred on a post.</b> She comes up the lane at x&nbsp;=&nbsp;90 turning right; the arc centre sits 90&nbsp;mm to her right, which is the post. After the quarter she is heading east and her right is now south &mdash; the same point. Every quarter shares a centre, so the four of them are one circle, 565.5&nbsp;mm round.</p>
+
+  <p>Which pins &omega; exactly: <code>R = v/&omega;</code>, so R&nbsp;=&nbsp;90 at 300&nbsp;mm/s needs <b>&omega;&nbsp;=&nbsp;191&nbsp;deg/s</b>. That is the figure <code>SS180</code> already holds, for the same reason &mdash; its lateral step of 2R also has to be one cell.</p>
+
+  <div class="note">
+    <b>191 and 226 are not a contradiction.</b> The 226 above is the figure for a turn driven <em>on its own</em>, where &omega; ramps to zero at the end and the trapezoid swings wider than the ideal circle. Driven <em>continuously</em> there are no ramps between the quarters, so the ideal <code>R = v/&omega;</code> applies and 191 is simply right. The two numbers describe two different manoeuvres, and the post loop is the one that matches what a chained turn actually has to be.
+  </div>
+
+  <p><b>And it separates &omega; from &alpha; cleanly.</b> Over a closed lap the four local frames sit at 0, 90, 180 and 270 degrees, so any <em>consistent</em> per-turn displacement error sums to zero &mdash; radius, offsets, tangential lag, all of it cancels. Heading does not. At 90&nbsp;+&nbsp;&epsilon; per turn the frames precess, the lap stops closing, and the centre of the circle walks by roughly</p>
+
+  <div class="tblwrap">
+  <table class="dim">
+    <tr><th>error per turn</th><th>drift per lap</th><th>after 8 laps</th></tr>
+    <tr><td class="v">0.1&deg;</td><td class="n">0.6 mm</td><td class="n">5 mm</td></tr>
+    <tr><td class="v">0.5&deg;</td><td class="n">3.1 mm</td><td class="n">25 mm</td></tr>
+    <tr><td class="v">1.0&deg;</td><td class="n">6.3 mm</td><td class="n">50 mm</td></tr>
+  </table>
+  </div>
+
+  <p>So <b>&omega; sets the size of the circle and &alpha; sets the drift of its centre</b>. Tune &omega; until she tracks a 90&nbsp;mm circle drawn round the post, then &alpha; until the centre stops walking. The gyro reports the commanded angle either way, because the loop closes on it &mdash; the floor is the only witness, which is the same trap as the gyro scale in <a href="e4-build-map.html">Ch&nbsp;6</a>.</p>
+
+  <p class="dimc">Two things come free. <b>Odometry gives the radius back with no ruler</b>: arc distance over 2&pi;&middot;laps, reported as <code>R_meas</code> beside the 90 it wants. And this is the honest <b>gyro-scale</b> test, at running speed with the wheels rolling rather than scrubbing in place &mdash; and the two causes separate, because scale error is speed-independent while &alpha;&rsquo;s contribution grows with &omega;. Run it with <b>Post loop</b> (Calibration, or <code>A</code>), set up by <code>LOOP,laps,&omega;,&alpha;,hand,speed</code>. It does <em>not</em> write the turn table: 1440 degrees is not a turn. Page&nbsp;15 of <code>E4-bench-diagnostics-A4.pdf</code> draws the rig.</p>
+
+
   <h2 class="sec">Above about 400 mm/s the wall is &alpha;, not &omega;</h2>
 
   <p>Raising &omega; buys a tighter turn only while there is room to raise it. With &alpha; finite the two ramps carry her sideways on their own, so there is a <b>minimum swing you cannot get below</b> however hard she rotates:</p>

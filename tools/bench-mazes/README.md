@@ -94,6 +94,32 @@ authority. But omega sets the radius and the radius has to fit the space it is
 turning in; the offset is free. Fixing a placement error by changing the
 geometry leaves a radius that no longer suits the corner.
 
+## And one rig that is not a corridor
+
+The **post loop** needs a 2x2 block with the middle post free-standing -- four
+cells, no walls between them -- and a 90 mm circle drawn round that post. It is
+not in `mazefiles/bench/` because nothing plans it: `Post loop` (Calibration, or
+BT `A`) drives it directly.
+
+Four chained same-hand 90s of radius 90 ARE that circle. She comes up the lane
+at x = 90 turning right; the arc centre sits 90 mm to her right, which is the
+post, and it is the same point every quarter. So the four turns are one circle,
+565.5 mm round, and because she drives it continuously there are no ramps
+between them -- the ideal `R = v/omega` applies and omega is pinned at
+**191 deg/s** at 300 mm/s.
+
+Over a closed lap every consistent displacement error cancels, because the four
+local frames sit at 0, 90, 180 and 270 degrees. Heading does not cancel, so the
+centre walking away from the post is a direct read of alpha and the gyro scale:
+about 6 mm a lap per degree per turn, which turns a tenth of a degree into five
+millimetres over eight laps. **Omega sets the size of the circle; alpha sets the
+drift of its centre.**
+
+`LOOP,8,191,2500,1,300` sets it up. `R_meas` in the result is the achieved
+radius straight out of odometry -- arc distance over 2*pi*laps -- so the size
+half of it needs no ruler at all. Page 15 of `E4-bench-diagnostics-A4.pdf` draws
+the rig and what the drift looks like.
+
 ## The 45 rigs are the offset test
 
 `bench-3x3-45min{R,L}` is the smallest staircase that exists: `N, E, N`, one
