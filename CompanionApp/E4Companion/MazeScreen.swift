@@ -369,6 +369,14 @@ struct MazeScreen: View {
                 HStack(spacing: 8) {
                     Button("Save as…") { exporting = true }
                         .buttonStyle(.borderedProminent)
+                    Button {
+                        editor.undo()
+                    } label: {
+                        Label("Undo", systemImage: "arrow.uturn.backward")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!editor.canUndo)
+                    .keyboardShortcut("z", modifiers: .command)
                     Button("Done") { editor.isEditing = false }
                         .buttonStyle(.bordered)
                 }

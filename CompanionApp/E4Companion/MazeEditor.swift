@@ -21,6 +21,15 @@ final class MazeEditor {
     var tool: Tool = .walls
     var format: Format = .text
 
+    /// Previous states, newest last. Cheap because every edit already produces
+    /// a whole new immutable E4MazeFile -- undo is keeping the old one rather
+    /// than working out how to reverse the change, which for a wall toggled on
+    /// a boundary between two cells would be the fiddly way round.
+    private var history: [E4MazeFile] = []
+    private static let historyLimit = 64
+
+    var canUndo: Bool { !history.isEmpty }
+
     enum Tool: String, CaseIterable, Identifiable {
         case walls, goal
         var id: String { rawValue }
@@ -55,12 +64,14 @@ final class MazeEditor {
     func begin(from loaded: E4MazeFile?, name: String) {
         file = loaded ?? Self.blank()
         sourceName = loaded == nil ? "untitled" : name
+        history = []
         dirty = false
         isEditing = true
     }
 
     func tap(x: Int, y: Int, side: E4MazeFile.Side?) {
         guard var f = file else { return }
+        let before = f
         switch tool {
         case .walls:
             guard let side else { return }          // a centre tap does nothing here
@@ -71,8 +82,22 @@ final class MazeEditor {
             // so the common case is made the easy one.
             f = f.settingGoal(f.goals.contains(.init(x: x, y: y)) ? [] : [.init(x: x, y: y)])
         }
+        // Only remember it if it changed anything. A tap on the perimeter is
+        // refused by the model and returns the same maze, and pushing that
+        // would give you an undo that appears to do nothing -- which reads as
+        // a broken undo rather than a refused edit.
+        guard f.walls != before.walls || f.goals != before.goals else { return }
+        history.append(before)
+        if history.count > Self.historyLimit { history.removeFirst() }
         file = f
         dirty = true
+    }
+
+    func undo() {
+        guard let previous = history.popLast() else { return }
+        file = previous
+        dirty = true      // still unsaved: undoing back to the opened state is
+                          // not the same as having saved it
     }
 
     var exportData: Data {

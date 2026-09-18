@@ -1636,10 +1636,25 @@ void app_main()
 	bt_rx_init();          // interrupt-driven BT receive (menu + maze injection)
 	SSD1306_Clear();
 
-	// Sensor-free bring-up: seed a known ground-truth maze for the virtual
-	// sensor and set a near goal that matches it (one right turn from start).
-	truth_load_default();
-	maze.set_goal(Location(1, 1));
+	// NO TOY MAZE AT BOOT. This used to seed a two-cell bring-up maze into the
+	// virtual sensor and move the goal to (1,1) to match it, which was right
+	// when there were no sensor housings and no way to inject a real maze.
+	//
+	// It outlived that by months and became a trap. It ran on EVERY power-up,
+	// so any goal you had set was silently replaced, and a Plan route or a Sim
+	// explore against it succeeded -- against the wrong maze, with the wrong
+	// goal, reporting a perfectly healthy-looking two-cell solution. A failure
+	// that looks like a success is worse than one that looks like a failure.
+	//
+	// She now boots with maze.h's own m_goal{7, 7} and an OPEN arena as ground
+	// truth: no interior walls, perimeter sealed. The perimeter is not optional
+	// -- truth is not constructed with one, so leaving it alone would hand the
+	// virtual sensor a world with no edges and the first simulated run would
+	// drive her off it. Open-and-sealed is the honest empty state: it says
+	// nothing about the maze while still being a maze.
+	//
+	// Send her a file, or explore one.
+	truth_clear();
 
 	int level = 0, mode = 0, cat = 0, sel = 0, top = 0;
 	uint8_t left_prev = 0, right_prev = 0;

@@ -113,7 +113,12 @@ extern VirtualSensors sensors;
 // Ground-truth maze builders (world.cpp)
 void truth_clear();                            // reset to a fully-open known maze
 void truth_set_cell(int x, int y, int mask);   // walls of one cell: N=1 E=2 S=4 W=8 (bit set = WALL)
-void truth_load_default();                     // small bring-up maze: forces one right turn
+// The two-cell bring-up maze. NOT called at boot any more -- it ran on every
+// power-up, quietly replacing whatever goal was set, and a run against it
+// looked successful because it WAS successful, just against the wrong maze.
+// Kept because it is still the quickest way to prove the virtual sensor path
+// works at all, but it has to be asked for now.
+void truth_load_default();
 
 // Ground-truth maze injection over BT. Returns true if the line was a GT
 // command and handled it (emitting an ack). Called from the BT line reader.

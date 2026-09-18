@@ -82,6 +82,16 @@ final class E4MazeEditTests: XCTestCase {
         XCTAssertFalse(m.hasWall(x: 0, y: 1, side: .south), "and cell (0,1) must agree")
     }
 
+    func testARefusedEditChangesNothing() {
+        // The editor's undo leans on this: a tap the model refuses returns the
+        // SAME maze, and the editor uses that to decide not to push an undo
+        // step. An undo that appears to do nothing reads as a broken undo
+        // rather than as a refused edit.
+        let m = blank()
+        XCTAssertEqual(m.togglingWall(x: 0, y: 4, side: .west).walls, m.walls)
+        XCTAssertEqual(m.settingWall(x: 7, y: 15, side: .north, present: false).walls, m.walls)
+    }
+
     func testAnEditedFileIsStillSendable() {
         // rowHex and rowChecksum are what the GT upload actually transmits, so
         // an edited maze has to survive them unchanged.
