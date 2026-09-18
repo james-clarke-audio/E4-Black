@@ -102,7 +102,7 @@ def page_turn(c, s):
     cx0, cy0, cw, ch = s["window"]
     # 180 mm of page width is the most there is, but a tall window has to give
     # some of it back or the numbers below it fall off the bottom of the sheet.
-    draw_w = min(180.0, 150.0 * cw / float(ch))
+    draw_w = min(180.0, 138.0 * cw / float(ch))
     scale = draw_w / (cw * CELL)
     draw_h = ch * CELL * scale
     ox = (210.0 - draw_w) / 2.0
@@ -230,6 +230,13 @@ def page_turn(c, s):
         c.setDash([])
 
     # --- the mouse, oriented -----------------------------------------------
+    # CHASSIS BACK-TO-AXLE IS 35 mm -- config.c sets POSE_START_Y from it, and
+    # the comment there calls the axle line what it is: the centre of rotation.
+    # odometry.cpp derives deg_per_mm from MOUSE_RADIUS (30.6, half the 61.2 mm
+    # track), so both the distance she measures and the rotation she makes are
+    # referenced to the midpoint of that line. The arc of radius R is the path
+    # of THAT POINT. The body drawn round it is indicative; the line is not.
+    BACK_TO_AXLE = 35.0
     bw, bl = 76.0, 92.0
     mhx, mhy = s.get("mouse_heading", s["heading"])
     c.saveState()
@@ -237,17 +244,22 @@ def page_turn(c, s):
     c.rotate(math.degrees(math.atan2(mhy, mhx)) - 90.0)
     c.setStrokeColor(MOUSE); c.setLineWidth(1.0)
     c.setFillColor(colors.HexColor("#dfeade"))
-    c.roundRect((-bw / 2) * scale * mm, (-0.4 * bl) * scale * mm,
+    c.roundRect((-bw / 2) * scale * mm, (-BACK_TO_AXLE) * scale * mm,
                 bw * scale * mm, bl * scale * mm, 2.2 * mm, stroke=1, fill=1)
     c.setFillColor(MOUSE)
     p = c.beginPath()
-    p.moveTo(0, (0.6 * bl + 10) * scale * mm)
-    p.lineTo(-8 * scale * mm, (0.6 * bl + 1) * scale * mm)
-    p.lineTo(8 * scale * mm, (0.6 * bl + 1) * scale * mm)
+    p.moveTo(0, (bl - BACK_TO_AXLE + 10) * scale * mm)
+    p.lineTo(-8 * scale * mm, (bl - BACK_TO_AXLE + 1) * scale * mm)
+    p.lineTo(8 * scale * mm, (bl - BACK_TO_AXLE + 1) * scale * mm)
     p.close()
     c.drawPath(p, stroke=0, fill=1)
-    c.setStrokeColor(MOUSE); c.setLineWidth(1.2)
-    c.line((-bw / 2 - 8) * scale * mm, 0, (bw / 2 + 8) * scale * mm, 0)
+    c.setStrokeColor(MOUSE); c.setLineWidth(1.3)
+    c.line((-bw / 2 - 11) * scale * mm, 0, (bw / 2 + 11) * scale * mm, 0)
+    for e in (-1, 1):
+        c.line(e * (bw / 2 + 11) * scale * mm, -3 * scale * mm,
+               e * (bw / 2 + 11) * scale * mm, 3 * scale * mm)
+    c.setFillColor(MOUSE)
+    c.circle(0, 0, 1.1 * mm, stroke=0, fill=1)
     c.restoreState()
 
     # --- the crossing ------------------------------------------------------
@@ -371,13 +383,13 @@ def page_turn(c, s):
             % (math.sin(math.radians(theta)),
                (R / om) * (1 - math.cos(math.radians(theta)))))
         body = [w for ln in body for w in wrap(ln)]
-    h = 7.0 + len(body) * 4.3
+    h = 7.0 + len(body) * 4.0
     c.setStrokeColor(colors.HexColor("#e0e3e7")); c.setLineWidth(0.6)
     c.setFillColor(colors.HexColor("#f7f8fa"))
     c.rect(15 * mm, (by + 4 - h) * mm, 180 * mm, h * mm, stroke=1, fill=1)
     text(c, 20, by, "What to read off the floor", 8.5, INK, "Helvetica-Bold")
     for i, ln in enumerate(body):
-        text(c, 20, by - 5.5 - i * 4.3, ln, 7.4, CENTRE)
+        text(c, 20, by - 5.5 - i * 4.0, ln, 7.3, CENTRE)
 
     c.setFillColor(CENTRE); c.setFont("Helvetica", 7)
     c.drawString(15 * mm, 6 * mm, "E4 · turn tuning · one row per page")
@@ -448,7 +460,8 @@ def ss180(row, hand):
             (out_lane, HALF, "3", (20 if r else -20), 0, RACE),
         ],
         "read": [
-            "1   Back her against the wall, facing north. 2   entry_offset is measured back from this cell centre; the arc starts 90 mm before it.",
+            "1   Back her against the wall, facing north. The line across her is the AXLE LINE, her centre of rotation and the datum "
+            "for everything here. 2   entry_offset is measured back from this cell centre; the arc starts 90 mm before it.",
             "3   She must come back down the blue line — the next lane over, 180 mm across. Measure the wall gap on both sides.",
             "OMEGA IS NOT FREE ON THIS ROW. A 180 of radius R steps her sideways by 2R, and that has to be exactly one cell.",
             "2R = 180 forces R = 90 and omega = 191 deg/s at 300 mm/s. 1 deg/s moves her 0.94 mm; the offset moves her not at all.",
@@ -483,7 +496,8 @@ def sd45(row, hand):
         ],
         "miss_anchor": "r" if r else "l", "miss_dx": -3 if r else 3,
         "read": [
-            "1   Back her against the wall, facing north. Nothing else in the section matters for this run.",
+            "1   Back her against the wall, facing north. The marked line across her is the AXLE LINE \u2014 her centre of rotation, "
+            "and the point every distance on this page is measured from. 35 mm of chassis sits behind it.",
             "2   She should already be turning by the time she reaches the wall midpoint — that, not the cell centre, is where the lanes cross.",
             "3   Coming out of the arc she should be ON the blue line and parallel to it. That is the whole measurement; ignore where she stops.",
         ],
@@ -517,9 +531,10 @@ def ds45(row, hand):
         ],
         "miss_anchor": "l", "miss_dx": 3,
         "read": [
-            "1   Put her down ON the blue diagonal, one step back from the turn, squared to it by eye against the line.",
+            "1   Put her down so the AXLE LINE \u2014 the line through the motors, which is her centre of rotation \u2014 crosses the blue diagonal at the marked point, square to it. Her body will straddle the gap; that is right.",
             "2   The diagonal and the straight lane cross AT the wall midpoint, which is also the point the offset is measured from.",
             "3   Coming out she should be on the centreline of the column above, and square to it.",
+            "The diagonal runs 63.6 mm from each post centre, so 55 mm clear of the nearest post CORNER either side \u2014 a 110 mm channel for a 61.2 mm track. Square her carefully: a degree of yaw here is worth more than a millimetre of position.",
         ],
     }
 
@@ -553,9 +568,10 @@ def dd90(row, hand):
         ],
         "miss_anchor": "l" if r else "r", "miss_dx": 3 if r else -3,
         "read": [
-            "1   Put her down ON the blue diagonal, one step back, squared to it against the line.",
+            "1   Put her down so the AXLE LINE \u2014 the line through the motors, which is her centre of rotation \u2014 crosses the blue diagonal at the marked point, square to it. Her body will straddle the gap; that is right.",
             "2   She turns at the wall midpoint, and the step either side is 127.279 mm — not 180. That is what makes this the tight one.",
             "3   Coming out she should be on the OTHER blue diagonal and parallel to it, having passed the post without touching it.",
+            "The diagonal runs 63.6 mm from each post centre, so 55 mm clear of the nearest post CORNER either side \u2014 a 110 mm channel for a 61.2 mm track. Square her carefully: a degree of yaw here is worth more than a millimetre of position.",
         ],
     }
 
