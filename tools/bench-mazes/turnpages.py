@@ -601,6 +601,147 @@ def dd90(row, hand):
     }
 
 
+def page_post_loop(c):
+    """Four chained 90s, driven as one circle round a free-standing post."""
+    V_, OM = 300.0, 191.0
+    R = V_ / (OM * math.pi / 180.0)              # 90.0
+    LAP = 2 * math.pi * R                        # 565.5
+
+    text(c, 105, 288, "The post loop \u2014 four chained 90s, driven as one circle",
+         14.5, INK, "Helvetica-Bold", "c")
+    text(c, 105, 281.5,
+         "the rig that pins omega for a chainable 90, and shows heading error a tenth of a degree at a time",
+         8.5, CENTRE, "Helvetica", "c")
+
+    # --- a 2x2 block with the middle post free-standing --------------------
+    cw = ch2 = 2
+    draw_w = 138.0
+    scale = draw_w / (cw * CELL)
+    ox = (210.0 - draw_w) / 2.0
+    oy = 276.0 - draw_w
+
+    def X(u): return ox + u * scale
+    def Y(v): return oy + v * scale
+
+    for i in range(cw):
+        for j in range(ch2):
+            bx, by = i * CELL, j * CELL
+            c.setStrokeColor(FAINT); c.setLineWidth(0.35); c.setDash([])
+            line(c, X(bx), Y(by), X(bx + CELL), Y(by + CELL))
+            line(c, X(bx + CELL), Y(by), X(bx), Y(by + CELL))
+            c.setStrokeColor(CENTRE); c.setLineWidth(0.4); c.setDash([2, 2])
+            line(c, X(bx + HALF), Y(by), X(bx + HALF), Y(by + CELL))
+            line(c, X(bx), Y(by + HALF), X(bx + CELL), Y(by + HALF))
+            c.setDash([])
+            c.setStrokeColor(RACE); c.setLineWidth(0.5)
+            m = [(bx + HALF, by), (bx + CELL, by + HALF),
+                 (bx + HALF, by + CELL), (bx, by + HALF)]
+            for k in range(4):
+                a, b = m[k], m[(k + 1) % 4]
+                line(c, X(a[0]), Y(a[1]), X(b[0]), Y(b[1]))
+
+    # walls: the outside only. The middle post stands alone -- that is the rig.
+    c.setStrokeColor(INK); c.setLineWidth(2.2); c.setDash([])
+    line(c, X(0), Y(0), X(2 * CELL), Y(0))
+    line(c, X(0), Y(2 * CELL), X(2 * CELL), Y(2 * CELL))
+    line(c, X(0), Y(0), X(0), Y(2 * CELL))
+    line(c, X(2 * CELL), Y(0), X(2 * CELL), Y(2 * CELL))
+    # except the one she drives in through
+    c.setStrokeColor(PAPER); c.setLineWidth(3.0)
+    line(c, X(HALF - 40), Y(0), X(HALF + 40), Y(0))
+    c.setFillColor(INK)
+    for i in range(3):
+        for j in range(3):
+            c.rect((X(i * CELL) - 2.0) * mm, (Y(j * CELL) - 2.0) * mm,
+                   4.0 * mm, 4.0 * mm, stroke=0, fill=1)
+
+    # --- THE CIRCLE. 90 mm radius, centred on the free post ---------------
+    c.setStrokeColor(RACE); c.setLineWidth(2.6); c.setDash([])
+    c.circle(X(CELL) * mm, Y(CELL) * mm, R * scale * mm, stroke=1, fill=0)
+
+    # the run-in, tangent to it at the wall midpoint
+    c.setStrokeColor(GOOD); c.setLineWidth(2.2)
+    line(c, X(HALF), Y(HALF - BACK_WALL_TO_CENTER), X(HALF), Y(CELL))
+    c.setFillColor(PAPER); c.setStrokeColor(INK); c.setLineWidth(0.9)
+    c.circle(X(HALF) * mm, Y(CELL) * mm, 2.0 * mm, stroke=1, fill=1)
+    c.setFillColor(INK)
+    c.circle(X(HALF) * mm, Y(CELL) * mm, 0.8 * mm, stroke=0, fill=1)
+
+    # what a degree per turn looks like, to scale: 6 mm a lap, 8 laps
+    c.setStrokeColor(BAD); c.setLineWidth(1.2); c.setDash([3, 2])
+    for k in (1, 4, 8):
+        c.circle((X(CELL) + 6.0 * k * scale * 0.7) * mm,
+                 (Y(CELL) + 6.0 * k * scale * 0.7) * mm,
+                 R * scale * mm, stroke=1, fill=0)
+    c.setDash([])
+    text(c, X(CELL) - 6, Y(CELL) + 64,
+         "1\u00b0 per turn, after 1 / 4 / 8 laps", 7.2, BAD, "Helvetica", "c")
+
+    # the radius, called out
+    c.setStrokeColor(RACE); c.setLineWidth(0.8)
+    line(c, X(CELL), Y(CELL), X(CELL) - R * 0.707, Y(CELL) - R * 0.707)
+    text(c, X(CELL) - 44, Y(CELL) - 30, "R = 90", 8, RACE, "Helvetica-Bold")
+
+    # --- key ---------------------------------------------------------------
+    ky = oy - 9
+    def swatch(x, col, w, dsh, label):
+        c.setStrokeColor(col); c.setLineWidth(w); c.setDash(dsh)
+        line(c, x, ky + 1.1, x + 11, ky + 1.1)
+        c.setDash([])
+        text(c, x + 13.5, ky, label, 7.2, CENTRE)
+    swatch(17, RACE, 2.6, [], "the 90 mm circle \u2014 draw this round the post")
+    swatch(88, GOOD, 2.2, [], "the run-in, tangent to it")
+    swatch(146, BAD, 1.2, [3, 2], "what drift looks like")
+
+    ty = oy - 20
+    text(c, 15, ty, "LOOP,8,191,2500,1,300        then run Post loop (Calibration, or BT key A)",
+         9.5, INK, "Helvetica-Bold")
+    rows = [
+        ("commanded speed", "%d mm/s" % V_, ""),
+        ("omega", "%d deg/s" % OM, "NOT free: R = v/omega and R has to be 90"),
+        ("R = v / omega", "%.0f mm" % R, "half a cell \u2014 the quarter circle that chains"),
+        ("one lap", "%.0f mm" % LAP, "2\u03c0R. Odometry over N laps gives R back with no ruler."),
+        ("lead-in from the wall", "%.0f mm" % (BACK_WALL_TO_CENTER + HALF),
+         "49 + 90: out of the start cell to the tangent point"),
+        ("at the SS90 row's 170", "%.0f mm" % (2 * math.pi * (V_ / (170 * math.pi / 180.0))),
+         "R 101: a lap 70 mm long, and 22 mm of overlap between consecutive turns"),
+        ("and with the ramps in", "~700 mm", "the zigzag figure \u2014 which is why driving it continuously is the cleaner test"),
+        ("drift per lap", "6 mm", "for one degree of heading error per turn"),
+    ]
+    for i, (k, val, note) in enumerate(rows):
+        yy = ty - 7 - i * 5.0
+        text(c, 17, yy, k, 8, CENTRE)
+        text(c, 78, yy, val, 8, INK, "Helvetica-Bold", "r")
+        text(c, 83, yy, note, 7.4, CENTRE)
+
+    by = ty - 14 - len(rows) * 5.0
+    body = [
+        "Four chained same-hand 90s of radius 90 ARE a circle centred on a post: the arc centre sits 90 mm to her right, which is the",
+        "post, and it is the same point every quarter. So this rig and \u201cfour chained turns\u201d are the same experiment, and because she",
+        "drives it continuously there are no ramps between the quarters \u2014 the ideal R = v/omega applies and omega is pinned at 191.",
+        "",
+        "OVER A CLOSED LAP EVERYTHING EXCEPT HEADING CANCELS. The four local frames sit at 0, 90, 180 and 270 degrees, so a consistent",
+        "radius error, offset error or tangential lag sums to zero. A heading error does not: the frames precess, the lap stops closing,",
+        "and the centre walks about 6 mm a lap per degree per turn. Eight laps turn a tenth of a degree into five millimetres.",
+        "",
+        "So: omega sets the SIZE of the circle \u2014 read it off the drawn one, or off odometry. Alpha and the gyro scale set the DRIFT of",
+        "its centre. Tune omega until she tracks the circle, then alpha until the centre stops walking. The gyro will report the",
+        "commanded angle either way, because the loop closes on it; the floor is the only witness.",
+    ]
+    h = 7.0 + len(body) * 4.0
+    c.setStrokeColor(colors.HexColor("#e0e3e7")); c.setLineWidth(0.6)
+    c.setFillColor(colors.HexColor("#f7f8fa"))
+    c.rect(15 * mm, (by + 4 - h) * mm, 180 * mm, h * mm, stroke=1, fill=1)
+    text(c, 20, by, "What to read off the floor", 8.5, INK, "Helvetica-Bold")
+    for i, ln in enumerate(body):
+        text(c, 20, by - 5.5 - i * 4.0, ln, 7.3, CENTRE)
+
+    c.setFillColor(CENTRE); c.setFont("Helvetica", 7)
+    c.drawString(15 * mm, 6 * mm, "E4 \u00b7 turn tuning \u00b7 one row per page")
+    c.drawRightString(195 * mm, 6 * mm, "post loop")
+    c.showPage()
+
+
 def page_contents(c, specs):
     """Every row on one sheet, so the bench has a running order."""
     text(c, 105, 282, "E4 \u2014 turn tuning", 16, INK, "Helvetica-Bold", "c")
@@ -727,7 +868,8 @@ def main(path):
     page_contents(c, specs)                     # page 2
     for spec in specs:                          # pages 3..14
         page_turn(c, spec)
-    page_135(c)                                 # page 15
+    page_post_loop(c)                           # page 15
+    page_135(c)                                 # page 16
     c.save()
 
 

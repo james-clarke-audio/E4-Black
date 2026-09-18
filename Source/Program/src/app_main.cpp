@@ -293,6 +293,94 @@ static void act_zigzag_test(void) {
 	              (int)odometry.robot_distance());
 }
 
+// --- Round the post: four chained 90s, continuously ----------------------
+//
+// AN OLD EXPERIMENT, and a better one than the zigzag for finding omega.
+//
+// Four chained same-hand 90s of radius 90 mm ARE a circle centred on a post.
+// She comes up the lane at x = 90 turning right; the arc centre sits 90 mm to
+// her right, at the post. After the quarter she is heading east and her right
+// is now south -- the same point. Every quarter has the same centre, so the
+// four of them are one circle, 565.5 mm round.
+//
+// WHICH FIXES OMEGA EXACTLY. R = v / omega, so R = 90 at 300 mm/s needs
+// omega = 191 deg/s. That is the figure SS180 already holds, for the same
+// reason: its lateral step of 2R has to be one cell.
+//
+// AND IT REMOVES THE RAMPS FROM THE ARGUMENT. The zigzag comment works out
+// 226 deg/s, because there omega ramps to zero at the end of every quarter and
+// the trapezoid displaces more than the ideal circle. Driven continuously
+// there are no ramps except entering and leaving, so the ideal-circle answer
+// is simply right, and the two numbers stop disagreeing.
+//
+// WHAT DRIFTS, AND WHY IT IS ALPHA. Over a closed lap the four local frames
+// sit at 0, 90, 180 and 270 degrees, so any CONSISTENT per-turn displacement
+// error sums to zero -- radius, offsets, tangential lag, all of it cancels.
+// Heading does not. At 90 + e per turn the frames precess and the lap no
+// longer closes, and the centre of the circle walks by roughly
+//
+//     2.83 * |d| * e   ~=   6 mm per lap for one degree per turn
+//
+// so eight laps turn a tenth of a degree into five millimetres you can see
+// against a circle drawn on the floor. That amplification is the whole point:
+// it measures a heading error far below what one turn could ever show.
+//
+// The gyro will report the commanded angle whatever happens -- the loop closes
+// on it. So this is also the honest gyro-scale test, at running speed with the
+// wheels rolling rather than scrubbing in place, and the two causes separate:
+// scale error is speed-independent, alpha's contribution grows with omega.
+//
+// ODOMETRY GIVES THE RADIUS FOR FREE: distance during the rotation, over
+// 2*pi*laps. No ruler. At the SS90 row's 170 deg/s she would cover about
+// 700 mm a lap against 565.
+//
+// Needs a 2x2 block with the middle post free-standing, and a 90 mm circle
+// drawn round it. She clears the post corner by 43 mm and the outer wall by
+// 63 mm at the nose.
+//
+// It does NOT write the turn table. The angle here is 1440 degrees, not a
+// turn, and putting that in a row would ruin it.
+static int   s_loop_laps  = 4;
+static float s_loop_omega = 191.0f;   // R = 90 mm at 300 mm/s
+static float s_loop_alpha = 2500.0f;
+static int   s_loop_right = 1;
+static int   s_loop_v     = 300;
+
+static void act_post_loop(void) {
+	while (SWITCH_LEFT() || SWITCH_RIGHT()) { HAL_Delay(5); }
+	HAL_Delay(800);
+
+	const float v = (float)s_loop_v;
+	const float R = v / (s_loop_omega * 3.14159265f / 180.0f);
+	const float lap = 2.0f * 3.14159265f * R;
+	const float angle = (s_loop_right ? -360.0f : 360.0f) * (float)s_loop_laps;
+
+	report_printf("LOOP,start laps=%d hand=%c v=%d w=%d al=%d R=%d lap=%d\r\n",
+	              s_loop_laps, s_loop_right ? 'R' : 'L', (int)v,
+	              (int)s_loop_omega, (int)s_loop_alpha, (int)R, (int)lap);
+
+	control_run_begin();
+
+	// Out of the start cell to the TANGENT POINT, which for a 90 mm circle is
+	// the wall midpoint half a cell past the centre -- 49 + 90 from her datum.
+	motion.move(BACK_WALL_TO_CENTER + HALF_CELL, v, v, SEARCH_ACCELERATION);
+
+	const float d0 = odometry.robot_distance();
+	motion.set_target_velocity(v);
+	motion.turn(angle, s_loop_omega, 0.0f, s_loop_alpha);
+	const float arc = odometry.robot_distance() - d0;
+
+	control_run_end();
+
+	// The measurement that needs no ruler. The one that does is where the
+	// circle sits relative to the post after the last lap.
+	const float r_meas = arc / (2.0f * 3.14159265f * (float)s_loop_laps);
+	report_printf("LOOP,done gyro=%d cmd=%d arc=%d R_meas=%d want=90 dist=%d\r\n",
+	              (int)gyro.angle(), (int)angle, (int)arc, (int)r_meas,
+	              (int)odometry.robot_distance());
+	report_write("LOOP,the gyro always agrees - read the drift off the floor\r\n");
+}
+
 // --- Plan a route over the map she is holding ----------------------------
 //
 // The planner in native.cpp answers "least time" where the flood answers
@@ -1545,6 +1633,7 @@ static const MenuItem MENU[] = {
 	/*33*/ { "Sim follow L", 'q', act_sim_follow_l  },
 	/*34*/ { "Sim follow R", 'Q', act_sim_follow_r  },
 	/*35*/ { "Sim speed run",'F', act_sim_speed_run },
+	/*36*/ { "Post loop",    'A', act_post_loop     },
 };
 static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 
@@ -1552,7 +1641,7 @@ static const int MENU_N = (int)(sizeof(MENU) / sizeof(MENU[0]));
 // MODE -> CATEGORY -> ITEM. Wheels scroll, RIGHT enters/runs, LEFT backs out.
 // BT keys above bypass all of this.  (*) marks a stub, not built yet.
 typedef struct { const char *name; const uint8_t *items; uint8_t n; } Category;
-static const uint8_t CAT_CAL[]    = { 12, 27, 29, 10, 19, 4, 30 };  // Recal gyro, Gyro scale cal, Threshold cal, IR monitor, Turn tuning, Motion test, Zigzag test
+static const uint8_t CAT_CAL[]    = { 12, 27, 29, 10, 19, 4, 30, 36 };  // Recal gyro, Gyro scale cal, Threshold cal, IR monitor, Turn tuning, Motion test, Zigzag test, Post loop
 static const uint8_t CAT_MOVES[]  = { 0, 1, 2, 3 };         // Forward, Right90, Left90, Spin180
 static const uint8_t CAT_INMAZE[] = { 17, 18, 5 };          // Set size*, Set goal*, Search
 static const uint8_t CAT_SIM[]    = { 6, 8, 9 };            // Simulate, Sim explore, Recall maze
@@ -1561,7 +1650,7 @@ static const uint8_t CAT_WALL[]   = { 20, 32, 33, 34 };     // Wall follow L/R, 
 static const uint8_t CAT_SOLVE[]  = { 7, 31, 35, 21, 22 };  // Explore, Plan route, Sim speed run, Speed run, Resume saved*
 static const uint8_t CAT_RUNOPT[] = { 23 };                 // Run options*
 static const Category CAT[] = {
-	/*0*/ { "Calibration", CAT_CAL,    7 },
+	/*0*/ { "Calibration", CAT_CAL,    8 },
 	/*1*/ { "Moves",       CAT_MOVES,  4 },
 	/*2*/ { "In-maze",     CAT_INMAZE, 3 },
 	/*3*/ { "Simulation",  CAT_SIM,    3 },
@@ -1858,6 +1947,26 @@ void app_main()
 							              (int)((SIM_RATE - (float)(int)SIM_RATE) * 100.0f));
 						} else {
 							report_write("SIM,rejected (rate 0.25..20)\r\n");
+						}
+					}
+					else if (strncmp(bt_line, "LOOP,", 5) == 0) {
+						// laps, omega, alpha, hand, speed -- seeded from the live
+						// values so a short command changes only what it names.
+						// Sets up the next run; it does not launch one, and it
+						// does not touch the turn table.
+						float q[5] = { (float)s_loop_laps, s_loop_omega, s_loop_alpha,
+						               (float)s_loop_right, (float)s_loop_v };
+						tt_parse_floats(bt_line + 5, q, 5);
+						if (q[0] >= 1.0f && q[0] <= 20.0f) s_loop_laps = (int)q[0];
+						if (q[1] > 20.0f && q[1] < 2000.0f) s_loop_omega = q[1];
+						if (q[2] > 0.0f && q[2] < 32000.0f) s_loop_alpha = q[2];
+						s_loop_right = (q[3] != 0.0f);
+						if (q[4] > 50.0f && q[4] < 2000.0f) s_loop_v = (int)q[4];
+						{
+							const float RR = (float)s_loop_v / (s_loop_omega * 3.14159265f / 180.0f);
+							report_printf("LOOP,set laps=%d w=%d al=%d hand=%c v=%d R=%d\r\n",
+							              s_loop_laps, (int)s_loop_omega, (int)s_loop_alpha,
+							              s_loop_right ? 'R' : 'L', s_loop_v, (int)RR);
 						}
 					}
 					else if (strncmp(bt_line, "ZIG,", 4) == 0) {

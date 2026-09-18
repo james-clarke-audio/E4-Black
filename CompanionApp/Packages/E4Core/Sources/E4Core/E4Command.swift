@@ -97,6 +97,11 @@ public enum E4Command: Sendable, Equatable {
     /// SS90 (the speed-run turn, the only one that has to chain) or SS90E.
     case zigzagSetup(turns: Int, spin: Bool, firstRight: Bool, speedRunRow: Bool)
 
+    /// Sets up the next post loop; it does not launch one, and it never
+    /// touches the turn table -- 1440 degrees is not a turn.
+    case postLoopSetup(laps: Int, omega: Double, alpha: Double,
+                       right: Bool, velocity: Double)
+
     // --- ground-truth maze upload (GT channel) -----------------------------
     // Every one of these is acked by the mouse, and the row carries a
     // checksum she checks before accepting it. See E4MazeUploader.
@@ -159,6 +164,8 @@ public enum E4Command: Sendable, Equatable {
             return "SIM?\n"
         case .zigzagSetup(let turns, let spin, let first, let row):
             return "ZIG,\(turns),\(spin ? 1 : 0),\(first ? 1 : 0),\(row ? 1 : 0)\n"
+        case .postLoopSetup(let laps, let omega, let alpha, let right, let v):
+            return "LOOP,\(laps),\(n(omega)),\(n(alpha)),\(right ? 1 : 0),\(n(v))\n"
         case .mazeClear:
             return "GTC\n"
         case .mazeRow(let y, let hex, let checksum):
@@ -222,6 +229,14 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
     case simFollowRight = 34
     case simSpeedRun = 35
 
+    /// Four chained same-hand 90s of radius 90 mm are one circle centred on a
+    /// post. Driven continuously there are no ramps between them, so the ideal
+    /// R = v/omega applies and omega is pinned at 191 deg/s. Over a closed lap
+    /// every consistent displacement error cancels and only HEADING drifts, so
+    /// the centre walking away from the post is a direct read of alpha and
+    /// gyro scale -- about 6 mm a lap per degree of error per turn.
+    case postLoop = 36
+
     public var id: Int { rawValue }
 
     public var key: Character {
@@ -251,6 +266,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .simFollowLeft:   return "q"
         case .simFollowRight:  return "Q"
         case .simSpeedRun:     return "F"
+        case .postLoop:        return "A"
         case .speedRun:        return "l"
         case .resumeSaved:     return "R"
         case .runOptions:      return "O"
@@ -292,6 +308,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
         case .simFollowLeft:   return "Sim follow L"
         case .simFollowRight:  return "Sim follow R"
         case .simSpeedRun:     return "Sim speed run"
+        case .postLoop:        return "Post loop"
         case .speedRun:        return "Speed run"
         case .resumeSaved:     return "Resume saved"
         case .runOptions:      return "Run options"
@@ -334,7 +351,7 @@ public enum E4MenuAction: Int, Sendable, CaseIterable, Identifiable {
              // and the simulated pair alike. Leaving them out of this list is
              // why pressing one in the app looked like nothing happening.
              .wallFollowLeft, .wallFollowRight, .simFollowLeft, .simFollowRight,
-             .simSpeedRun, .speedRun:
+             .simSpeedRun, .speedRun, .postLoop:
             return true
         default:
             return false

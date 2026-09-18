@@ -9,7 +9,7 @@
 #ifndef VERSION_H_
 #define VERSION_H_
 
-#define FW_VERSION "0.33"
+#define FW_VERSION "0.34"
 #define FW_BUILD   (__DATE__ " " __TIME__)
 
 #endif /* VERSION_H_ */
