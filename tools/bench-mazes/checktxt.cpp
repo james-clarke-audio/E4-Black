@@ -46,6 +46,25 @@ struct Txt {
     }
     return true;
   }
+  /// The start pose, derived rather than stored. A bench rig is one corridor,
+  /// so it has exactly two ends -- cells with a single opening. One of them is
+  /// the goal; the other is where she gets put down, and her heading is that
+  /// cell's one opening, because there is nowhere else for her to go.
+  bool start_pose(int &sx, int &sy, int &sh) const {
+    int found = 0;
+    for (int x = 0; x < 16; x++) {
+      for (int y = 0; y < 16; y++) {
+        int open = 0, dir = -1;
+        for (int h = 0; h < 4; h++)
+          if ((cell[x][y] & (1 << h)) == 0) { open++; dir = h; }
+        if (open != 1) continue;
+        if (x == gx && y == gy) continue;
+        sx = x; sy = y; sh = dir;
+        found++;
+      }
+    }
+    return found == 1;
+  }
   static bool ex(const void *c, int x, int y, int h) {
     const Txt *m = (const Txt *)c;
     if (x < 0 || x > 15 || y < 0 || y > 15) return false;
@@ -91,11 +110,16 @@ int main(int argc, char **argv) {
     const char *base = strrchr(p, '/');
     base = base ? base + 1 : p;
     if (m.goals != 1) { printf("%-24s  %d goal cells, expected 1\n", base, m.goals); bad++; continue; }
-    plan_native(rt, m.reader(), r, d, kind, 0, 0, NN, m.gx, m.gy, 1, 1);
+    int sx, sy, sh;
+    if (!m.start_pose(sx, sy, sh)) {
+      printf("%-24s  not a single corridor: no unique start end\n", base); bad++; continue;
+    }
+    plan_native(rt, m.reader(), r, d, kind, sx, sy, (Head)sh, m.gx, m.gy, 1, 1);
     if (!rt.ok) { printf("%-24s  NO ROUTE to (%d,%d)\n", base, m.gx, m.gy); bad++; continue; }
-    int chk = route_check(rt, m.reader(), 0, 0, NN, m.gx, m.gy, 1, 1);
-    printf("%-24s goal (%d,%d)  %2d cells  %6.3f s  check %d\n", base, m.gx, m.gy,
-           rt.cells, rt.seconds, chk);
+    int chk = route_check(rt, m.reader(), sx, sy, (Head)sh, m.gx, m.gy, 1, 1);
+    static const char HC[4] = {'N', 'E', 'S', 'W'};
+    printf("%-24s start (%d,%d) facing %c  goal (%d,%d)  %2d cells  %6.3f s  check %d\n",
+           base, sx, sy, HC[sh], m.gx, m.gy, rt.cells, rt.seconds, chk);
     for (int i = 0; i < rt.count; i++) {
       const Step &s = rt.steps[i];
       // The leg BEFORE each turn: how far she runs, and whether that run is

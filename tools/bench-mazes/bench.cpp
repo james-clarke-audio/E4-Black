@@ -57,7 +57,7 @@ static const char *mv(Move m) {
 struct Hit {
   bool set = false;
   std::string walk, route;
-  int gx = 0, gy = 0, hits = 0, others = 99, cells = -1, turns = 99;
+  int sx = 0, sy = 0, sh = 0, gx = 0, gy = 0, hits = 0, others = 99, cells = -1, turns = 99;
   float seconds = 0;
   // Most repetitions of the turn under test first -- a turn you see three times
   // in one run tells you more than one you see once. Then fewest other kinds of
@@ -83,6 +83,10 @@ bool Hit::beats(int h, int o, int c, int t) const {
   return t < turns;
 }
 
+// --start pins the pose she will actually be placed in on the bench, so the
+// corridor that comes out is the one to build rather than one of its mirrors.
+static int PIN_X = -1, PIN_Y = -1, PIN_H = -1;
+
 static Hit best[MV_GOAL + 1];
 static Robot robot;
 static DiagTurns dt;
@@ -91,10 +95,10 @@ static long walks = 0;
 static const int DX[4] = {0, 1, 0, -1}, DY[4] = {1, 0, -1, 0};
 static const char HC[4] = {'N', 'E', 'S', 'W'};
 
-static void score(const std::vector<int> &dir, int gx, int gy) {
+static void score(int sx, int sy, const std::vector<int> &dir, int gx, int gy) {
   Sec m;
   m.seal();
-  int x = 0, y = 0;
+  int x = sx, y = sy;
   std::string walk;
   for (size_t i = 0; i < dir.size(); i++) {
     m.open_between(x, y, dir[i]);
@@ -102,10 +106,15 @@ static void score(const std::vector<int> &dir, int gx, int gy) {
     x += DX[dir[i]];
     y += DY[dir[i]];
   }
+  // She leaves the start cell along the first leg of the corridor -- the start
+  // cell has exactly one opening, so there is nowhere else for her to go and
+  // the back wall she squares up against is there by construction.
+  const Head sh = (Head)dir[0];
+  if (PIN_X >= 0 && (sx != PIN_X || sy != PIN_Y || (int)sh != PIN_H)) return;
   Route rt;
-  plan_native(rt, m.reader(), robot, dt, QUICKEST, 0, 0, NN, gx, gy, 1, 1);
+  plan_native(rt, m.reader(), robot, dt, QUICKEST, sx, sy, sh, gx, gy, 1, 1);
   if (!rt.ok) return;
-  if (route_check(rt, m.reader(), 0, 0, NN, gx, gy, 1, 1) != 0) return;
+  if (route_check(rt, m.reader(), sx, sy, sh, gx, gy, 1, 1) != 0) return;
 
   int seen[MV_GOAL + 1] = {0};
   std::string line;
@@ -125,6 +134,7 @@ static void score(const std::vector<int> &dir, int gx, int gy) {
     Hit &b = best[t];
     if (!b.set || b.beats(seen[t], others, rt.cells, rt.turns)) {
       b.set = true; b.walk = walk; b.route = line; b.gx = gx; b.gy = gy;
+      b.sx = sx; b.sy = sy; b.sh = dir[0];
       b.hits = seen[t]; b.others = others; b.cells = rt.cells;
       b.turns = rt.turns; b.seconds = rt.seconds;
     }
@@ -133,8 +143,10 @@ static void score(const std::vector<int> &dir, int gx, int gy) {
 
 static bool used[16][16];
 
+static int START_X = 0, START_Y = 0;
+
 static void walk_from(int x, int y, std::vector<int> &dir) {
-  if (!dir.empty()) { walks++; score(dir, x, y); }
+  if (!dir.empty()) { walks++; score(START_X, START_Y, dir, x, y); }
   if ((int)dir.size() >= SECW * SECH - 1) return;
   for (int h = 0; h < 4; h++) {
     int nx = x + DX[h], ny = y + DY[h];
@@ -156,27 +168,40 @@ int main(int argc, char **argv) {
     else if (a.rfind("--off=", 0) == 0) off = atof(a.c_str() + 6);
     else if (a.rfind("--size=", 0) == 0) sscanf(a.c_str() + 7, "%dx%d", &SECW, &SECH);
     else if (a == "--isolate") isolate = true;
+    else if (a.rfind("--start=", 0) == 0) {
+      char h = 'N';
+      sscanf(a.c_str() + 8, "%d,%d,%c", &PIN_X, &PIN_Y, &h);
+      PIN_H = (h == 'E') ? 1 : (h == 'S') ? 2 : (h == 'W') ? 3 : 0;
+    }
   }
   dt.sd45_offset = dt.ds45_offset = off;
 
-  memset(used, 0, sizeof(used));
-  used[0][0] = true;
+  // Every start pose the section allows, not just the competition corner. On
+  // the bench she is placed by hand, and a left-hand rig needs a start the
+  // competition corner cannot give: (2,0) facing north is the mirror image of
+  // (0,0) facing north, and mirroring is exactly what swaps the hands.
   std::vector<int> dir;
-  walk_from(0, 0, dir);
+  for (START_X = 0; START_X < SECW; START_X++) {
+    for (START_Y = 0; START_Y < SECH; START_Y++) {
+      memset(used, 0, sizeof(used));
+      used[START_X][START_Y] = true;
+      walk_from(START_X, START_Y, dir);
+    }
+  }
 
   printf("section %dx%d   %ld single-corridor mazes   offset %.0f   v_max %.0f\n\n",
          SECW, SECH, walks, off, robot.straight.v_max);
   for (int t = MV_ARC_L; t < MV_GOAL; t++) {
     Hit &b = best[t];
     if (!b.set) {
-      printf("%-9s  -- not reachable in a %dx%d from the standard start --\n\n",
+      printf("%-9s  -- not reachable in a %dx%d --\n\n",
              mv((Move)t), SECW, SECH);
       continue;
     }
-    printf("%-9s  x%d   goal (%d,%d)   %d cells   %.3f s\n",
-           mv((Move)t), b.hits, b.gx, b.gy, b.cells, b.seconds);
+    printf("%-9s  x%d   start (%d,%d) facing %c   goal (%d,%d)   %d cells   %.3f s\n",
+           mv((Move)t), b.hits, b.sx, b.sy, HC[b.sh], b.gx, b.gy, b.cells, b.seconds);
     printf("           other turn kinds in the route: %d\n", b.others);
-    printf("           corridor from (0,0): %s\n", b.walk.c_str());
+    printf("           corridor from the start: %s\n", b.walk.c_str());
     printf("           route: %s\n\n", b.route.c_str());
   }
   return 0;
