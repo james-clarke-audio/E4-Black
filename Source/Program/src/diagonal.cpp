@@ -104,7 +104,15 @@ static float step_time(const Step &s, const Robot &rob, const DiagTurns &d,
   const float pitch = s.diag ? DIAG_PITCH : 180.0f;
 
   if (s.move == MV_GOAL) {
-    return timing::straight_time(mm, s.cells * pitch - off, v, v_goal);
+    // A zero-cell goal step means she turned INTO the goal cell and stopped
+    // being timed there. The turn that brought her in has already consumed
+    // `off` millimetres of that cell, so the arithmetic below would ask for a
+    // negative distance and straight_time would rightly call that impossible.
+    // It is not impossible, it is finished: the clock stops on ENTERING the
+    // goal, and whatever is left of the cell after that is not on the clock.
+    const float d_goal = s.cells * pitch - off;
+    if (d_goal <= 0.0f) return 0.0f;
+    return timing::straight_time(mm, d_goal, v, v_goal);
   }
   const MoveSpec ms = spec_of(s.move, rob, d);
   const float t = timing::straight_time(mm, s.cells * pitch - off - ms.offset, v, ms.speed);

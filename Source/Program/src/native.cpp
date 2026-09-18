@@ -208,6 +208,21 @@ void plan_native(Route &out, const WallReader &maze, const Robot &r,
       const float v_out   = at_start ? vs : (s ? r.arc90_speed : 0.0f);
       const float off_out = at_start ? 0.0f : (s ? r.arc90_offset : 0.0f);
 
+      // SHE MAY ALREADY BE THERE. Every other goal test in this function sits
+      // inside the loop below, which advances a cell before it looks -- so a
+      // route that ARRIVES at the goal by turning into it was not recognised
+      // as finished, and had to drive at least one more cell before the
+      // planner would call it done. On a route ending in a DS45 that is a
+      // whole cell given away after the clock has already stopped.
+      //
+      // Nothing more to do costs nothing more: the turn that brought her here
+      // is already paid for in `key`.
+      if (x >= gx && x < gx + gw && y >= gy && y < gy + gh) {
+        if (key < best_cost) {
+          best_cost = key; best_node = id; best_cells = 0; best_t = 0.0f;
+        }
+      }
+
       int cx = x, cy = y;
       for (int n = 1; n <= W + H; ++n) {
         if (!maze.is_exit(maze.ctx, cx, cy, h)) break;
