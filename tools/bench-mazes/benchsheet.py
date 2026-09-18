@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-"""Printable diagnostic layout for the E4 test maze.
+"""The 1:1 cell template, and the pair of chained-rig overview pages.
 
-Page 1 is 1:1 -- one 180 mm cell with every line that matters in it, to lay in
-a cell and mark through. Pages 2 and 3 are the two 45-degree tuning rigs at
-1:3, with the mouse drawn where she gets put down.
+page_cell() is the only 1:1 sheet there is and turnpages.py imports it as
+page 1 of the bench document -- edit it here, not there.
+
+The two rig pages this file can still draw show BOTH 45s in one run. That
+is a check, not a measurement: a lateral error out of the first turn moves
+the start of the second, so the finish only ever tells you their sum. They
+are kept because the picture of the whole rig is useful, but the pages that
+go in the document are the single-turn ones in turnpages.py.
 
 The geometry is not eyeballed. Cell centres live at half-cell lattice
-coordinates (odd, odd); wall midpoints at (odd, even) and (even, odd); posts at
-(even, even). A diagonal step moves (+/-1, +/-1) in that lattice, so it always
-goes wall midpoint to wall midpoint and never touches a post or a cell centre.
-Written out in millimetres, the diagonal running lines are
+coordinates (odd, odd); wall midpoints at (odd, even) and (even, odd); posts
+at (even, even). A diagonal step moves (+/-1, +/-1), so it always goes wall
+midpoint to wall midpoint and never touches a post or a cell centre. Written
+out in millimetres the diagonal running lines are
 
     x + y = 90 + 180n        and        x - y = 90 + 180n
 
-which inside any one cell is the DIAMOND joining the four wall midpoints. Each
-edge of that diamond is 90*sqrt(2) = 127.279 mm, which is DIAG_PITCH exactly.
+which inside any one cell is the DIAMOND joining the four wall midpoints.
+Each edge is 90*sqrt(2) = 127.279 mm, which is DIAG_PITCH exactly.
 """
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
