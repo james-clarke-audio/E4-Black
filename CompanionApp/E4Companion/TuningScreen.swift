@@ -65,7 +65,18 @@ struct TuningScreen: View {
         guard theta > 0, theta < .pi else { return 0 }
         return radius * tan(theta / 2)
     }
-    private var tangentError: Double { arcEntryOffset - tangent }
+
+    /// Half a cell, or nothing. `entry_offset` is measured back from the
+    /// lattice point the turn is booked in at; for SD45 and SD135 that point
+    /// is a CELL CENTRE, while a straight lane meets a diagonal at the WALL
+    /// MIDPOINT 90 mm earlier. She has to be turning by then, so those two
+    /// rows carry half a cell on top of the tangent. Everything else turns at
+    /// its own lattice point and carries nothing.
+    private var crossingOffset: Double {
+        [6, 7, 10, 11].contains(selectedTurn) ? 90 : 0
+    }
+    private var requiredEntry: Double { crossingOffset + tangent }
+    private var tangentError: Double { arcEntryOffset - requiredEntry }
 
     /// DS45, DS135 and DD90 begin ON the diagonal: the pitch there is 127.279
     /// mm rather than 180, and there is no back wall to square up on because
@@ -372,18 +383,27 @@ struct TuningScreen: View {
         return VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 16) {
                 stat("R = v/w", radius, " mm", Palette.dim)
-                stat("tangent", tangent, " mm", tint)
+                stat("tangent", tangent, " mm", Palette.dim)
+                if crossingOffset > 0 {
+                    stat("+ half cell", crossingOffset, " mm", Palette.dim)
+                }
+                stat("needs", requiredEntry, " mm", tint)
                 stat("entry", arcEntryOffset, " mm", Palette.ink)
                 stat("out by", tangentError, " mm", tint)
                 Spacer()
                 if off >= 5 {
-                    Button("use tangent") { arcEntryOffset = (tangent * 10).rounded() / 10 }
+                    Button("use it") { arcEntryOffset = (requiredEntry * 10).rounded() / 10 }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                 }
             }
+            if crossingOffset > 0 {
+                Text("This row turns onto a diagonal, so its two lanes cross at the wall midpoint — half a cell before the centre the offset is measured from. That 90 mm is part of the entry offset, not separate from it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             if off >= 5 {
-                Text("An arc this size cannot meet both lanes at an entry offset of \(Int(arcEntryOffset)) — it wants \(Int(tangent)). Either omega is wrong or the offset is; the floor cannot tell you which until they agree.")
+                Text("An arc this size cannot meet both lanes at an entry offset of \(Int(arcEntryOffset)) — it wants \(Int(requiredEntry)). Either omega is wrong or the offset is; the floor cannot tell you which until they agree.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

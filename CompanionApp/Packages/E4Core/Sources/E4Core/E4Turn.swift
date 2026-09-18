@@ -26,21 +26,36 @@ public struct E4Turn: Sendable, Equatable, Identifiable {
         return Double(speed) / (Double(omega) * .pi / 180)
     }
 
-    /// The offset the arc NEEDS if it is to be tangent to both lanes.
+    /// Half a cell, or nothing, depending on where the turn is booked in.
     ///
-    /// An arc of radius R joining two straights that cross at theta has to
-    /// begin R*tan(theta/2) before the crossing and end the same distance
-    /// after. That is a fact about circles, not about this mouse -- so when
-    /// `entryOffset` disagrees with it, one of the two numbers is wrong and
-    /// the floor cannot tell you which until they agree.
+    /// `entry_offset` is measured back from the LATTICE POINT the planner
+    /// applies the turn at. For most turns that point is also where the two
+    /// lanes actually cross, so the two agree. Not for SD45 and SD135: those
+    /// are booked in at a CELL CENTRE, but a straight lane meets a diagonal at
+    /// the WALL MIDPOINT, 90 mm earlier. She has to start the arc before she
+    /// gets there, so half a cell has to be added on top of the tangent.
+    public var crossingOffsetMM: Double {
+        switch index {
+        case 6, 7, 10, 11: return 90.0      // SD45L/R, SD135L/R
+        default:           return 0.0
+        }
+    }
+
+    /// The tangent length alone: an arc of radius R joining two lanes that
+    /// cross at theta is tangent to both only R*tan(theta/2) either side of
+    /// the crossing. A fact about circles.
     public var tangentMM: Double {
         let theta = abs(Double(angle)) * .pi / 180
         guard theta > 0, theta < .pi else { return 0 }
         return radiusMM * tan(theta / 2)
     }
 
-    /// How far out the tangent and the stored offset are, in millimetres.
-    public var tangentErrorMM: Double { Double(entryOffset) - tangentMM }
+    /// What `entry_offset` has to be for this row to be self-consistent.
+    public var requiredEntryMM: Double { crossingOffsetMM + tangentMM }
+
+    /// How far the stored offset is from that, in millimetres. Positive means
+    /// she starts the arc too early.
+    public var tangentErrorMM: Double { Double(entryOffset) - requiredEntryMM }
 
     /// True for the four turns anything currently drives. The rest are slots.
     public var isDriven: Bool { index <= 3 }

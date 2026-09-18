@@ -338,22 +338,25 @@ S                              <i>save to EEPROM when happy</i></pre>
 
   <h2 class="sec">The arithmetic before the floor</h2>
 
-  <p>An arc of radius <i>R</i> joining two lanes that cross at angle &theta; is tangent to both only if it begins <code>R&middot;tan(&theta;/2)</code> before the crossing and ends the same distance after. That is a fact about circles. Combined with <code>R = v / &omega;</code> from earlier in this chapter, every row in the table makes a claim that can be checked without moving:</p>
+  <p>An arc of radius <i>R</i> joining two lanes that cross at angle &theta; is tangent to both only if it begins <code>R&middot;tan(&theta;/2)</code> before the crossing and ends the same distance after. That is a fact about circles. Combined with <code>R = v / &omega;</code> from earlier in this chapter, every row in the table makes a claim that can be checked without moving.</p>
+
+  <p><b>With one wrinkle, and it took drawing the maze out 1:1 to see it.</b> <code>entry_offset</code> is measured back from the LATTICE POINT the planner books the turn at. For most turns that point is also where the two lanes cross, so the tangent is the whole story. An <code>SD45</code> is booked in at a CELL CENTRE &mdash; but a straight lane meets a diagonal at the WALL MIDPOINT, half a cell earlier, because the diagonal enters the cell through its side wall. She has to be turning by then. So <code>SD45</code> and <code>SD135</code> carry 90 mm on top of the tangent, and nothing else does:</p>
 
   <div class="tblwrap">
   <table class="dim">
-    <tr><th>row</th><th>&omega;</th><th>R at 300</th><th>tangent</th><th><code>entry_offset</code></th><th></th></tr>
-    <tr><td class="v">SS90E</td><td class="t">170</td><td class="t">101</td><td class="t">101</td><td class="t">100</td><td class="t">agrees</td></tr>
-    <tr><td class="v">DD90</td><td class="t">273</td><td class="t">63</td><td class="t">63</td><td class="t">63</td><td class="t">agrees</td></tr>
-    <tr><td class="v"><b>SD45 / DS45</b></td><td class="t"><b>95</b></td><td class="t"><b>181</b></td><td class="t"><b>75</b></td><td class="t"><b>120</b></td><td class="t"><b>does not</b></td></tr>
+    <tr><th>row</th><th>&omega;</th><th>R at 300</th><th>tangent</th><th>+ half cell</th><th>needs</th><th>has</th><th></th></tr>
+    <tr><td class="v">SS90E</td><td class="t">170</td><td class="t">101</td><td class="t">101</td><td class="t">&mdash;</td><td class="t">101</td><td class="t">100</td><td class="t">agrees</td></tr>
+    <tr><td class="v">DD90</td><td class="t">273</td><td class="t">63</td><td class="t">63</td><td class="t">&mdash;</td><td class="t">63</td><td class="t">63</td><td class="t">agrees</td></tr>
+    <tr><td class="v"><b>DS45</b></td><td class="t"><b>95</b></td><td class="t"><b>181</b></td><td class="t"><b>75</b></td><td class="t"><b>&mdash;</b></td><td class="t"><b>75</b></td><td class="t"><b>120</b></td><td class="t"><b>does not</b></td></tr>
+    <tr><td class="v"><b>SD45</b></td><td class="t"><b>95</b></td><td class="t"><b>181</b></td><td class="t"><b>75</b></td><td class="t"><b>90</b></td><td class="t"><b>165</b></td><td class="t"><b>120</b></td><td class="t"><b>does not</b></td></tr>
   </table>
   </div>
 
   <div class="note">
-    <b>The 45 rows do not agree with themselves.</b> At &omega; 95 the radius is 181 mm and the tangent is 75, against a stored offset of 120. One of those two numbers is wrong, and the floor cannot tell you which until they agree &mdash; an arc that is not tangent to either lane misses both, and every measurement you take is measuring that instead of the thing you changed.
+    <b>The two 45 rows cannot both be right while they share a number.</b> <code>SD45</code> needs 165 and <code>DS45</code> needs 75; both hold 120. An arc that is not tangent to either lane misses both, and every measurement you take afterwards is measuring that rather than the thing you changed.
   </div>
 
-  <p>The same 120 sits in the planner as <code>sd45_offset</code> and <code>ds45_offset</code> (<a href="e4-planner.html">Ch. 10</a>), so the two move together. And one number makes the consequence concrete: a diagonal step is 127.279 mm, of which <code>ds45_offset</code> is 120 &mdash; so a <code>DS45</code> entered one step after an <code>SD45</code> has <b>seven millimetres</b> of approach before its arc starts. At the tangent value it has 52. Below 63.6 mm each, both tangents fit inside one step; above it, that geometry does not exist and the planner is right to refuse it.</p>
+  <p>The same 120 sits in the planner as <code>sd45_offset</code> and <code>ds45_offset</code> (<a href="e4-planner.html">Ch. 10</a>), so those move with them. <b><code>E4-bench-diagnostics-A4.pdf</code> draws all of this at 1:1</b> &mdash; the centrelines, the corner-to-corner lines, and the diamond joining the four wall midpoints which is the diagonal lane itself. The half cell is obvious the moment you see the diamond: it touches the wall midpoints and misses the cell centre entirely. And one number makes the consequence concrete: a diagonal step is 127.279 mm, of which <code>ds45_offset</code> is 120 &mdash; so a <code>DS45</code> entered one step after an <code>SD45</code> has <b>seven millimetres</b> of approach before its arc starts. At the tangent value it has 52. Below 63.6 mm each, both tangents fit inside one step; above it, that geometry does not exist and the planner is right to refuse it.</p>
 
   <h2 class="sec">Rigs, one per turn</h2>
 

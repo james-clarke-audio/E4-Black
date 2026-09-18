@@ -231,21 +231,35 @@ final class E4MessageDecoderTests: XCTestCase {
 
     /// The arithmetic the tune card shows before she moves. R = v/omega, and an
     /// arc joining two lanes that cross at theta is tangent to both only at
-    /// R*tan(theta/2) either side of the crossing.
+    /// R*tan(theta/2) either side of the crossing -- PLUS, for a turn onto a
+    /// diagonal, the half cell between the crossing and the point the offset is
+    /// measured from.
     func testTurnTangentGeometry() {
         let ss90 = E4Turn(index: 1, name: "SS90ER", speed: 300, entryOffset: 100,
                           exitOffset: 30, leadOut: 90, angle: -90, omega: 170, alpha: 2500)
         XCTAssertEqual(ss90.radiusMM, 101, accuracy: 1)
         XCTAssertEqual(ss90.tangentMM, 101, accuracy: 1)      // 90 deg: tan(45) = 1
+        XCTAssertEqual(ss90.crossingOffsetMM, 0)              // turns at its own lattice point
+        XCTAssertEqual(ss90.requiredEntryMM, 101, accuracy: 1)
         XCTAssertEqual(ss90.tangentErrorMM, -1, accuracy: 1.5)
 
-        // The 45s are the rows that do not agree with themselves: omega 95
-        // gives R 181, whose tangent is 75, against a stored offset of 120.
+        // DS45 leaves the diagonal AT its lattice point, so the tangent is the
+        // whole requirement: 75 against a stored 120.
+        let ds45 = E4Turn(index: 9, name: "DS45R", speed: 300, entryOffset: 120,
+                          exitOffset: 30, leadOut: 90, angle: -45, omega: 95, alpha: 2500)
+        XCTAssertEqual(ds45.radiusMM, 181, accuracy: 1)
+        XCTAssertEqual(ds45.crossingOffsetMM, 0)
+        XCTAssertEqual(ds45.requiredEntryMM, 75, accuracy: 1)
+        XCTAssertEqual(ds45.tangentErrorMM, 45, accuracy: 2)
+
+        // SD45 is booked in at a CELL CENTRE, but a straight lane meets a
+        // diagonal at the wall midpoint 90 mm earlier -- so it needs 90 + 75,
+        // and the two 45 rows cannot both be right at the same 120.
         let sd45 = E4Turn(index: 7, name: "SD45R", speed: 300, entryOffset: 120,
                           exitOffset: 30, leadOut: 90, angle: -45, omega: 95, alpha: 2500)
-        XCTAssertEqual(sd45.radiusMM, 181, accuracy: 1)
-        XCTAssertEqual(sd45.tangentMM, 75, accuracy: 1)
-        XCTAssertEqual(sd45.tangentErrorMM, 45, accuracy: 2)
+        XCTAssertEqual(sd45.crossingOffsetMM, 90)
+        XCTAssertEqual(sd45.requiredEntryMM, 165, accuracy: 1)
+        XCTAssertEqual(sd45.tangentErrorMM, -45, accuracy: 2)
     }
 
     func testGyroCalProposal() {

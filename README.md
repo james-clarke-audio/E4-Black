@@ -154,25 +154,34 @@ log line three runs back still means something.
 
 **The card does the arithmetic before she does.** `R = v / ω`, and an arc joining
 two lanes that cross at θ is tangent to both only at `R·tan(θ/2)` either side of
-the crossing. That is a fact about circles, not about this mouse:
+the crossing. There is one wrinkle, and it took drawing the maze out 1:1 to see
+it: `entry_offset` is measured back from the **lattice point** the planner books
+the turn at, which for most turns is also where the two lanes cross — but an
+`SD45` is booked in at a **cell centre**, while a straight lane meets a diagonal
+at the **wall midpoint 90 mm earlier**. That half cell is part of the offset.
 
-| row | ω | R at 300 | tangent | `entry_offset` | |
-|---|---|---|---|---|---|
-| SS90E | 170 | 101 | 101 | 100 | agrees |
-| DD90 | 273 | 63 | 63 | 63 | agrees |
-| **SD45 / DS45** | **95** | **181** | **75** | **120** | **does not** |
+| row | ω | R at 300 | tangent | + half cell | needs | has | |
+|---|---|---|---|---|---|---|---|
+| SS90E | 170 | 101 | 101 | — | 101 | 100 | agrees |
+| DD90 | 273 | 63 | 63 | — | 63 | 63 | agrees |
+| **DS45** | **95** | **181** | **75** | **—** | **75** | **120** | **does not** |
+| **SD45** | **95** | **181** | **75** | **90** | **165** | **120** | **does not** |
 
-The 45 rows do not agree with themselves, and the same 120 sits in the planner
-as `sd45_offset` / `ds45_offset`, so both move together. The Tuning screen shows
-the gap and offers the tangent; the floor decides which of the two numbers was
-wrong, but it cannot until they agree.
+So the two 45 rows cannot both be right while they share a number — one needs
+165 and the other 75. The same 120 sits in the planner as `sd45_offset` /
+`ds45_offset`, so those move with them. The Tuning screen shows the gap and
+offers the figure; the floor decides which of the numbers was wrong, but it
+cannot until they agree.
 
 One number says it best: a diagonal step is 127.3 mm and `ds45_offset` is 120 of
 it, so on `bench-3x3-45min` the DS45 gets **seven millimetres** of approach
 before the arc starts. At the tangent value it gets 52. That is why the planner
 abandons that geometry and drives `ARC_R, SPIN_L` instead.
 
-*Alongside:* `06fc12d` and `fa6d585` — `mazefiles/bench/`, twelve single-corridor
+*Alongside:* `E4-bench-diagnostics-A4.pdf` — the 1:1 cell template (centrelines,
+corner-to-corner, and the diamond joining the four wall midpoints that is the
+actual diagonal lane), plus a page per hand showing where the mouse gets put
+down. `06fc12d` and `fa6d585` — `mazefiles/bench/`, twelve single-corridor
 tuning rigs, and `tools/bench-mazes/` which found them by enumerating every
 corridor that fits in a section and asking the real planner what each one
 produces. Two results fell out of that search. A 3×3 entered at (0,0) facing
