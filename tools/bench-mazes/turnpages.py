@@ -91,6 +91,65 @@ def corridor_walls(start, walk, n=3):
 
 
 # --------------------------------------------------------------------------
+# HER REAL OUTLINE, not a blob. The chassis board IS the mouse: Ch 11 has the
+# grippers at x = 1.0 and 76.0 and the wheel wells stepping in to x = 11.46 and
+# 65.54 between y = 14.5 and 54.5, so the board is 77 wide and 54.1 across the
+# wells; Ch 4's plan view draws the body 76 x 100 with a semicircular nose of
+# radius 38 from y = 62. config.c puts the axle 35 mm forward of the back edge
+# and MOUSE_RADIUS 30.6 gives a 61.2 mm track.
+#
+# The axle line is the whole point of drawing her at all: odometry measures
+# along its midpoint and the rotation is about it, so an arc of radius R is the
+# path of THAT POINT. Everything else here is context.
+BODY_W, BODY_L = 76.0, 100.0
+BACK_TO_AXLE = 35.0
+NOSE_R, NOSE_Y = 38.0, 62.0
+WELL_X, WELL_Y0, WELL_Y1 = 27.0, 14.5, 54.5      # half-width across the wells
+TRACK = 61.2
+
+
+def draw_mouse(c, px, py, hx, hy, scale):
+    """Her outline and axle datum, axle midpoint at page (px, py) mm, heading (hx, hy)."""
+    c.saveState()
+    c.translate(px * mm, py * mm)
+    c.rotate(math.degrees(math.atan2(hy, hx)) - 90.0)
+    k = scale * mm
+
+    def P(bx, by):                       # board coords -> local, in points
+        return ((bx - BODY_W / 2) * k, (by - BACK_TO_AXLE) * k)
+
+    p = c.beginPath()
+    p.moveTo(*P(0, 0))
+    p.lineTo(*P(0, WELL_Y0))
+    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y0))
+    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y1))
+    p.lineTo(*P(0, WELL_Y1))
+    p.lineTo(*P(0, NOSE_Y))
+    for i in range(1, 37):               # the nose, a semicircle of r = 38
+        a = math.pi - i * math.pi / 36.0
+        p.lineTo(*P(BODY_W / 2 + NOSE_R * math.cos(a), NOSE_Y + NOSE_R * math.sin(a)))
+    p.lineTo(*P(BODY_W, WELL_Y1))
+    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y1))
+    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y0))
+    p.lineTo(*P(BODY_W, WELL_Y0))
+    p.lineTo(*P(BODY_W, 0))
+    p.close()
+    c.setStrokeColor(MOUSE); c.setLineWidth(1.0)
+    c.setFillColor(colors.HexColor("#dfeade"))
+    c.drawPath(p, stroke=1, fill=1)
+
+    c.setStrokeColor(MOUSE); c.setLineWidth(1.3)      # the axle line, the datum
+    c.line(-(BODY_W / 2 + 11) * k, 0, (BODY_W / 2 + 11) * k, 0)
+    for e in (-1, 1):
+        c.line(e * (BODY_W / 2 + 11) * k, -3 * k, e * (BODY_W / 2 + 11) * k, 3 * k)
+        c.setFillColor(MOUSE)                         # wheel centres, 61.2 apart
+        c.circle(e * (TRACK / 2) * k, 0, 1.4 * k, stroke=0, fill=1)
+    c.setFillColor(MOUSE)
+    c.circle(0, 0, 1.2 * mm, stroke=0, fill=1)
+    c.restoreState()
+
+
+# --------------------------------------------------------------------------
 def page_turn(c, s):
     row = s["row"]
     name, entry, ang, om = TURNS[row]
@@ -230,61 +289,8 @@ def page_turn(c, s):
         c.setDash([])
 
     # --- the mouse, oriented -----------------------------------------------
-    # HER REAL OUTLINE, not a blob. The chassis board IS the mouse: Ch 11 has
-    # the grippers at x = 1.0 and 76.0 and the wheel wells stepping in to
-    # x = 11.46 and 65.54 between y = 14.5 and 54.5, so the board is 77 wide and
-    # 54.1 across the wells; Ch 4's plan view draws the body 76 x 100 with a
-    # semicircular nose of radius 38 from y = 62. config.c puts the axle 35 mm
-    # forward of the back edge and MOUSE_RADIUS 30.6 gives a 61.2 mm track.
-    #
-    # The axle line is the whole point of drawing her at all: odometry measures
-    # along its midpoint and the rotation is about it, so the arc of radius R is
-    # the path of THAT POINT. Everything else here is context.
-    BODY_W, BODY_L = 76.0, 100.0
-    BACK_TO_AXLE = 35.0
-    NOSE_R, NOSE_Y = 38.0, 62.0
-    WELL_X, WELL_Y0, WELL_Y1 = 27.0, 14.5, 54.5      # half-width across the wells
-    TRACK = 61.2
-
     mhx, mhy = s.get("mouse_heading", s["heading"])
-    c.saveState()
-    c.translate(X(dx0) * mm, Y(dy0) * mm)
-    c.rotate(math.degrees(math.atan2(mhy, mhx)) - 90.0)
-    k = scale * mm
-
-    def P(bx, by):                       # board coords -> local, in points
-        return ((bx - BODY_W / 2) * k, (by - BACK_TO_AXLE) * k)
-
-    p = c.beginPath()
-    p.moveTo(*P(0, 0))
-    p.lineTo(*P(0, WELL_Y0))
-    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y0))
-    p.lineTo(*P(BODY_W / 2 - WELL_X, WELL_Y1))
-    p.lineTo(*P(0, WELL_Y1))
-    p.lineTo(*P(0, NOSE_Y))
-    for i in range(1, 37):               # the nose, a semicircle of r = 38
-        a = math.pi - i * math.pi / 36.0
-        p.lineTo(*P(BODY_W / 2 + NOSE_R * math.cos(a), NOSE_Y + NOSE_R * math.sin(a)))
-    p.lineTo(*P(BODY_W, WELL_Y1))
-    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y1))
-    p.lineTo(*P(BODY_W / 2 + WELL_X, WELL_Y0))
-    p.lineTo(*P(BODY_W, WELL_Y0))
-    p.lineTo(*P(BODY_W, 0))
-    p.close()
-    c.setStrokeColor(MOUSE); c.setLineWidth(1.0)
-    c.setFillColor(colors.HexColor("#dfeade"))
-    c.drawPath(p, stroke=1, fill=1)
-
-    # the axle line, drawn as the datum it is
-    c.setStrokeColor(MOUSE); c.setLineWidth(1.3)
-    c.line(-(BODY_W / 2 + 11) * k, 0, (BODY_W / 2 + 11) * k, 0)
-    for e in (-1, 1):
-        c.line(e * (BODY_W / 2 + 11) * k, -3 * k, e * (BODY_W / 2 + 11) * k, 3 * k)
-        c.setFillColor(MOUSE)                      # wheel centres, 61.2 apart
-        c.circle(e * (TRACK / 2) * k, 0, 1.4 * k, stroke=0, fill=1)
-    c.setFillColor(MOUSE)
-    c.circle(0, 0, 1.2 * mm, stroke=0, fill=1)
-    c.restoreState()
+    draw_mouse(c, X(dx0), Y(dy0), mhx, mhy, scale)
 
     # --- the crossing ------------------------------------------------------
     c.setStrokeColor(INK); c.setLineWidth(0.9); c.setFillColor(PAPER)
@@ -646,9 +652,6 @@ def page_post_loop(c):
     line(c, X(0), Y(2 * CELL), X(2 * CELL), Y(2 * CELL))
     line(c, X(0), Y(0), X(0), Y(2 * CELL))
     line(c, X(2 * CELL), Y(0), X(2 * CELL), Y(2 * CELL))
-    # except the one she drives in through
-    c.setStrokeColor(PAPER); c.setLineWidth(3.0)
-    line(c, X(HALF - 40), Y(0), X(HALF + 40), Y(0))
     c.setFillColor(INK)
     for i in range(3):
         for j in range(3):
@@ -659,9 +662,12 @@ def page_post_loop(c):
     c.setStrokeColor(RACE); c.setLineWidth(2.6); c.setDash([])
     c.circle(X(CELL) * mm, Y(CELL) * mm, R * scale * mm, stroke=1, fill=0)
 
-    # the run-in, tangent to it at the wall midpoint
+    # the run-in, tangent to the circle at the wall midpoint -- and her, backed
+    # against the south wall of the entry cell with the axle 49 mm short of its
+    # centre, which is 139 mm short of the tangent point.
     c.setStrokeColor(GOOD); c.setLineWidth(2.2)
     line(c, X(HALF), Y(HALF - BACK_WALL_TO_CENTER), X(HALF), Y(CELL))
+    draw_mouse(c, X(HALF), Y(HALF - BACK_WALL_TO_CENTER), 0.0, 1.0, scale)
     c.setFillColor(PAPER); c.setStrokeColor(INK); c.setLineWidth(0.9)
     c.circle(X(HALF) * mm, Y(CELL) * mm, 2.0 * mm, stroke=1, fill=1)
     c.setFillColor(INK)
@@ -679,8 +685,9 @@ def page_post_loop(c):
 
     # the radius, called out
     c.setStrokeColor(RACE); c.setLineWidth(0.8)
-    line(c, X(CELL), Y(CELL), X(CELL) - R * 0.707, Y(CELL) - R * 0.707)
-    text(c, X(CELL) - 44, Y(CELL) - 30, "R = 90", 8, RACE, "Helvetica-Bold")
+    line(c, X(CELL), Y(CELL), X(CELL) + R * 0.707 * scale, Y(CELL) - R * 0.707 * scale)
+    text(c, X(CELL) + R * 0.5 * scale + 2, Y(CELL) - R * 0.42 * scale,
+         "R = 90", 8, RACE, "Helvetica-Bold")
 
     # --- key ---------------------------------------------------------------
     ky = oy - 9
@@ -692,6 +699,8 @@ def page_post_loop(c):
     swatch(17, RACE, 2.6, [], "the 90 mm circle \u2014 draw this round the post")
     swatch(88, GOOD, 2.2, [], "the run-in, tangent to it")
     swatch(146, BAD, 1.2, [3, 2], "what drift looks like")
+    text(c, X(HALF) + 26, Y(HALF - BACK_WALL_TO_CENTER) - 1,
+         "axle line, 139 mm short of the tangent point", 7.2, MOUSE)
 
     ty = oy - 20
     text(c, 15, ty, "LOOP,8,191,2500,1,300        then run Post loop (Calibration, or BT key A)",
