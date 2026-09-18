@@ -65,6 +65,15 @@ public enum E4Command: Sendable, Equatable {
     /// Pick which turn the tuner's ARC edits.
     case selectTurn(Int)
 
+    /// Cells of approach before the turn's own cell, for a tuning run. She
+    /// derives the lead-in from it and the selected row's entry offset, so it
+    /// follows that offset instead of being re-typed after every change.
+    case tuneApproach(cells: Int)
+
+    /// Write the live turn table to the EEPROM. Everything the tuner changes is
+    /// RAM until this lands.
+    case saveTuning
+
     /// `KIND,<0|1|2>` — which planned route a speed run executes: shortest,
     /// quickest orthogonal, or quickest with diagonals. A setting rather than
     /// three actions, because the three are the same run with a different cost
@@ -136,6 +145,10 @@ public enum E4Command: Sendable, Equatable {
             return "CFG?\n"
         case .selectTurn(let index):
             return "SEL,\(index)\n"
+        case .tuneApproach(let cells):
+            return "POS,\(cells)\n"
+        case .saveTuning:
+            return "S\n"
         case .runKind(let k):
             return "KIND,\(k)\n"
         case .readRunKind:

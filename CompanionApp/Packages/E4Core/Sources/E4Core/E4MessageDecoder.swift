@@ -192,7 +192,18 @@ public enum E4MessageDecoder {
             return .turnResult(E4TurnResult(kind: kind,
                                             commanded: pairs["cmd"].flatMap(Double.init),
                                             gyro: pairs["gyro"].flatMap(Double.init),
-                                            distance: pairs["dist"].flatMap(Double.init)))
+                                            distance: pairs["dist"].flatMap(Double.init),
+                                            row: pairs["row"].flatMap(Int.init),
+                                            leadIn: pairs["lead"].flatMap(Double.init)))
+
+        case "TUNE":
+            // TUNE carries several shapes; only the approach line is structured
+            // enough to act on. The rest stays in the log, where it is read by a
+            // person rather than parsed.
+            let pairs = keyValues(in: fields.dropFirst().joined(separator: ","))
+            guard let cells = pairs["pos"].flatMap(Int.init),
+                  let lead = pairs["lead"].flatMap(Double.init) else { break }
+            return .tuneApproach(cells: cells, leadIn: lead)
 
         case "RUN":
             guard let i = int(fields, 1) else { break }

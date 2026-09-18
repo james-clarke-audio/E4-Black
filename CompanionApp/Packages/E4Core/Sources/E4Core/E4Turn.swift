@@ -26,6 +26,22 @@ public struct E4Turn: Sendable, Equatable, Identifiable {
         return Double(speed) / (Double(omega) * .pi / 180)
     }
 
+    /// The offset the arc NEEDS if it is to be tangent to both lanes.
+    ///
+    /// An arc of radius R joining two straights that cross at theta has to
+    /// begin R*tan(theta/2) before the crossing and end the same distance
+    /// after. That is a fact about circles, not about this mouse -- so when
+    /// `entryOffset` disagrees with it, one of the two numbers is wrong and
+    /// the floor cannot tell you which until they agree.
+    public var tangentMM: Double {
+        let theta = abs(Double(angle)) * .pi / 180
+        guard theta > 0, theta < .pi else { return 0 }
+        return radiusMM * tan(theta / 2)
+    }
+
+    /// How far out the tangent and the stored offset are, in millimetres.
+    public var tangentErrorMM: Double { Double(entryOffset) - tangentMM }
+
     /// True for the four turns anything currently drives. The rest are slots.
     public var isDriven: Bool { index <= 3 }
 

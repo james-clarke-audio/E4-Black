@@ -196,6 +196,58 @@ final class E4MessageDecoderTests: XCTestCase {
         XCTAssertEqual(r.distance, 3)
     }
 
+    /// 0.33 adds the row and the approach to the result line. Older firmware
+    /// does not send them, so the fields have to be optional rather than
+    /// defaulted -- a default would read as "row 0", which is SS90EL.
+    func testTurnResultCarriesRowAndLead() {
+        guard case .turnResult(let r) =
+                E4MessageDecoder.decode("TURNRES,arc,cmd=-90,gyro=-90,dist=214,row=3,lead=129") else {
+            return XCTFail("not a turn result")
+        }
+        XCTAssertEqual(r.row, 3)
+        XCTAssertEqual(r.leadIn, 129)
+
+        guard case .turnResult(let old) =
+                E4MessageDecoder.decode("TURNRES,arc,cmd=-90,gyro=-90,dist=214") else {
+            return XCTFail("not a turn result")
+        }
+        XCTAssertNil(old.row)
+        XCTAssertNil(old.leadIn)
+    }
+
+    func testTuneApproachDecodes() {
+        guard case .tuneApproach(let cells, let lead) =
+                E4MessageDecoder.decode("TUNE,pos=1,lead=129") else {
+            return XCTFail("not a tune approach")
+        }
+        XCTAssertEqual(cells, 1)
+        XCTAssertEqual(lead, 129)
+
+        // The tuner's other TUNE lines are for a person to read, not to parse.
+        if case .tuneApproach = E4MessageDecoder.decode("TUNE,sel=3 SS90R v=300 in=100") {
+            XCTFail("sel line should not decode as an approach")
+        }
+    }
+
+    /// The arithmetic the tune card shows before she moves. R = v/omega, and an
+    /// arc joining two lanes that cross at theta is tangent to both only at
+    /// R*tan(theta/2) either side of the crossing.
+    func testTurnTangentGeometry() {
+        let ss90 = E4Turn(index: 1, name: "SS90ER", speed: 300, entryOffset: 100,
+                          exitOffset: 30, leadOut: 90, angle: -90, omega: 170, alpha: 2500)
+        XCTAssertEqual(ss90.radiusMM, 101, accuracy: 1)
+        XCTAssertEqual(ss90.tangentMM, 101, accuracy: 1)      // 90 deg: tan(45) = 1
+        XCTAssertEqual(ss90.tangentErrorMM, -1, accuracy: 1.5)
+
+        // The 45s are the rows that do not agree with themselves: omega 95
+        // gives R 181, whose tangent is 75, against a stored offset of 120.
+        let sd45 = E4Turn(index: 7, name: "SD45R", speed: 300, entryOffset: 120,
+                          exitOffset: 30, leadOut: 90, angle: -45, omega: 95, alpha: 2500)
+        XCTAssertEqual(sd45.radiusMM, 181, accuracy: 1)
+        XCTAssertEqual(sd45.tangentMM, 75, accuracy: 1)
+        XCTAssertEqual(sd45.tangentErrorMM, 45, accuracy: 2)
+    }
+
     func testGyroCalProposal() {
         guard case .gyroCal(let g) =
                 E4MessageDecoder.decode("GCAL,old=1.003,short=4,new=0.997 - S to save") else {

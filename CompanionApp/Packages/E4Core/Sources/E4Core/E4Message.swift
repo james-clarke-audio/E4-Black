@@ -128,8 +128,13 @@ public enum E4Message: Sendable, Equatable {
     /// `GCAL,...` — gyro-scale calibration progress and results.
     case gyroCal(E4GyroCalReport)
 
-    /// `TURNRES,<kind>,cmd=..,gyro=..,dist=..`
+    /// `TURNRES,<kind>,cmd=..,gyro=..,dist=..[,row=..,lead=..]`
     case turnResult(E4TurnResult)
+
+    /// `TUNE,pos=<cells>,lead=<mm>` — the approach the tuner will actually
+    /// drive. Derived on her side from the selected row's entry offset, so it
+    /// moves whenever that does and is worth hearing rather than recomputing.
+    case tuneApproach(cells: Int, leadIn: Double)
 
     // MARK: Menu and actions
 
@@ -256,6 +261,20 @@ public struct E4TurnResult: Sendable, Equatable {
     public let commanded: Double?
     public let gyro: Double?
     public let distance: Double?
+    /// Which row of the turn table this run drove, and how far she ran before
+    /// the arc began. Absent on firmware older than 0.33, and on spins.
+    public var row: Int?
+    public var leadIn: Double?
+
+    public init(kind: Kind, commanded: Double?, gyro: Double?, distance: Double?,
+                row: Int? = nil, leadIn: Double? = nil) {
+        self.kind = kind
+        self.commanded = commanded
+        self.gyro = gyro
+        self.distance = distance
+        self.row = row
+        self.leadIn = leadIn
+    }
 }
 
 /// Decoded form of the structured `ACT` line.

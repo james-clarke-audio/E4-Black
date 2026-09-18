@@ -71,6 +71,48 @@ static void run_arc_from_table(int idx) {
 	control_arc_turn((float)p.speed, (float)p.entry_offset, p.angle,
 	                 p.omega, p.alpha, (float)p.lead_out);
 }
+// THE APPROACH IS PART OF THE TURN. run_arc_from_table drives lead_in ==
+// entry_offset, which starts the arc that many millimetres after she begins
+// moving -- fine for "does this arc look right", useless for "does she come out
+// of it in the lane". A tuning run has to start where the turn really starts:
+// back against the wall, out through `cells` whole cells, and the arc beginning
+// entry_offset BEFORE the centre of the cell it belongs to.
+//
+//   lead_in = BACK_WALL_TO_CENTER + cells * FULL_CELL - entry_offset
+//
+// So the approach follows entry_offset instead of being re-typed after every
+// change to it, which is where the arithmetic errors come from. cells = 0 keeps
+// the old behaviour for anything that wants a bare arc.
+//
+// HALF THESE TURNS ARE NOT ENTERED FROM A STRAIGHT. DS45, DS135 and DD90 all
+// begin on the diagonal, where the pitch is 127.279 mm rather than 180 and
+// there is no back wall to square up on -- she is placed on the diagonal line
+// by hand. So the approach for those rows counts diagonal steps from where she
+// stands, and the back-wall term does not appear:
+//
+//   diagonal:  lead_in = cells * DIAG_PITCH - entry_offset
+//
+// Which it is follows from the row, not from a switch anyone has to remember
+// to set: a turn that leaves the diagonal is a turn that was already on it.
+static bool row_enters_on_diagonal(int idx) {
+	return idx == DS45L || idx == DS45R || idx == DS135L || idx == DS135R
+	    || idx == DD90L || idx == DD90R;
+}
+static float arc_pitch(int idx) {
+	return row_enters_on_diagonal(idx) ? plan::DIAG_PITCH : FULL_CELL;
+}
+static float arc_lead_in(int idx, int cells) {
+	const TurnParameters &p = turn_params[idx];
+	if (cells <= 0) return (float)p.entry_offset;
+	const float base = row_enters_on_diagonal(idx) ? 0.0f : BACK_WALL_TO_CENTER;
+	float d = base + (float)cells * arc_pitch(idx) - (float)p.entry_offset;
+	return (d > 0.0f) ? d : 0.0f;
+}
+static void run_arc_tuned(int idx, int cells) {
+	const TurnParameters &p = turn_params[idx];
+	control_arc_turn((float)p.speed, arc_lead_in(idx, cells), p.angle,
+	                 p.omega, p.alpha, (float)p.lead_out);
+}
 static void act_right90 (void) { run_arc_from_table(1); }   // SS90ER
 static void act_left90  (void) { run_arc_from_table(0); }   // SS90EL
 // Same divergence the 90s had: this used to hardcode omega 180 / alpha 1000
@@ -872,16 +914,19 @@ static void act_turn_tune(void) {
 	float spin_angle = 90.0f;   // the angle is per-run, not a stored property
 	int last_kind = 0;   // 0 none, 1 spin, 2 arc
 	int sel = 1;         // which turn ARC edits; SS90ER, the usual one to test
+	int cells = 1;       // whole cells of approach before the turn's own cell
 
 	// ARC now writes STRAIGHT INTO turn_params[sel] instead of a local copy.
 	// A tuner that edited a copy could only ever tell you what a turn would
 	// have been like - you then transcribed numbers by hand into two other
 	// places and hoped. What you tune here is what she searches with.
-	report_printf("Turn tune: SPIN,a,w,al | ARC,v,a,w,al,in,out | SEL,0-%d | OUT,mm | S=save | R=repeat | <=exit\r\n",
+	report_printf("Turn tune: SPIN,a,w,al | ARC,v,a,w,al,in,out | SEL,0-%d | POS,cells | OUT,mm | S=save | R=repeat | <=exit\r\n",
 	              TURN_COUNT - 1);
 	report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",
 	              sel, turn_names[sel], turn_params[sel].speed, turn_params[sel].entry_offset,
 	              turn_params[sel].lead_out, (int)turn_params[sel].omega, (int)turn_params[sel].alpha);
+	report_printf("TUNE,pos=%d,lead=%d,pitch=%d\r\n", cells,
+	              (int)arc_lead_in(sel, cells), (int)arc_pitch(sel));
 	if (s_haveOled) {
 		SSD1306_Fill(SSD1306_COLOR_BLACK);
 		SSD1306_GotoXY(0, OLED_TITLE_Y);              SSD1306_Puts("Turn tune",      &Font_7x10, SSD1306_COLOR_WHITE);
@@ -932,6 +977,8 @@ static void act_turn_tune(void) {
 						p.alpha        = a[3];
 						p.entry_offset = (int)a[4];
 						p.lead_out     = (int)a[5];
+						report_printf("TUNE,pos=%d,lead=%d,pitch=%d\r\n", cells,
+	              (int)arc_lead_in(sel, cells), (int)arc_pitch(sel));
 						do_run = 2;
 					}
 					else if (strncmp(line, "OUT,", 4) == 0) {
@@ -944,6 +991,17 @@ static void act_turn_tune(void) {
 							report_printf("TUNE,exit=%d (search frame relabel)\r\n", (int)v[0]);
 						}
 					}
+					else if (strncmp(line, "POS,", 4) == 0) {
+						// Cells of approach, not millimetres. The millimetres are
+						// derived, and reported back so what she will actually drive
+						// is visible before anything moves.
+						float v[1] = { (float)cells };
+						if (tt_parse_floats(line + 4, v, 1) == 1 && v[0] >= 0 && v[0] <= 8) {
+							cells = (int)v[0];
+							report_printf("TUNE,pos=%d,lead=%d,pitch=%d\r\n", cells,
+	              (int)arc_lead_in(sel, cells), (int)arc_pitch(sel));
+						}
+					}
 					else if (strncmp(line, "SEL,", 4) == 0) {
 						float v[1] = { (float)sel };
 						if (tt_parse_floats(line + 4, v, 1) == 1 && v[0] >= 0 && v[0] < TURN_COUNT) {
@@ -952,6 +1010,8 @@ static void act_turn_tune(void) {
 							report_printf("TUNE,sel=%d %s v=%d in=%d out=%d w=%d al=%d\r\n",
 							              sel, turn_names[sel], p.speed, p.entry_offset,
 							              p.lead_out, (int)p.omega, (int)p.alpha);
+							report_printf("TUNE,pos=%d,lead=%d,pitch=%d\r\n", cells,
+	              (int)arc_lead_in(sel, cells), (int)arc_pitch(sel));
 						}
 					}
 					else if (line[0] == 'S') {
@@ -975,11 +1035,13 @@ static void act_turn_tune(void) {
 				report_printf("TURNRES,spin,cmd=%d,gyro=%d,dist=%d\r\n",
 				              (int)spin_angle, (int)gyro.angle(), (int)odometry.robot_distance());
 			} else {
-				run_arc_from_table(sel);
+				run_arc_tuned(sel, cells);
 				last_kind = 2;
-				report_printf("TURNRES,arc,cmd=%d,gyro=%d,dist=%d\r\n",
+				// row and lead go out with the result so a log line stands on its
+				// own: three runs back you will not remember which row was selected.
+				report_printf("TURNRES,arc,cmd=%d,gyro=%d,dist=%d,row=%d,lead=%d\r\n",
 				              (int)turn_params[sel].angle, (int)gyro.angle(),
-				              (int)odometry.robot_distance());
+				              (int)odometry.robot_distance(), sel, (int)arc_lead_in(sel, cells));
 			}
 			if (s_haveOled) {
 				char b[24];

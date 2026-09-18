@@ -62,6 +62,38 @@ Two sections each, for the runs that need room:
 | `bench-6x3-diag-R` | (0,0) N | `NENEEESESWWNWSW`  | (1,0) | `SD45_R` x3, `DS45_R` x4, both `DD90`s |
 | `bench-6x3-diag-L` | (0,0) N | `NESEEENENWWSWNWW` | (0,2) | `SD45_L` x2, `DS45_L` x4, both `DD90`s |
 
+## Using one to tune a turn
+
+These are layouts, not problems to solve — nothing here needs the planner. Set
+the section up, put her down at the start pose, and drive the turn from the
+app's Tuning screen:
+
+1. **Enter tuner** (firmware action 19).
+2. Pick the row. The picker names them from her own table, so it cannot drift.
+3. Set **approach** to how far she runs before the turn's own cell. The lead-in
+   is derived — `49 + 180 x cells - entry_offset` from a back wall, or
+   `cells x 127.279 - entry_offset` for a turn that begins on the diagonal —
+   so it follows `entry_offset` instead of being re-typed after every change.
+4. **Run arc**. She drives the approach at constant speed, makes the turn, and
+   runs out along `lead out`, streaming pose at 20 Hz the whole way.
+5. Read the lane she finished in. **Save to EEPROM** when you believe it.
+
+| rig | row | approach | lead-in today |
+|---|---|---|---|
+| `bench-3x3-90R`    | 1 `SS90ER` (or 3 `SS90R`) | 2 cells | 309 mm |
+| `bench-3x3-90L`    | 0 `SS90EL` (or 2 `SS90L`) | 2 cells | 309 mm |
+| `bench-3x3-45minR` | 7 `SD45R` | 1 cell | 109 mm |
+|                    | 8 `DS45L` | 1 diagonal step | **7 mm** |
+| `bench-3x3-45minL` | 6 `SD45L` | 1 cell | 109 mm |
+|                    | 9 `DS45R` | 1 diagonal step | **7 mm** |
+| `bench-3x3-dd90L`  | 7 `SD45R` then 14 `DD90L` | 1 cell, then 1 step | 109, 64 mm |
+| `bench-3x3-dd90R`  | 6 `SD45L` then 15 `DD90R` | 1 cell, then 1 step | 109, 64 mm |
+
+The 7 mm is not a typo and it is the whole argument in one number: a diagonal
+step is 127.3 mm and `ds45_offset` is 120 of it, so the DS45 has seven
+millimetres of approach before the arc starts. Bring the offset to its tangent
+value and it becomes 52.
+
 ## The 45 rigs are the offset test
 
 `bench-3x3-45min{R,L}` is the smallest staircase that exists: `N, E, N`, one

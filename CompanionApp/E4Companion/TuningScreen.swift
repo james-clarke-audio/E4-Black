@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 import E4Core
 
@@ -19,8 +20,14 @@ struct TuningScreen: View {
     @State private var arcAngle = -90.0
     @State private var arcOmega = 170.0
     @State private var arcAlpha = 2500.0
-    @State private var arcLeadIn = 100.0
-    @State private var arcLeadOut = 30.0
+    @State private var arcEntryOffset = 100.0
+    @State private var arcLeadOut = 90.0
+
+    /// Whole cells of approach before the turn's own cell. The lead-in is
+    /// derived from it, not typed: back against the wall she is 49 mm short of
+    /// the first cell centre, each cell is 180, and the arc has to begin
+    /// `entry offset` before the centre of the cell the turn belongs to.
+    @State private var approachCells = 1
 
     /// Results accumulate here for the session. The firmware only ever reports
     /// the latest one, so comparing a change against the run before it means
@@ -43,6 +50,35 @@ struct TuningScreen: View {
     }
 
     private var active: Bool { session.runningAction == .turnTuning }
+
+    // Geometry of the arc the fields currently describe -- not of the row she
+    // is holding. These are what you are about to send, which is the thing
+    // worth checking before anything moves.
+    private var radius: Double {
+        guard arcOmega != 0 else { return 0 }
+        return arcVelocity / (arcOmega * .pi / 180)
+    }
+    /// An arc of radius R joining two lanes that cross at theta must begin
+    /// R*tan(theta/2) before the crossing and end the same distance after.
+    private var tangent: Double {
+        let theta = abs(arcAngle) * .pi / 180
+        guard theta > 0, theta < .pi else { return 0 }
+        return radius * tan(theta / 2)
+    }
+    private var tangentError: Double { arcEntryOffset - tangent }
+
+    /// DS45, DS135 and DD90 begin ON the diagonal: the pitch there is 127.279
+    /// mm rather than 180, and there is no back wall to square up on because
+    /// she is placed on the diagonal line by hand. The firmware works this out
+    /// from the row too, so the two agree without either being told.
+    private var entersOnDiagonal: Bool { [8, 9, 12, 13, 14, 15].contains(selectedTurn) }
+    private var approachPitch: Double { entersOnDiagonal ? 127.279 : 180 }
+
+    private var derivedLeadIn: Double {
+        guard approachCells > 0 else { return arcEntryOffset }
+        let base = entersOnDiagonal ? 0.0 : 49.0
+        return max(0, base + approachPitch * Double(approachCells) - arcEntryOffset)
+    }
 
     var body: some View {
         ScrollView {
@@ -136,18 +172,28 @@ struct TuningScreen: View {
                 NumberField("angle", value: $arcAngle, unit: "deg")
                 NumberField("omega", value: $arcOmega, unit: "deg/s")
                 NumberField("alpha", value: $arcAlpha, unit: "deg/s²")
-                NumberField("lead in", value: $arcLeadIn, unit: "mm")
+                NumberField("entry offset", value: $arcEntryOffset, unit: "mm")
                 NumberField("lead out", value: $arcLeadOut, unit: "mm")
             }
+            approachRow
+            geometryRow
             HStack(spacing: 8) {
                 Button("Run arc") {
+                    // She computes the lead-in at the moment of the run from
+                    // whatever entry offset is live, so POS only has to arrive
+                    // before ARC does -- and ARC re-reports the derived lead-in
+                    // once it has written the new offset.
+                    session.send(.tuneApproach(cells: approachCells))
                     session.send(.arc(velocity: arcVelocity, angle: arcAngle, omega: arcOmega,
-                                      alpha: arcAlpha, leadIn: arcLeadIn, leadOut: arcLeadOut))
+                                      alpha: arcAlpha, leadIn: arcEntryOffset, leadOut: arcLeadOut))
                 }
                 .buttonStyle(.borderedProminent)
                 .frame(maxWidth: .infinity)
 
                 Button("Repeat") { session.send(.key("r")) }
+                    .buttonStyle(.bordered)
+
+                Button("Save to EEPROM") { session.send(.saveTuning) }
                     .buttonStyle(.bordered)
             }
             .touchTarget()
@@ -185,6 +231,13 @@ struct TuningScreen: View {
                             .frame(width: 38, alignment: .leading)
                         Text(row.result.commanded.map { "\(Int($0))°" } ?? "—")
                             .foregroundStyle(.secondary)
+                        // The row and the approach: three runs back you will
+                        // not remember which turn was selected or how far she
+                        // ran into it, and that is exactly when it matters.
+                        Text(row.result.row.map { "row \($0)" } ?? "")
+                            .foregroundStyle(.tertiary)
+                        Text(row.result.leadIn.map { "lead \(Int($0))" } ?? "")
+                            .foregroundStyle(.tertiary)
                         Spacer()
                         Text(row.result.distance.map { "\(Int($0)) mm" } ?? "—")
                             .monospacedDigit()
@@ -263,6 +316,75 @@ struct TuningScreen: View {
             } else {
                 Text("Ask her what she is holding — gyro scale, thresholds, spin dynamics and all sixteen turns, with whether each came from the EEPROM or from a compiled default.")
                     .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    /// Cells of approach, and the lead-in that falls out of it. She reports
+    /// the lead-in back, so when the two disagree the fields have drifted from
+    /// what she is holding and Run is what reconciles them.
+    private var approachRow: some View {
+        HStack(spacing: 12) {
+            Text("approach")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+            Stepper(value: $approachCells, in: 0...6) {
+                Text(approachCells == 0
+                     ? "bare arc"
+                     : "\(approachCells) \(entersOnDiagonal ? "diagonal step" : "cell")\(approachCells == 1 ? "" : "s")")
+                    .font(.callout.monospaced())
+            }
+            .frame(maxWidth: 190)
+            .onChange(of: approachCells) { session.send(.tuneApproach(cells: approachCells)) }
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("\(Int(derivedLeadIn)) mm")
+                    .font(.callout.monospaced())
+                    .monospacedDigit()
+                Text(session.tuneLeadIn.map { her in
+                    abs(her - derivedLeadIn) < 1 ? "she agrees" : "she has \(Int(her))"
+                } ?? "lead-in")
+                .font(.system(size: 9.5, design: .monospaced))
+                .foregroundStyle(session.tuneLeadIn.map {
+                    abs($0 - derivedLeadIn) < 1.5 ? Palette.faint : Palette.warn
+                } ?? Palette.faint)
+            }
+            if entersOnDiagonal {
+                Text("on the diagonal — 127.3 mm a step, placed by hand")
+                    .font(.system(size: 9.5, design: .monospaced))
+                    .foregroundStyle(Palette.faint)
+            }
+            Spacer()
+        }
+        .disabled(!active)
+    }
+
+    /// The arithmetic check, done before she moves rather than after.
+    ///
+    /// R = v / omega and t = R tan(theta/2) are facts about circles. If the
+    /// entry offset disagrees with t, the arc cannot be tangent to both lanes
+    /// whatever the floor does, and no amount of driving will tell you which of
+    /// the two numbers to believe until they agree.
+    private var geometryRow: some View {
+        let off = abs(tangentError)
+        let tint: Color = off < 5 ? Palette.good : off < 20 ? Palette.warn : Palette.bad
+        return VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 16) {
+                stat("R = v/w", radius, " mm", Palette.dim)
+                stat("tangent", tangent, " mm", tint)
+                stat("entry", arcEntryOffset, " mm", Palette.ink)
+                stat("out by", tangentError, " mm", tint)
+                Spacer()
+                if off >= 5 {
+                    Button("use tangent") { arcEntryOffset = (tangent * 10).rounded() / 10 }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+            }
+            if off >= 5 {
+                Text("An arc this size cannot meet both lanes at an entry offset of \(Int(arcEntryOffset)) — it wants \(Int(tangent)). Either omega is wrong or the offset is; the floor cannot tell you which until they agree.")
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }

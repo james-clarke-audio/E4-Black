@@ -61,6 +61,11 @@ public final class E4Session {
     public private(set) var gyroScale: Double?
     public private(set) var lastTurnResult: E4TurnResult?
 
+    /// The approach the tuner is holding, as she reports it rather than as we
+    /// asked for it. The two differ the moment an entry offset changes.
+    public private(set) var tuneApproachCells: Int?
+    public private(set) var tuneLeadIn: Double?
+
     /// The chained-turn bench test, rebuilt from her own ZIG lines.
     public private(set) var zigzag = E4ZigzagState()
 
@@ -354,6 +359,10 @@ public final class E4Session {
 
         case .turnResult(let result):
             lastTurnResult = result
+
+        case .tuneApproach(let cells, let leadIn):
+            tuneApproachCells = cells
+            tuneLeadIn = leadIn
 
         case .runStarted(let index, let name):
             runningAction = E4MenuAction(rawValue: index)
